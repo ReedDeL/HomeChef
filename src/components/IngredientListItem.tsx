@@ -6,7 +6,20 @@ interface IngredientListItemProps {
   onRemove: () => void;
 }
 
+const SOON_THRESHOLD_DAYS = 3;
+
+function daysUntil(dateString: string): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateString);
+  return Math.round((target.getTime() - today.getTime()) / msPerDay);
+}
+
 export function IngredientListItem({ item, onRemove }: IngredientListItemProps) {
+  const daysLeft = item.estimated_expiration_date ? daysUntil(item.estimated_expiration_date) : null;
+  const expiringSoon = daysLeft != null && daysLeft <= SOON_THRESHOLD_DAYS;
+
   return (
     <View style={styles.row}>
       <View style={styles.info}>
@@ -16,6 +29,11 @@ export function IngredientListItem({ item, onRemove }: IngredientListItemProps) 
           {item.unit ? ` ${item.unit}` : ''}
           {item.is_staple ? ' · staple' : ''}
         </Text>
+        {daysLeft != null && (
+          <Text style={[styles.expiry, expiringSoon && styles.expiryWarning]}>
+            {daysLeft <= 0 ? 'Expires today' : `Expires in ${daysLeft}d`}
+          </Text>
+        )}
       </View>
       <Pressable onPress={onRemove} hitSlop={8}>
         <Text style={styles.remove}>Remove</Text>
@@ -45,6 +63,14 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
     color: '#6B6B6B',
+  },
+  expiry: {
+    fontSize: 12,
+    color: '#6B6B6B',
+  },
+  expiryWarning: {
+    color: '#B45309',
+    fontWeight: '600',
   },
   remove: {
     color: '#B4232A',

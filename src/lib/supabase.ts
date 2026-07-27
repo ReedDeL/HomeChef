@@ -26,7 +26,11 @@ const mmkvAuthStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
+// createClient throws synchronously on an empty/malformed URL, which would
+// crash the whole app before render if .env isn't filled in yet — fall back
+// to a placeholder so auth calls fail at request time (a caught network
+// error) instead of at module load.
+export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder-anon-key', {
   auth: {
     storage: mmkvAuthStorage,
     autoRefreshToken: true,
