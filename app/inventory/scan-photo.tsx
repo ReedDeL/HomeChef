@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +21,8 @@ import {
 
 export default function ScanPhotoScreen() {
   const { addItem } = useInventory();
+  const cameraRef = useRef<CameraView>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
   const [recognized, setRecognized] = useState<RecognizedIngredient[]>([]);
@@ -39,19 +42,20 @@ export default function ScanPhotoScreen() {
     }
   };
 
-  const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Camera permission needed', 'Enable camera access to scan ingredients.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-    if (!result.canceled) await processImage(result.assets[0].uri);
+  const capturePhoto = async () => {
+    const photo = await cameraRef.current?.takePictureAsync({ quality: 0.7 });
+    if (photo) await processImage(photo.uri);
+  };
+
+  const retake = () => {
+    setImageUri(null);
+    setRecognized([]);
+    setSelected(new Set());
   };
 
   const pickFromLibrary = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!libraryPermission.granted) {
       Alert.alert('Photos permission needed', 'Enable photo access to scan ingredients.');
       return;
     }
@@ -75,16 +79,47 @@ export default function ScanPhotoScreen() {
     router.back();
   };
 
+  // Live camera view — the primary "take a picture" path, not just a file upload.
+  if (!imageUri) {
+    if (!permission) {
+      return (
+        <View style={styles.container}>
+          <ActivityIndicator />
+        </View>
+      );
+    }
+
+    if (!permission.granted) {
+      return (
+        <View style={[styles.container, styles.permissionPrompt]}>
+          <Text style={styles.permissionText}>
+            HomeChef needs camera access to scan ingredients.
+          </Text>
+          <PrimaryButton label="Enable camera" onPress={requestPermission} />
+          <PrimaryButton label="Choose from library instead" variant="secondary" onPress={pickFromLibrary} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+        <View style={styles.cameraControls}>
+          <Pressable onPress={pickFromLibrary} style={styles.libraryButton}>
+            <Text style={styles.libraryButtonLabel}>Library</Text>
+          </Pressable>
+          <Pressable onPress={capturePhoto} style={styles.shutterOuter}>
+            <View style={styles.shutterInner} />
+          </Pressable>
+          <View style={styles.libraryButton} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {imageUri && <Image source={{ uri: imageUri }} style={styles.preview} />}
-
-      {!imageUri && (
-        <View style={{ gap: 12 }}>
-          <PrimaryButton label="Take a photo" onPress={takePhoto} />
-          <PrimaryButton label="Choose from library" variant="secondary" onPress={pickFromLibrary} />
-        </View>
-      )}
+      <Image source={{ uri: imageUri }} style={styles.preview} />
 
       {recognizing && <ActivityIndicator style={{ marginTop: 20 }} />}
 
@@ -109,6 +144,7 @@ export default function ScanPhotoScreen() {
             onPress={addSelected}
             disabled={selected.size === 0}
           />
+          <PrimaryButton label="Retake" variant="secondary" onPress={retake} />
         </View>
       )}
     </ScrollView>
@@ -118,6 +154,45 @@ export default function ScanPhotoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F7F2' },
   content: { padding: 16, gap: 16 },
+  permissionPrompt: { justifyContent: 'center', padding: 24, gap: 12 },
+  permissionText: { fontSize: 15, color: '#1A1A1A', textAlign: 'center', marginBottom: 8 },
+  camera: { flex: 1 },
+  cameraControls: {
+    position: 'absolute',
+    bottom: 32,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+  },
+  shutterOuter: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 4,
+    borderColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'white',
+  },
+  libraryButton: {
+    width: 64,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  libraryButtonLabel: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   preview: { width: '100%', height: 220, borderRadius: 12, backgroundColor: '#EAEAE5' },
   results: { gap: 8 },
   resultsTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },

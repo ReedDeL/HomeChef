@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { useToast } from '@/components/ToastProvider';
 import { getDb } from '@/db/client';
 import { getPantryItems } from '@/db/inventory';
 import { getRecipeById, type RecipeRow } from '@/db/recipes';
@@ -12,6 +13,7 @@ type RecipeDetail = RecipeRow & { ingredients: { ingredient_name: string; measur
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { showToast } = useToast();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [pantryNames, setPantryNames] = useState<Set<string>>(new Set());
   const [stepIndex, setStepIndex] = useState(0);
@@ -49,6 +51,7 @@ export default function RecipeDetailScreen() {
   const save = async () => {
     const db = await getDb();
     await saveMeal(db, recipe.id);
+    showToast('Saved to your meals');
   };
 
   const dislike = async () => {
@@ -59,6 +62,8 @@ export default function RecipeDetailScreen() {
   const addMissingToShoppingList = async () => {
     const db = await getDb();
     await addMissingIngredientsToShoppingList(db, recipe.id, missingIngredients);
+    const count = missingIngredients.length;
+    showToast(`Added ${count} ingredient${count === 1 ? '' : 's'} to shopping list`);
   };
 
   return (
