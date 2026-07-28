@@ -45,16 +45,28 @@ pip install -r scripts/requirements.txt
 python scripts/build_catalog.py
 ```
 
+### Wiring up photo-based ingredient recognition
+
+The scan screen calls whatever URL is in `EXPO_PUBLIC_INGREDIENT_RECOGNITION_URL` — leave it blank during development and it returns a mocked result so the flow stays demoable. To go live, deploy the included Supabase Edge Function, which proxies to Clarifai's `food-item-recognition` model so the Clarifai key never ships inside the app:
+
+```bash
+supabase functions deploy recognize-ingredients
+supabase secrets set CLARIFAI_API_KEY=<your Clarifai Personal Access Token>
+```
+
+Then set `EXPO_PUBLIC_INGREDIENT_RECOGNITION_URL` in `.env` to `https://<project-ref>.supabase.co/functions/v1/recognize-ingredients`.
+
 ## Project structure
 
 ```
-app/                  expo-router screens (onboarding, tabs, inventory, recipe detail)
-src/components/       shared UI (chips, recipe cards, buckets)
-src/data/             bundled recipe catalog + static types
-src/db/               SQLite schema, migrations, and queries
-src/features/         feature logic (onboarding profile, inventory, recommendation engine, saved meals, shopping list)
-src/lib/               MMKV storage and Supabase client
-scripts/              build-time recipe catalog pipeline (Python)
+app/                             expo-router screens (onboarding, tabs, inventory, recipe detail, auth)
+src/components/                  shared UI (chips, recipe cards, buckets, toasts)
+src/data/                        bundled recipe catalog + static types
+src/db/                          SQLite schema, migrations, and queries
+src/features/                    feature logic (auth, onboarding profile, inventory, recommendation engine, saved meals, shopping list)
+src/lib/                         MMKV storage and Supabase client
+scripts/                         build-time recipe catalog pipeline (Python)
+supabase/functions/              Edge Functions (Clarifai proxy for ingredient recognition)
 ```
 
 ## Team
