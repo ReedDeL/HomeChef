@@ -1,0 +1,67 @@
+# ---------------------------------------------------------------------------
+# Secrets. Nothing in this block may ever reach the remote.
+# Third-party API keys live only in Supabase secrets (docs/06_API_KEYS_AND_ENV.md).
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+!debug.keystore
+google-services.json
+GoogleService-Info.plist
+secrets.json
+.supabase/
+supabase/.temp/
+supabase/.branches/
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+*.orig.*
+*.jks
+ios/
+android/
+
+# Build + test output
+coverage/
+*.tsbuildinfo
+.vitest/
+
+# Python (tools/catalog)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local Python dependency target (python3-venv unavailable on this machine)
+.pydeps/

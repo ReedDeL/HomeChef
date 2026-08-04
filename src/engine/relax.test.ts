@@ -1,0 +1,211 @@
+import { describe, expect, it } from 'vitest';
+import { decideWithRelaxation, TIME_TIERS } from '@/engine/relax';
+import { ingredient, makePrefs, makeRecipe, pantry } from '@/engine/__fixtures__';
+import type { Recipe, UserPreferences } from '@/engine/types';
+
+const kinds = (r: ReturnType<typeof decideWithRelaxation>): string[] =>
+  r.appliedRelaxations.map((x) => x.kind);
+
+const total = (r: ReturnType<typeof decideWithRelaxation>): number =>
+  Object.values(r.buckets).flat().length;
+
+describe('decideWithRelaxation — the ladder', () => {
+  it('concedes nothing when the unrelaxed result is already good', () => {
+    const catalog = Array.from({ length: 3 }, (_, i) =>
+      makeRecipe({ id: `r${i}`, totalTimeMinutes: 10, ingredients: [ingredient('egg')] })
+    );
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+    expect(result.appliedRelaxations).toEqual([]);
+    expect(result.buckets.ready).toHaveLength(3);
+  });
+
+  it('widens time by one tier and reports it', () => {
+    const catalog = [makeRecipe({ totalTimeMinutes: 30, ingredients: [ingredient('egg')] })];
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+
+    expect(kinds(result)).toContain('time_widened');
+    expect(result.appliedRelaxations[0]).toEqual({ kind: 'time_widened', from: 15, to: 30 });
+    expect(total(result)).toBe(1);
+  });
+
+  it('drops the cuisine preference only after widening time', () => {
+    // Nothing thai at any duration; one american recipe at 30 min.
+    const catalog = [
+      makeRecipe({
+        id: 'us',
+        cuisine: 'american',
+        totalTimeMinutes: 30,
+        ingredients: [ingredient('egg')],
+      }),
+    ];
+    const prefs = makePrefs({ preferredCuisine: 'thai' });
+    const result = decideWithRelaxation(catalog, pantry('egg'), prefs, 15);
+
+    expect(kinds(result)).toEqual(expect.arrayContaining(['time_widened', 'cuisine_dropped']));
+    expect(kinds(result).indexOf('time_widened')).toBeLessThan(
+      kinds(result).indexOf('cuisine_dropped')
+    );
+    expect(total(result)).toBe(1);
+  });
+
+  it('promotes missing_few when nothing is fully ready', () => {
+    const catalog = [
+      makeRecipe({ id: 'nearly', ingredients: [ingredient('egg'), ingredient('milk')] }),
+    ];
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+
+    expect(kinds(result)).toContain('bucket_promoted');
+    expect(result.buckets.missing_few).toHaveLength(1);
+  });
+
+  it('flags tier-2 escalation when tier 1 stays thin', () => {
+    const catalog = [makeRecipe({ ingredients: [ingredient('egg')] })];
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+    // One ready recipe is below the target of 3.
+    expect(result.shouldEscalateTier2).toBe(true);
+  });
+
+  it('does not flag tier-2 escalation when tier 1 is sufficient', () => {
+    const catalog = Array.from({ length: 4 }, (_, i) =>
+      makeRecipe({ id: `r${i}`, ingredients: [ingredient('egg')] })
+    );
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+    expect(result.shouldEscalateTier2).toBe(false);
+  });
+});
+
+describe('decideWithRelaxation — hard constraints never relax', () => {
+  const catalog = [
+    makeRecipe({
+      id: 'unreachable',
+      equipmentRequired: ['oven'],
+      dietaryTags: [],
+      totalTimeMinutes: 5,
+      ingredients: [ingredient('peanut', ['nut'])],
+    }),
+  ];
+
+  it('never surfaces a recipe needing equipment the user lacks', () => {
+    const result = decideWithRelaxation(
+      catalog,
+      pantry('peanut'),
+      makePrefs({ equipment: ['microwave'] }),
+      15
+    );
+    expect(total(result)).toBe(0);
+    expect(kinds(result)).not.toContain('equipment');
+  });
+
+  it('never surfaces a recipe containing a declared allergen', () => {
+    const result = decideWithRelaxation(
+      catalog,
+      pantry('peanut'),
+      makePrefs({ allergens: ['nut'] }),
+      15
+    );
+    expect(total(result)).toBe(0);
+  });
+
+  it('never surfaces a recipe violating a dietary restriction', () => {
+    const result = decideWithRelaxation(
+      catalog,
+      pantry('peanut'),
+      makePrefs({ dietary: ['vegan'] }),
+      15
+    );
+    expect(total(result)).toBe(0);
+  });
+
+  it('reports only soft concessions, never a hard one', () => {
+    const wide = [makeRecipe({ totalTimeMinutes: 60, ingredients: [ingredient('egg')] })];
+    const result = decideWithRelaxation(wide, pantry('egg'), makePrefs(), 15);
+    for (const r of result.appliedRelaxations) {
+      expect(['time_widened', 'cuisine_dropped', 'tier2_escalation', 'bucket_promoted']).toContain(
+        r.kind
+      );
+    }
+  });
+});
+
+// B10: "an empty results screen is structurally impossible"
+// (docs/01_TECHNICAL_SPEC.md:482). Made executable across the constraint space.
+describe('decideWithRelaxation — B10 never-empty property', () => {
+  const catalog = syntheticCatalog();
+
+  const equipmentSets: UserPreferences['equipment'][] = [
+    ['microwave'],
+    ['microwave', 'kettle'],
+    ['stove', 'oven', 'microwave'],
+    ['air_fryer', 'microwave'],
+  ];
+  const timeLimits = [15, 30, 60];
+  const cuisines = [null, 'thai', 'italian'];
+
+  for (const equipment of equipmentSets) {
+    for (const timeLimit of timeLimits) {
+      for (const preferredCuisine of cuisines) {
+        it(`returns something for ${equipment.join('+')} / ${timeLimit}min / ${preferredCuisine ?? 'any'}`, () => {
+          const result = decideWithRelaxation(
+            catalog,
+            pantry('egg', 'rice', 'salt'),
+            makePrefs({ equipment, preferredCuisine }),
+            timeLimit
+          );
+          expect(total(result)).toBeGreaterThan(0);
+        });
+      }
+    }
+  }
+
+  it('still returns something for the hardest case: microwave-only, 15 min, three allergens', () => {
+    const result = decideWithRelaxation(
+      catalog,
+      pantry('egg', 'rice'),
+      makePrefs({
+        equipment: ['microwave'],
+        allergens: ['nut', 'dairy', 'shellfish'],
+      }),
+      15
+    );
+    expect(total(result)).toBeGreaterThan(0);
+  });
+});
+
+describe('TIME_TIERS', () => {
+  it('is ascending', () => {
+    expect([...TIME_TIERS]).toEqual([...TIME_TIERS].sort((a, b) => a - b));
+  });
+});
+
+/** A catalog broad enough that the ladder always has somewhere to go. */
+function syntheticCatalog(): Recipe[] {
+  const recipes: Recipe[] = [];
+  const equipmentOptions = [
+    ['none'],
+    ['microwave'],
+    ['kettle'],
+    ['stove'],
+    ['oven'],
+    ['air_fryer'],
+  ] as const;
+  const cuisineOptions = ['american', 'thai', 'italian', 'mexican'];
+  const times = [5, 15, 25, 40, 90];
+
+  let n = 0;
+  for (const equipment of equipmentOptions) {
+    for (const cuisine of cuisineOptions) {
+      for (const totalTimeMinutes of times) {
+        recipes.push(
+          makeRecipe({
+            id: `syn${n++}`,
+            cuisine,
+            totalTimeMinutes,
+            equipmentRequired: [...equipment],
+            ingredients: [ingredient('egg'), ingredient('rice'), ingredient('onion')],
+          })
+        );
+      }
+    }
+  }
+  return recipes;
+}

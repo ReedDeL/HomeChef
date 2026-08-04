@@ -1,0 +1,58 @@
+// @ts-check
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  {
+    ignores: [
+      'node_modules/**',
+      '.pydeps/**',
+      '.venv/**',
+      '.expo/**',
+      'dist/**',
+      'web-build/**',
+      'coverage/**',
+      // Deno runtime, not Node -- typechecked by the Supabase CLI instead.
+      'supabase/functions/**',
+      // Python.
+      'tools/**',
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    rules: {
+      // "No `any`. Use `unknown` at boundaries and narrow."
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/consistent-type-imports': 'warn',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // The one architectural rule worth defending mechanically: the engine is a
+    // pure function over plain data, so it may not reach the outside world.
+    files: ['src/engine/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                'react',
+                'react-*',
+                '@/lib/*',
+                '@supabase/*',
+                '@tanstack/*',
+                'expo*',
+                'zustand',
+              ],
+              message:
+                'src/engine/ must stay pure — no React, no I/O, no imports from src/lib/. See docs/01_TECHNICAL_SPEC.md:675.',
+            },
+          ],
+        },
+      ],
+    },
+  }
+);
