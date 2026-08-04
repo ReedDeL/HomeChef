@@ -1,9 +1,9 @@
 import { createMMKV } from 'react-native-mmkv';
 
 /**
- * Fast key-value store for session state, onboarding answers (equipment,
- * allergies, goals), and cook-mode resume position. Relational pantry/recipe
- * data lives in SQLite instead — see src/db.
+ * Synchronous key-value store. Used for the Supabase session and small local
+ * UI state. Anything that belongs to the household or needs to sync across
+ * devices lives in Postgres, not here.
  */
 export const storage = createMMKV({ id: 'homechef-kv' });
 
@@ -13,14 +13,12 @@ export function getJSON<T>(key: string): T | null {
   try {
     return JSON.parse(raw) as T;
   } catch {
+    // A corrupt value is not worth crashing over; treat it as absent.
+    storage.remove(key);
     return null;
   }
 }
 
-export function setJSON<T>(key: string, value: T): void {
+export function setJSON(key: string, value: unknown): void {
   storage.set(key, JSON.stringify(value));
-}
-
-export function remove(key: string): void {
-  storage.remove(key);
 }

@@ -1,0 +1,41 @@
+[project]
+name = "homechef-tools"
+version = "0.1.0"
+description = "Build-time tooling for HomeChef. Not a runtime service."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "ruff>=0.6",
+    "types-requests>=2.32",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["tools"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["tools"]
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tools"]
+pythonpath = ["tools"]
