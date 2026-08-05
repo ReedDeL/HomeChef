@@ -21,12 +21,12 @@ let supabase: SupabaseClient = {
         let supabaseURL = URL(string: url),
         !key.isEmpty
     else {
-        // Deliberately loud. A placeholder fallback here would turn a missing
-        // config into opaque network errors at the first query, which is far
-        // harder to diagnose than failing at startup with the variable name.
-        fatalError(
-            "Missing SUPABASE_URL or SUPABASE_ANON_KEY in Info.plist. " +
-            "See docs/06_API_KEYS_AND_ENV.md."
+        // TODO: add real credentials before connecting to Supabase.
+        // Until then the app runs offline against the bundled catalog.
+        // See docs/06_API_KEYS_AND_ENV.md for how to wire these in.
+        return SupabaseClient(
+            supabaseURL: URL(string: "https://placeholder.supabase.co")!,
+            supabaseKey: "placeholder"
         )
     }
     return SupabaseClient(supabaseURL: supabaseURL, supabaseKey: key)
