@@ -211,7 +211,7 @@ PUBLIC (client .env, safe to bundle)
   EXPO_PUBLIC_SUPABASE_ANON_KEY
 
 NEVER USE
-  SUPABASE_SERVICE_ROLE_KEY   ← bypasses RLS; no legitimate use in this app
+  Supabase service role key   ← bypasses RLS; no legitimate use in this app
 ```
 
 ---
