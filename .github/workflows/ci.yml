@@ -1,0 +1,52 @@
+name: ci
+
+on: [pull_request, push]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --check .
+      - run: npx eslint .
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install ruff mypy pytest pydantic requests types-requests
+      - run: ruff format --check tools/
+      - run: ruff check tools/
+      - run: mypy --strict tools/catalog
+      - run: pytest tools/
+
+  # Fails the build if a secret was ever committed. Cheap insurance against the
+  # one mistake in this repo that cannot be undone by a revert.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check no .env file is tracked
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked by git. Remove it and rotate every key it held."
+            exit 1
+          fi
+      - name: Check for service-role keys and private keys in tracked files
+        run: |
+          if git grep -nIE '(SUPABASE_SERVICE_ROLE|service_role.*ey[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' -- . ':!*.example' ':!.github/workflows/ci.yml'; then
+            echo "::error::A service-role key or private key appears in a tracked file."
+            exit 1
+          fi

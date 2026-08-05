@@ -1,44 +1,67 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ---------------------------------------------------------------------------
+# Secrets. Nothing in this block may ever reach the remote.
+# Third-party API keys live only in Supabase secrets (docs/06_API_KEYS_AND_ENV.md).
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+!debug.keystore
+google-services.json
+GoogleService-Info.plist
+secrets.json
+.supabase/
+supabase/.temp/
+supabase/.branches/
 
-# dependencies
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
 
-# Expo
+# Expo / React Native
 .expo/
 dist/
 web-build/
 expo-env.d.ts
-
-# Native
-.kotlin/
 *.orig.*
 *.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+ios/
+android/
 
-# Metro
-.metro-health-check*
+# Build + test output
+coverage/
+*.tsbuildinfo
+.vitest/
 
-# debug
+# Python (tools/catalog)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
-.DS_Store
-*.pem
-
-# Environment files & secrets
-.env
-.env.*
-!.env.example
-!.env.template
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
+# Local Python dependency target (python3-venv unavailable on this machine)
+.pydeps/
