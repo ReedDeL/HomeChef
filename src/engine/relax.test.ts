@@ -125,6 +125,79 @@ describe('decideWithRelaxation — hard constraints never relax', () => {
       );
     }
   });
+
+  /**
+   * The three cases above eliminate the only recipe, so the ladder runs out and
+   * returns nothing — which passes whether the ladder climbed all four rungs or
+   * short-circuited at the first. That is the weaker half of the requirement.
+   *
+   * This drives the ladder to its LAST rung and has it succeed there, with
+   * three hard-violating recipes in the catalog that outrank the survivor at
+   * every rung along the way.
+   *
+   * Each decoy violates exactly ONE hard constraint and is otherwise perfect,
+   * so the three are individually diagnostic: weakening any single filter
+   * surfaces its own decoy and nothing else. A single decoy that broke all
+   * three rules at once would still be excluded by the other two filters if one
+   * of them regressed, and the test would pass through the bug.
+   */
+  it('holds every hard constraint while climbing all four rungs to a result', () => {
+    // Fast, right cuisine, fully in the pantry -- top of the ranking if allowed.
+    const decoy = (overrides: Partial<Recipe>): Recipe =>
+      makeRecipe({
+        cuisine: 'thai',
+        totalTimeMinutes: 5,
+        equipmentRequired: ['microwave'],
+        dietaryTags: ['vegan'],
+        ingredients: [ingredient('rice')],
+        ...overrides,
+      });
+
+    const catalog = [
+      decoy({ id: 'decoy_equipment', equipmentRequired: ['oven'] }),
+      decoy({ id: 'decoy_allergen', ingredients: [ingredient('peanut', ['nut'])] }),
+      decoy({ id: 'decoy_dietary', dietaryTags: [] }),
+      // Reachable only at the bottom of the ladder: needs the widest time tier,
+      // the cuisine preference dropped, and a bucket promotion to surface.
+      makeRecipe({
+        id: 'reachable',
+        cuisine: 'american',
+        totalTimeMinutes: 120,
+        equipmentRequired: ['microwave'],
+        dietaryTags: ['vegan'],
+        ingredients: [ingredient('rice'), ingredient('bean'), ingredient('lime')],
+      }),
+    ];
+
+    const result = decideWithRelaxation(
+      catalog,
+      pantry('rice', 'peanut'),
+      makePrefs({
+        equipment: ['microwave'],
+        allergens: ['nut'],
+        dietary: ['vegan'],
+        preferredCuisine: 'thai',
+      }),
+      15
+    );
+
+    // Rungs 1, 2 and 4/5 are reported; rung 3 is the caller's to execute.
+    expect(kinds(result)).toEqual(
+      expect.arrayContaining(['time_widened', 'cuisine_dropped', 'bucket_promoted'])
+    );
+    expect(result.appliedRelaxations).toContainEqual({ kind: 'time_widened', from: 15, to: 120 });
+    expect(result.shouldEscalateTier2).toBe(true);
+
+    // The ladder reached the bottom and produced something, so the absence
+    // below is a real exclusion and not just an empty result.
+    const ids = Object.values(result.buckets)
+      .flat()
+      .map((r) => r.recipe.id);
+    expect(ids).toContain('reachable');
+    expect(ids).not.toContain('decoy_equipment');
+    expect(ids).not.toContain('decoy_allergen');
+    expect(ids).not.toContain('decoy_dietary');
+  });
 });
 
 // B10: "an empty results screen is structurally impossible"
