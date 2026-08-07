@@ -77,6 +77,73 @@ describe('bundled ingredient vocabulary', () => {
   });
 });
 
+/**
+ * The microwave-only user is the wedge (docs/superpowers/specs/
+ * 2026-08-06-microwave-seed-catalog-design.md). TheMealDB supplies exactly two
+ * microwave-only recipes and both are 240-minute fudge, which the time ladder
+ * cannot reach — so without the hand-curated seed this user sees nothing at all.
+ */
+describe('microwave coverage', () => {
+  const microwaveOnly = TIER1_CATALOG.filter(
+    (r) => r.equipmentRequired.length === 1 && r.equipmentRequired[0] === 'microwave'
+  );
+
+  it('carries at least 20 recipes that require a microwave', () => {
+    const requiring = TIER1_CATALOG.filter((r) => r.equipmentRequired.includes('microwave'));
+    expect(requiring.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('keeps the hand-curated seed in the built catalog', () => {
+    // The build merges tools/catalog/seed/*.json. If a rebuild ever drops the
+    // merge step, src/data/ is regenerated without it and this is the only
+    // thing that notices.
+    const seeded = TIER1_CATALOG.filter((r) => r.id.startsWith('hc-mw-'));
+    expect(seeded.length).toBe(20);
+  });
+
+  it('gives the microwave-only user recipes reachable within an hour', () => {
+    const reachable = microwaveOnly.filter((r) => r.totalTimeMinutes <= 60);
+    expect(reachable.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('serves a microwave-only user with a realistic pantry', () => {
+    const result = decideWithRelaxation(
+      TIER1_CATALOG,
+      new Set(['egg', 'milk', 'butter', 'salt', 'onion', 'garlic']),
+      {
+        equipment: ['microwave'],
+        allergens: [],
+        dietary: [],
+        dislikedRecipeIds: new Set(),
+        skippedRecipeIds: new Set(),
+        preferredCuisine: null,
+      },
+      15
+    );
+
+    expect(Object.values(result.buckets).flat().length).toBeGreaterThan(0);
+  });
+
+  // The regression this whole change exists to prevent. Before it, the 76
+  // unclassified recipes were tagged `none`, which the equipment filter treats
+  // as always satisfied — so they were served to microwave-only users as though
+  // verified. Nothing in the catalog may claim `none` unless it was earned.
+  it('no longer ships recipes tagged "none" by the keyword fallback', () => {
+    const claimingNone = TIER1_CATALOG.filter((r) => r.equipmentRequired.includes('none'));
+    expect(claimingNone).toEqual([]);
+  });
+
+  it('marks unclassified recipes honestly instead of as no-equipment', () => {
+    const unclassified = TIER1_CATALOG.filter((r) => r.equipmentRequired.includes('unclassified'));
+    // A backlog, not a statistic: these are excluded from every user's results
+    // until the enrichment pass classifies them.
+    expect(unclassified.length).toBeGreaterThan(0);
+    for (const recipe of unclassified) {
+      expect(recipe.equipmentRequired).toEqual(['unclassified']);
+    }
+  });
+});
+
 describe('the real catalog never yields an empty screen', () => {
   const pantry = new Set(['egg', 'milk', 'butter', 'salt', 'onion', 'garlic']);
 

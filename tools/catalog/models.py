@@ -24,6 +24,10 @@ Equipment = Literal[
     "rice_cooker",
     "toaster_oven",
     "none",
+    # Distinct from "none". "none" is a verified claim that a recipe needs no
+    # equipment; "unclassified" means tagging failed and we do not know. Writing
+    # them the same way is what served stove recipes to microwave-only users.
+    "unclassified",
 ]
 
 EQUIPMENT_VALUES: frozenset[str] = frozenset(
@@ -37,6 +41,7 @@ EQUIPMENT_VALUES: frozenset[str] = frozenset(
         "rice_cooker",
         "toaster_oven",
         "none",
+        "unclassified",
     }
 )
 

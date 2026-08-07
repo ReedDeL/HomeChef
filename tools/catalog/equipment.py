@@ -8,8 +8,8 @@ wedge exists to prevent.
 This module holds the deterministic keyword pass and, critically, the guarantee
 that whatever produces tags, the output is always inside the closed enum. The
 LLM enrichment pass (Technical Spec 5.2 step 4) calls ``coerce_equipment`` on
-its output, so a hallucinated appliance becomes ``none`` rather than a value the
-TypeScript engine has no case for.
+its output, so a hallucinated appliance becomes ``unclassified`` rather than a
+value the TypeScript engine has no case for.
 """
 
 from __future__ import annotations
@@ -53,13 +53,20 @@ _KEYWORDS: tuple[tuple[str, Equipment], ...] = (
 def coerce_equipment(values: object) -> list[Equipment]:
     """Force arbitrary input into the closed enum, deduplicated and ordered.
 
-    Anything unrecognised is dropped rather than passed through. An empty result
-    becomes ``["none"]`` so the field is never an empty list -- the engine reads
-    ``none`` as "always satisfied", which is the correct default for a recipe we
-    could not classify, and is safe because it cannot exclude a user.
+    Anything unrecognised is dropped rather than passed through. A result with
+    nothing recognised at all becomes ``["unclassified"]`` so the field is never
+    an empty list. An explicit ``"none"`` from the caller is preserved, because
+    that is an assertion someone made rather than a gap we are papering over.
+
+    It is deliberately NOT ``["none"]``. ``none`` is a verified claim that a
+    recipe needs no equipment, and the engine treats it as always satisfied --
+    so falling back to it meant "we could not classify this" was indistinguishable
+    from "anyone can cook this", and 76 unclassified recipes were served to
+    microwave-only users as though confirmed. Unknown excludes; it does not
+    admit. See docs/superpowers/specs/2026-08-06-microwave-seed-catalog-design.md.
     """
     if not isinstance(values, list):
-        return ["none"]
+        return ["unclassified"]
 
     seen: list[Equipment] = []
     for value in values:
@@ -70,10 +77,18 @@ def coerce_equipment(values: object) -> list[Equipment]:
             seen.append(cast(Equipment, candidate))
 
     # "none" alongside a real appliance is contradictory; the appliance wins.
+    # The same applies to "unclassified": if anything was recognised, we are no
+    # longer in the dark, so the recognised value replaces the placeholder.
     # Annotated because the comprehension would otherwise narrow the Literal
-    # union to exclude "none", which the fallback below still needs.
-    real: list[Equipment] = [item for item in seen if item != "none"]
-    return real if real else ["none"]
+    # union to exclude the values the fallback below still needs.
+    real: list[Equipment] = [item for item in seen if item not in {"none", "unclassified"}]
+    if real:
+        return real
+
+    # An explicit "none" that survived to here was asserted by the caller, not
+    # invented by us, so it keeps its meaning. Only a genuinely empty result --
+    # nothing recognised at all -- becomes "unclassified".
+    return ["none"] if "none" in seen else ["unclassified"]
 
 
 def tag_from_text(*texts: str | None) -> list[Equipment]:

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hasAllergen, isEquipmentSatisfied, satisfiesDietary } from '@/engine/filter-hard';
 import { ALL_EQUIPMENT, ingredient, makeRecipe } from '@/engine/__fixtures__';
+import type { Equipment } from '@/engine/types';
 
 describe('isEquipmentSatisfied', () => {
   it('survives when every required item is owned', () => {
@@ -31,6 +32,42 @@ describe('isEquipmentSatisfied', () => {
 
   it('admits a recipe that requires nothing at all', () => {
     expect(isEquipmentSatisfied([], [])).toBe(true);
+  });
+
+  // The microwave-wedge regression. `unclassified` means tagging failed, so the
+  // recipe is excluded from everyone until enrichment classifies it. Treating
+  // it like `none` is what served 76 stove recipes to microwave-only users.
+  describe('"unclassified" is never satisfied', () => {
+    it('is filtered for the full-kitchen user', () => {
+      expect(isEquipmentSatisfied(['unclassified'], ALL_EQUIPMENT)).toBe(false);
+    });
+
+    it('is filtered for the microwave-only user', () => {
+      expect(isEquipmentSatisfied(['unclassified'], ['microwave'])).toBe(false);
+    });
+
+    // Defence in depth: no UI should ever put `unclassified` in an owned set,
+    // but if one did, the recipe must still not become satisfiable.
+    it('is filtered even when the owned set literally contains it', () => {
+      expect(isEquipmentSatisfied(['unclassified'], ['unclassified'])).toBe(false);
+    });
+
+    it('poisons an otherwise satisfiable requirement list', () => {
+      expect(isEquipmentSatisfied(['microwave', 'unclassified'], ALL_EQUIPMENT)).toBe(false);
+    });
+
+    it('is not rescued by an accompanying "none"', () => {
+      expect(isEquipmentSatisfied(['none', 'unclassified'], ALL_EQUIPMENT)).toBe(false);
+    });
+  });
+
+  // The other half of the contract: narrowing `unclassified` must not have
+  // narrowed `none`, which stays a verified claim and stays always satisfied.
+  it('keeps "none" satisfied by every possible equipment set', () => {
+    const equipmentSets: Equipment[][] = [[], ['microwave'], [...ALL_EQUIPMENT]];
+    for (const owned of equipmentSets) {
+      expect(isEquipmentSatisfied(['none'], owned)).toBe(true);
+    }
   });
 });
 

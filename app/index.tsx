@@ -1,0 +1,1 @@
+export { BetaDashboard as default } from '@/components/BetaDashboard';

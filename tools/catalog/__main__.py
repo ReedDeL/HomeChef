@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from tools.catalog.build import build_vocabulary, to_catalog_recipe
 from tools.catalog.fetch import fetch_all_meals
 from tools.catalog.models import CatalogRecipe
+from tools.catalog.seed_loader import load_seed_recipes, merge_seed
 
 logger = logging.getLogger("catalog")
 
@@ -52,6 +53,14 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("no recipes produced; refusing to write an empty catalog")
         return 1
 
+    # Merged before build_vocabulary so seed ingredients reach the vocabulary.
+    # A seed id that is not already in the TheMealDB-derived vocabulary would
+    # otherwise be unreachable from the pantry forever -- the test suite pins
+    # seed ids to existing vocabulary entries to keep that from happening.
+    seed = load_seed_recipes()
+    recipes = merge_seed(recipes, seed)
+    logger.info("merged %d hand-curated seed recipes", len(seed))
+
     vocabulary = build_vocabulary(recipes)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -72,12 +81,14 @@ def _write(path: Path, payload: object) -> None:
 
 
 def _report_equipment_coverage(recipes: list[CatalogRecipe]) -> None:
-    """Surface how many recipes fell back to ``none``.
+    """Surface how many recipes fell back to ``unclassified``.
 
     A high fallback rate means the keyword pass is not carrying the equipment
-    wedge and the LLM enrichment step is doing real work, not decoration.
+    wedge and the LLM enrichment step is doing real work, not decoration. These
+    recipes are excluded from every user's results until enrichment classifies
+    them, so this number is a backlog, not a statistic.
     """
-    unclassified = sum(1 for r in recipes if r.equipment_required == ["none"])
+    unclassified = sum(1 for r in recipes if r.equipment_required == ["unclassified"])
     logger.info(
         "equipment: %d/%d recipes unclassified (%.0f%%)",
         unclassified,

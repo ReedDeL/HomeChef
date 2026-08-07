@@ -34,6 +34,12 @@ export const EQUIPMENT = [
   'rice_cooker',
   'toaster_oven',
   'none',
+  /**
+   * Tagging failed; we do not know what this recipe needs. Deliberately NOT
+   * `none` -- `none` is a verified claim that nothing is required, and
+   * collapsing the two is what served stove recipes to microwave-only users.
+   */
+  'unclassified',
 ] as const;
 
 export type Equipment = (typeof EQUIPMENT)[number];

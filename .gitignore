@@ -18,6 +18,7 @@ secrets.json
 .supabase/
 supabase/.temp/
 supabase/.branches/
+supabase/.env.local
 
 # Dependencies
 node_modules/
