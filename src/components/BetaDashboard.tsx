@@ -11,15 +11,25 @@ type Theme = (typeof palette)['light'] | (typeof palette)['dark'];
 
 const TIME_OPTIONS = [15, 30, 60, 120] as const;
 
-const EQUIPMENT_PRESETS: readonly { id: string; label: string; equipment: readonly Equipment[] }[] = [
-  { id: 'microwave', label: 'Microwave only', equipment: ['microwave'] },
-  { id: 'dorm', label: 'Microwave + kettle', equipment: ['microwave', 'kettle'] },
-  {
-    id: 'full',
-    label: 'Full kitchen',
-    equipment: ['microwave', 'stove', 'oven', 'air_fryer', 'kettle', 'blender', 'rice_cooker', 'toaster_oven'],
-  },
-];
+const EQUIPMENT_PRESETS: readonly { id: string; label: string; equipment: readonly Equipment[] }[] =
+  [
+    { id: 'microwave', label: 'Microwave only', equipment: ['microwave'] },
+    { id: 'dorm', label: 'Microwave + kettle', equipment: ['microwave', 'kettle'] },
+    {
+      id: 'full',
+      label: 'Full kitchen',
+      equipment: [
+        'microwave',
+        'stove',
+        'oven',
+        'air_fryer',
+        'kettle',
+        'blender',
+        'rice_cooker',
+        'toaster_oven',
+      ],
+    },
+  ];
 
 const PANTRY_PRESETS: readonly { id: string; label: string; ingredientIds: readonly string[] }[] = [
   { id: 'staples', label: 'Staples', ingredientIds: STAPLE_INGREDIENT_IDS.slice(0, 8) },
@@ -119,7 +129,10 @@ export function BetaDashboard() {
   );
 
   const selectedCount = selectedIngredients.size;
-  const totalRecipes = Object.values(decision.buckets).reduce((sum, bucket) => sum + bucket.length, 0);
+  const totalRecipes = Object.values(decision.buckets).reduce(
+    (sum, bucket) => sum + bucket.length,
+    0
+  );
   const relaxationText = decision.appliedRelaxations.map(formatRelaxation).join(' · ');
 
   function toggleIngredient(id: string) {
@@ -243,12 +256,14 @@ export function BetaDashboard() {
           </View>
         </View>
 
-        {([
-          ['ready', 'Make it now'],
-          ['missing_few', 'Missing a few'],
-          ['missing_some', 'Missing more'],
-          ['grocery_run', 'Grocery run'],
-        ] as const).map(([bucket, title]) => (
+        {(
+          [
+            ['ready', 'Make it now'],
+            ['missing_few', 'Missing a few'],
+            ['missing_some', 'Missing more'],
+            ['grocery_run', 'Grocery run'],
+          ] as const
+        ).map(([bucket, title]) => (
           <BucketSection
             key={bucket}
             bucket={bucket}
@@ -281,7 +296,14 @@ interface ChoiceChipProps {
   accessibilityHint: string;
 }
 
-function ChoiceChip({ label, selected, onPress, styles, accessibilityLabel, accessibilityHint }: ChoiceChipProps) {
+function ChoiceChip({
+  label,
+  selected,
+  onPress,
+  styles,
+  accessibilityLabel,
+  accessibilityHint,
+}: ChoiceChipProps) {
   return (
     <Pressable
       accessible

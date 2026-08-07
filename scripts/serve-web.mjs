@@ -32,7 +32,10 @@ createServer(async (req, res) => {
     const filePath = await resolveFile(candidate);
     const body = await readFile(filePath);
     res.statusCode = 200;
-    res.setHeader('Content-Type', CONTENT_TYPES.get(extname(filePath)) ?? 'application/octet-stream');
+    res.setHeader(
+      'Content-Type',
+      CONTENT_TYPES.get(extname(filePath)) ?? 'application/octet-stream'
+    );
     res.end(body);
   } catch {
     try {
