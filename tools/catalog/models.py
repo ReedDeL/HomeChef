@@ -98,11 +98,20 @@ class ParsedMeasure(BaseModel):
 
 
 class CatalogIngredient(BaseModel):
-    """One ingredient reference inside a recipe."""
+    """One ingredient reference inside a recipe.
+
+    The alias is not cosmetic. Without it this serialises as ``allergen_groups``
+    while the TypeScript adapter reads ``allergenGroups``, so every ingredient
+    arrives with an empty group list and the allergen filter silently matches
+    nothing — 267 dairy recipes were being served to users who declared a dairy
+    allergy. A missing alias here is a safety incident, not a style slip.
+    """
 
     id: str
     measure: str
-    allergen_groups: list[str] = Field(default_factory=list)
+    allergen_groups: list[str] = Field(
+        default_factory=list, serialization_alias="allergenGroups"
+    )
 
 
 class CatalogRecipe(BaseModel):

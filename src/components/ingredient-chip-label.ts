@@ -38,7 +38,7 @@ export function ingredientChipAccessibility(
   variant: IngredientChipVariant,
   measure: string | undefined,
   canMarkMissing: boolean,
-  canRemove: boolean,
+  canRemove: boolean
 ): ChipAccessibility {
   const measured = measure !== undefined && measure.trim() !== '' ? `${measure} ${name}` : name;
 

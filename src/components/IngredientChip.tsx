@@ -55,7 +55,7 @@ export function IngredientChip({
     variant,
     measure,
     onMarkMissing !== undefined,
-    onRemove !== undefined,
+    onRemove !== undefined
   );
 
   const interactive = onRemove !== undefined || onMarkMissing !== undefined;

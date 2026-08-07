@@ -57,7 +57,7 @@ describe('ingredientChipAccessibility', () => {
   it('describes both actions when the chip is removable and correctable', () => {
     const { hint } = ingredientChipAccessibility('butter', 'pantry', undefined, true, true);
     expect(hint).toBe(
-      "Double tap to remove this from your pantry. Long press if you don't have this",
+      "Double tap to remove this from your pantry. Long press if you don't have this"
     );
   });
 });
