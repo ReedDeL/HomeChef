@@ -17,6 +17,22 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
 
+  rls-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start local Supabase
+        run: npx supabase start --workdir supabase --yes
+      - name: Reset local database
+        run: npx supabase db reset --workdir supabase --local --no-seed --yes
+      - name: Verify RLS policies
+        run: npx supabase db query --workdir supabase --local --file supabase/tests/rls_verification.sql
+
   python:
     runs-on: ubuntu-latest
     steps:

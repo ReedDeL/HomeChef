@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decideWithRelaxation, TIME_TIERS } from '@/engine/relax';
-import { ingredient, makePrefs, makeRecipe, pantry } from '@/engine/__fixtures__';
+import { ALL_EQUIPMENT, ingredient, makePrefs, makeRecipe, pantry } from '@/engine/__fixtures__';
 import type { Recipe, UserPreferences } from '@/engine/types';
 
 const kinds = (r: ReturnType<typeof decideWithRelaxation>): string[] =>
@@ -94,6 +94,32 @@ describe('decideWithRelaxation — hard constraints never relax', () => {
     );
     expect(total(result)).toBe(0);
     expect(kinds(result)).not.toContain('equipment');
+  });
+
+  // `unclassified` means tagging failed. It is a hard exclusion like any other
+  // equipment miss, so no rung of the ladder may admit it — not even the last,
+  // and not even for a user who owns every appliance there is.
+  it('never surfaces an unclassified recipe at any rung of the ladder', () => {
+    const unclassifiedOnly = [
+      makeRecipe({
+        id: 'untagged',
+        equipmentRequired: ['unclassified'],
+        dietaryTags: [],
+        totalTimeMinutes: 5,
+        ingredients: [ingredient('egg')],
+      }),
+    ];
+
+    for (const equipment of [['microwave'], [...ALL_EQUIPMENT]] as const) {
+      const result = decideWithRelaxation(
+        unclassifiedOnly,
+        pantry('egg'),
+        makePrefs({ equipment: [...equipment] }),
+        15
+      );
+      expect(total(result)).toBe(0);
+      expect(kinds(result)).not.toContain('equipment');
+    }
   });
 
   it('never surfaces a recipe containing a declared allergen', () => {

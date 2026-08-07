@@ -1,7 +1,7 @@
 # Microwave seed catalog + honest equipment tagging
 
 **Date:** 2026-08-06
-**Status:** Approved, not yet implemented
+**Status:** Implemented 2026-08-06
 **Milestone:** 2 (equipment enrichment)
 
 ## Problem
@@ -146,6 +146,18 @@ breaks it, and the 20 new recipes are what genuinely fix it.
 
 If that test never goes red, the 76 were not actually load-bearing for the
 microwave case and this design's premise needs re-examining before proceeding.
+
+**Result: premise confirmed, and worse than predicted.** Measured against the
+rebuilt catalog with the seed held out, a microwave-only user with the test
+pantry gets **0 results at 15, 30 and 60 minutes** — not a thin list, an empty
+screen. The relaxation ladder cannot rescue it: TheMealDB's only two
+microwave-only recipes are both 240-minute fudge, and `TIME_TIERS` tops out at
+120. With the seed merged the same user gets 10.
+
+So the 76 were not merely padding the microwave case, they were the entire
+thing, and every one of them was a guess. The seed is load-bearing; deleting it
+returns the microwave-only user to an empty screen. `catalog.test.ts` pins both
+halves of that.
 
 ## Risks
 

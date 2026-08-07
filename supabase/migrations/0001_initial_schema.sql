@@ -171,6 +171,10 @@ alter table inventory         enable row level security;
 
 -- households: visible to members. Creation happens in the signup trigger,
 -- which is SECURITY DEFINER, so no INSERT policy is granted to clients.
+-- DELETE is intentionally absent: no client may destroy a household.
+-- The same applies to profiles and household_members — their INSERT/DELETE
+-- paths are all handled by the SECURITY DEFINER trigger on auth.users, so
+-- granting a client policy would widen the surface with no benefit.
 create policy households_member_read on households
   for select to authenticated
   using ((select private.is_household_member(id)));

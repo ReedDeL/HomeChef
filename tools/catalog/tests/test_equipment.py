@@ -21,18 +21,28 @@ class TestCoerceEquipment:
         # The guard against LLM output inventing a value the engine cannot read.
         assert coerce_equipment(["sous_vide", "microwave"]) == ["microwave"]
 
-    def test_falls_back_to_none_when_nothing_is_recognised(self) -> None:
-        assert coerce_equipment(["sous_vide", "thermomix"]) == ["none"]
+    def test_falls_back_to_unclassified_when_nothing_is_recognised(self) -> None:
+        # NOT ["none"]. "none" is a claim that the recipe needs no equipment and
+        # the engine treats it as always satisfied, so using it here would serve
+        # an unclassified stove recipe to a microwave-only user as verified.
+        assert coerce_equipment(["sous_vide", "thermomix"]) == ["unclassified"]
+
+    def test_preserves_an_explicit_none(self) -> None:
+        # The caller asserted it; we are not filling a gap on their behalf.
+        assert coerce_equipment(["none"]) == ["none"]
 
     def test_prefers_a_real_appliance_over_none(self) -> None:
         assert coerce_equipment(["none", "microwave"]) == ["microwave"]
+
+    def test_prefers_a_real_appliance_over_unclassified(self) -> None:
+        assert coerce_equipment(["unclassified", "microwave"]) == ["microwave"]
 
     def test_deduplicates(self) -> None:
         assert coerce_equipment(["oven", "oven", "oven"]) == ["oven"]
 
     @pytest.mark.parametrize("value", [None, "microwave", 42, {"a": 1}, []])
     def test_never_raises_on_non_list_input(self, value: object) -> None:
-        assert coerce_equipment(value) == ["none"]
+        assert coerce_equipment(value) == ["unclassified"]
 
     def test_ignores_non_string_members(self) -> None:
         assert coerce_equipment([42, None, "oven"]) == ["oven"]
@@ -60,13 +70,16 @@ class TestTagFromText:
     def test_detects_simmering_as_stove(self) -> None:
         assert "stove" in tag_from_text("Simmer gently in a saucepan.")
 
-    def test_returns_none_for_a_no_cook_recipe(self) -> None:
-        assert tag_from_text("Combine everything in a bowl and serve.") == ["none"]
+    def test_returns_unclassified_when_no_keyword_matches(self) -> None:
+        # This text really is no-cook, but the keyword pass cannot know that --
+        # it only knows it recognised nothing. "unclassified" is the honest
+        # answer; only a verified pass may promote a recipe to "none".
+        assert tag_from_text("Combine everything in a bowl and serve.") == ["unclassified"]
 
     def test_handles_empty_and_missing_text(self) -> None:
-        assert tag_from_text("") == ["none"]
-        assert tag_from_text(None) == ["none"]
-        assert tag_from_text(None, None) == ["none"]
+        assert tag_from_text("") == ["unclassified"]
+        assert tag_from_text(None) == ["unclassified"]
+        assert tag_from_text(None, None) == ["unclassified"]
 
     def test_output_is_always_inside_the_closed_enum(self) -> None:
         assert set(tag_from_text("bake fry blend microwave boil")) <= EQUIPMENT_VALUES

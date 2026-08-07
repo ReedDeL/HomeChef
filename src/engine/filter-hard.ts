@@ -9,15 +9,31 @@
 import type { DietaryTag, Equipment, IngredientId, Recipe } from '@/engine/types';
 
 /**
- * A recipe survives only if every item it requires is owned. `none` is always
- * satisfied — it is how the catalog marks a no-cook recipe.
+ * A recipe survives only if every item it requires is owned.
+ *
+ * The two sentinel values pull in opposite directions, and the difference is
+ * the whole point:
+ *
+ * - `none` is a verified claim that the recipe needs no equipment, so it is
+ *   always satisfied — it is how the catalog marks a no-cook recipe.
+ * - `unclassified` means tagging failed and we do not know what the recipe
+ *   needs, so it is never satisfied, for anyone, including a user who owns
+ *   every appliance. Unknown excludes; it does not admit.
+ *
+ * Collapsing the two is what served 76 unverified recipes — most needing a
+ * stove — to microwave-only users as though confirmed. Confidently wrong is
+ * worse than thin, so `unclassified` is checked before the owned set rather
+ * than merely being absent from it.
  */
 export function isEquipmentSatisfied(
   required: readonly Equipment[],
   owned: readonly Equipment[]
 ): boolean {
   const ownedSet = new Set(owned);
-  return required.every((item) => item === 'none' || ownedSet.has(item));
+  return required.every((item) => {
+    if (item === 'unclassified') return false;
+    return item === 'none' || ownedSet.has(item);
+  });
 }
 
 /**

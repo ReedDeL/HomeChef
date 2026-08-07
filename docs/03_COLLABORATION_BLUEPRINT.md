@@ -293,10 +293,21 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npx prettier --check .
+      - run: npm run check
       - run: npx eslint .
       - run: npx tsc --noEmit
       - run: npm test -- --coverage
+
+  rls-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx supabase start --workdir supabase --yes
+      - run: npx supabase db reset --workdir supabase --local --no-seed --yes
+      - run: npx supabase db query --workdir supabase --local --file supabase/tests/rls_verification.sql
 
   python:
     runs-on: ubuntu-latest

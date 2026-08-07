@@ -15,11 +15,12 @@ Full specs in [`docs/`](docs/). Architecture rules in [`CLAUDE.md`](CLAUDE.md).
 | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
 | **1 — DB-to-Engine binding**                         | ✅ Done                                                                       |
 | 2 — Decision engine hardening + equipment enrichment | ⏳ Engine built and tested; LLM enrichment + 30-recipe spot-check outstanding |
-| 3 — App shell & photo pipeline                       | ⬜ Not started                                                                |
+| 3 — App shell & photo pipeline                       | ⏳ Browser beta harness started; photo pipeline outstanding                   |
 | 4 — Tier 2 (Spoonacular)                             | ⬜ Not started                                                                |
 
-**There is no UI yet.** `npm start` will fail — `app/` does not exist. That is
-Milestone 3. Everything below the UI is built and tested.
+There is now a browser beta harness in `app/` for web testing. It exercises the
+bundled catalog and the pure decision engine, but the full onboarding/photo
+pipeline UI is still Milestone 3. Everything below the UI is built and tested.
 
 What exists:
 
@@ -31,8 +32,12 @@ What exists:
 - `supabase/tests/rls_verification.sql` — 19 assertions run as a real
   `authenticated` session. Two households, three accounts, one roommate.
 - `src/types/supabase-generated.ts` — generated from the live schema.
-- `tools/catalog/` — Python ETL. 104 tests, mypy strict.
-- `src/data/` — **792 recipes, 897 ingredients**, generated and committed.
+- `tools/catalog/` — Python ETL. 128 tests, mypy strict.
+- `tools/catalog/seed/` — 20 hand-curated microwave recipes, merged into the
+  catalog at build time. Hand-written data cannot live in `src/data/`, which a
+  rebuild overwrites wholesale.
+- `src/data/` — **812 recipes, 897 ingredients**, generated and committed.
+  736 are servable; 76 are `unclassified` and excluded until enrichment runs.
 
 ---
 
@@ -81,11 +86,13 @@ You need to do this by hand; it cannot be scripted from here.
    psql "$DATABASE_URL" -f supabase/tests/rls_verification.sql
    ```
 
-   The whole script is one transaction ending in `ROLLBACK`, so it writes
-   nothing and is safe to run against a live project. Run it after every
-   migration that touches a policy — it is the only check that runs as a real
-   `authenticated` session, and it has already caught one total-outage bug that
-   reading the migration did not (see `0002_grant_membership_helper.sql`).
+The whole script is one transaction ending in `ROLLBACK`, so it writes
+nothing and is safe to run against a live project. CI runs the same script
+against a local Supabase stack on every push and pull request. If you want
+to re-run it manually against a live project, keep using the same command.
+It is the only check that runs as a real `authenticated` session, and it
+already caught one total-outage bug that reading the migration did not (see
+`0002_grant_membership_helper.sql`).
 
 **Only those two variables may ever be public.** The anon key is safe to ship —
 RLS is what protects the data, not the secrecy of that key.
@@ -124,6 +131,10 @@ npm test              # Vitest — engine, adapters, catalog contract
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
 npm run format        # prettier --write
+npm run web:beta      # static Expo web preview for browser testing
+
+docker build -t homechef-beta .
+docker run --rm -p 8081:8081 homechef-beta
 
 pytest tools/                    # catalog pipeline tests
 ruff check tools/                # lint
@@ -145,7 +156,7 @@ python -m tools.catalog --limit 20   # quick sample run
   meal_feedback ────┘      (src/hooks/)     (src/lib/   │
                                              adapters/) ├──▶ decide(...)
   src/data/recipes.json ──▶ static import ──────────────┤         │
-  (Tier 1, 792, bundled)                                │         ▼
+  (Tier 1, 812, bundled)                                │         ▼
                                                         │   ScoredRecipe[]
   Spoonacular Edge Fn ────▶ fetch (Tier 2, ≤20) ────────┘   (4 buckets)
 ```
@@ -159,12 +170,20 @@ enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
 
 ## Known gaps
 
-- **Equipment tags are keyword-derived, not verified.** 76 of 792 recipes fell
-  back to `none` because the keyword pass could not classify them — and `none`
-  is what the microwave-only user sees. Those are unclassified, _not_ confirmed
-  microwave-safe. The LLM enrichment pass and the **mandatory 30-recipe human
-  spot-check** (Technical Spec §5.2 step 6) are what close this. Do not treat
-  the microwave wedge as working until that runs.
+- **76 of 812 recipes are `unclassified` and shown to nobody.** The keyword pass
+  could not classify them. They used to fall back to `none`, which the equipment
+  filter treats as always satisfied — so they were served to microwave-only users
+  as though confirmed microwave-safe. `unclassified` is now a distinct value that
+  never satisfies the filter: unknown excludes, it does not admit. The cost is
+  that a full-kitchen user sees 736 recipes rather than 812. That number climbs
+  back as the LLM enrichment pass and its **mandatory 30-recipe human spot-check**
+  (Technical Spec §5.2 step 6) classify the backlog.
+- **The microwave wedge rests on 20 hand-written recipes.** TheMealDB supplies
+  exactly two microwave-only recipes and both are 240-minute fudge, which the
+  relaxation ladder tops out below — so a microwave-only user got _zero_ results
+  once the `none` fallback stopped propping the number up. `tools/catalog/seed/`
+  fills that gap and is load-bearing, not decorative. It is a stopgap sized for
+  an honest go/no-go, not a finished catalog.
 - **`dietaryTags` is empty for every recipe, deliberately.** Dietary is a hard
   constraint, so a wrong tag ships a violation to the user. Absent beats wrong.
   A verified pass must populate it before dietary filtering is meaningful.
