@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { storage } from '@/lib/storage';
+import type { Database } from '@/types/supabase-generated';
 
 /**
  * The Supabase client.
@@ -36,7 +37,12 @@ const mmkvAuthStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+/**
+ * Parameterised by the generated schema, so a table or column name that does
+ * not exist is a compile error at the call site rather than a runtime
+ * PostgREST 400.
+ */
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: mmkvAuthStorage,
     autoRefreshToken: true,

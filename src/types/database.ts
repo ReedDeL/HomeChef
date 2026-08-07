@@ -1,54 +1,43 @@
 /**
- * Row shapes for the tables in supabase/migrations/0001_initial_schema.sql.
+ * Row shapes for the tables in supabase/migrations/.
  *
- * Hand-written to match that migration. Once the project exists, regenerate
- * with `npx supabase gen types typescript --local > src/types/database.ts` and
- * treat the generated file as the source of truth; until then, a change to the
- * migration must be mirrored here or the adapters will lie about their input.
+ * These are now DERIVED from `supabase-generated.ts`, which is emitted by
+ *
+ *     npx supabase gen types typescript --linked > src/types/supabase-generated.ts
+ *
+ * against the live project. That file is the source of truth; do not edit it.
+ * A column added, dropped, or retyped in a migration now becomes a compile
+ * error here the moment the types are regenerated, rather than a hand-written
+ * interface that quietly lies about what Postgres will return.
+ *
+ * This file exists on top of it for one reason: two columns are constrained by
+ * a CHECK, not a Postgres enum, so the generator can only see `string`. The
+ * unions below restore the domain the database actually enforces.
  */
+import type { Tables } from '@/types/supabase-generated';
 
-export interface HouseholdRow {
-  id: string;
-  name: string;
-  created_at: string;
-}
+/**
+ * Narrows a generated `text` column to the union its CHECK constraint permits.
+ *
+ * `Union extends Row[K]` is the guard: if the column stops being assignable
+ * from that union -- someone swaps the CHECK for a real Postgres enum, say --
+ * this stops compiling, which is the signal to delete the hand-written union
+ * and use the generated `Enums<...>` instead of maintaining it twice.
+ */
+type NarrowColumn<Row, K extends keyof Row, Union extends Row[K]> = Omit<Row, K> & Record<K, Union>;
 
-export interface ProfileRow {
-  id: string;
-  household_id: string;
-  display_name: string | null;
-  created_at: string;
-}
+export type HouseholdRow = Tables<'households'>;
 
-export interface UserPreferencesRow {
-  user_id: string;
-  equipment: string[];
-  allergens: string[];
-  dietary: string[];
-  onboarding_done: boolean;
-  updated_at: string;
-}
+export type ProfileRow = Tables<'profiles'>;
 
+export type UserPreferencesRow = Tables<'user_preferences'>;
+
+/** `meal_feedback.verdict`, per the CHECK in 0001_initial_schema.sql. */
 export type FeedbackVerdict = 'liked' | 'disliked' | 'skipped';
 
-export interface MealFeedbackRow {
-  user_id: string;
-  recipe_id: string;
-  verdict: FeedbackVerdict;
-  made_on: string | null;
-  created_at: string;
-}
+export type MealFeedbackRow = NarrowColumn<Tables<'meal_feedback'>, 'verdict', FeedbackVerdict>;
 
+/** `inventory.source`, per the CHECK in 0001_initial_schema.sql. */
 export type InventorySource = 'manual' | 'photo' | 'staple' | 'shopping_list';
 
-export interface InventoryRow {
-  id: string;
-  household_id: string;
-  ingredient_id: string;
-  quantity: number | null;
-  unit: string | null;
-  purchased_on: string | null;
-  source: InventorySource;
-  added_by: string | null;
-  updated_at: string;
-}
+export type InventoryRow = NarrowColumn<Tables<'inventory'>, 'source', InventorySource>;

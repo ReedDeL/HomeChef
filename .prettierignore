@@ -12,6 +12,11 @@ package-lock.json
 # reformat here would produce a spurious diff on every build.
 src/data/*.json
 
+# Emitted verbatim by `supabase gen types typescript`. Same reasoning: if we
+# reformat it, every regeneration shows up as a whole-file diff and nobody can
+# see what actually changed in the schema.
+src/types/supabase-generated.ts
+
 # Specification documents. Their formatting is deliberate and reviewed by
 # humans; Prettier reflowing tables and line breaks would churn the diff.
 docs/
