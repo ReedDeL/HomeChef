@@ -26,7 +26,11 @@ What exists:
 - `src/engine/` — the decision engine. Pure, synchronous, 136 tests.
 - `src/lib/adapters/` — the only code that knows both Postgres and the engine.
 - `src/lib/queries/` + `src/hooks/` — Supabase data access and TanStack Query hooks.
-- `supabase/migrations/0001_initial_schema.sql` — 6 tables, RLS on every one.
+- `supabase/migrations/` — 6 tables, RLS on every one. **Applied to the live
+  project**, not just committed.
+- `supabase/tests/rls_verification.sql` — 19 assertions run as a real
+  `authenticated` session. Two households, three accounts, one roommate.
+- `src/types/supabase-generated.ts` — generated from the live schema.
 - `tools/catalog/` — Python ETL. 104 tests, mypy strict.
 - `src/data/` — **792 recipes, 897 ingredients**, generated and committed.
 
@@ -62,8 +66,26 @@ You need to do this by hand; it cannot be scripted from here.
 4. Regenerate the row types so they match your live database:
 
    ```bash
-   npx supabase gen types typescript --linked > src/types/database.ts
+   npx supabase gen types typescript --linked > src/types/supabase-generated.ts
    ```
+
+   That file is generated — never edit it. `src/types/database.ts` derives the
+   row aliases from it and adds back the two unions (`FeedbackVerdict`,
+   `InventorySource`) that a CHECK constraint enforces but the generator can
+   only see as `string`.
+
+5. Verify RLS actually holds, with two accounts in two households plus a
+   roommate sharing one:
+
+   ```bash
+   psql "$DATABASE_URL" -f supabase/tests/rls_verification.sql
+   ```
+
+   The whole script is one transaction ending in `ROLLBACK`, so it writes
+   nothing and is safe to run against a live project. Run it after every
+   migration that touches a policy — it is the only check that runs as a real
+   `authenticated` session, and it has already caught one total-outage bug that
+   reading the migration did not (see `0002_grant_membership_helper.sql`).
 
 **Only those two variables may ever be public.** The anon key is safe to ship —
 RLS is what protects the data, not the secrecy of that key.
@@ -148,5 +170,8 @@ enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
   A verified pass must populate it before dietary filtering is meaningful.
 - **The catalog is 792 recipes, not the ~300 the spec assumed.** TheMealDB grew.
   Client-side ranking is still well under 10 ms, so no architecture changes.
-- **`src/types/database.ts` is hand-written** to match the migration. Regenerate
-  it with `supabase gen types` once the project exists.
+- **The two-account RLS run is scripted but not yet executed end to end.**
+  `supabase/tests/rls_verification.sql` holds 19 assertions and the blocking bug
+  it was written to find is fixed and confirmed gone; the seeded run itself
+  still needs one `psql -f` pass by a human before the privacy model can be
+  called verified. Do not treat roommate privacy as proven until that is green.
