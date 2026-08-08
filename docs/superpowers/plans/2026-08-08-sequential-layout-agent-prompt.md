@@ -86,6 +86,9 @@ These are review-blocking. CI enforces several of them.
 - Line length 100. Commits imperative and under 50 chars.
 - Run `npm test && npm run typecheck && npm run lint && npm run format:check`
   before every commit. All four must pass.
+- **Web is a first-class target for the beta.** Every screen you build must work
+  in a desktop browser via `npm run web:beta`, on any OS. Do not use a native-only
+  API without a web path — see Task 0.
 
 ## Testing reality — read this before you plan any test
 
@@ -102,6 +105,105 @@ Instead, follow the pattern the codebase already established: **extract the
 logic worth testing into a plain-TS module beside the component, and test
 that.** Tasks 1 and 6 below do exactly this. Screens themselves are verified
 manually against the checklist in Task 12.
+
+---
+
+## Task 0: Make the web build survive the auth path
+
+**Do this first. Nothing else in this plan runs in a browser until it's done.**
+
+**Files**
+- Create `src/lib/storage.web.ts`
+- Modify `app.json`
+
+### The problem, verified
+
+The beta must run as a web app on any OS. `npm run web:beta` works **today only
+because nothing imports `@/lib/supabase` yet** — the photo-to-pantry design says
+so explicitly. This plan changes that: every screen from Task 3 onward depends
+on a Supabase session, and the Supabase client's session storage is
+`src/lib/storage.ts`.
+
+That file breaks in a browser, at module load, in two independent ways:
+
+1. **MMKV.** `react-native-mmkv@4` *does* ship a web build backed by
+   `localStorage`, but its first two lines are:
+   ```ts
+   if (config.encryptionKey != null) {
+     throw new Error("MMKV: 'encryptionKey' is not supported on Web!")
+   }
+   ```
+   `storage.ts` always passes `encryptionKey`.
+
+2. **SecureStore.** `expo-secure-store`'s entire web implementation is
+   `export default {}`. `SecureStore.getItem` calls
+   `ExpoSecureStore.getValueWithKeySync(...)`, which on web is `undefined(...)`
+   — a TypeError.
+
+Verify both for yourself before starting:
+`node_modules/react-native-mmkv/src/createMMKV/createMMKV.web.ts` and
+`node_modules/expo-secure-store/build/ExpoSecureStore.web.js`.
+
+### The fix
+
+Create `src/lib/storage.web.ts`. Metro resolves `.web.ts` over `.ts`
+automatically for the web bundle, so **no caller changes and no `Platform.OS`
+branching anywhere** — that's the whole point of using the extension.
+
+It must export the same three symbols as `storage.ts` — `storage`, `getJSON`,
+`setJSON` — with identical signatures, so the two files stay drop-in
+interchangeable. Keep `getJSON`/`setJSON` byte-identical in behavior, including
+the corrupt-value warn-then-remove path.
+
+The difference is only in how `storage` is constructed: call `createMMKV({ id:
+'homechef-kv' })` with **no `encryptionKey`**, and do not import
+`expo-secure-store` at all.
+
+Write a comment explaining why the encryption is absent rather than leaving it
+looking like an oversight. The substance: a browser has no keychain, and a key
+shipped in a JS bundle protects nothing from anyone who can read the bundle.
+`localStorage` is already origin-scoped, which is the actual boundary on web.
+State plainly that this makes web a **lower-security target than native**, and
+that it is acceptable for the beta because the only thing stored is a Supabase
+session for an anonymous user with RLS-scoped access to one `household`.
+
+### Web config
+
+`app.json` currently has no `web` key at all. Add one:
+
+```json
+"web": { "bundler": "metro", "output": "single" }
+```
+
+`output: "single"` is what makes expo-router emit a single-page app, which is
+what `scripts/serve-web.mjs` already assumes — it falls back to `index.html` for
+unknown paths. Do not switch to static output; it would break that fallback and
+every deep link in this plan.
+
+### Camera on the web
+
+`expo-camera` on web uses `getUserMedia`, which browsers only expose in a
+**secure context** — HTTPS, or `localhost`. Over plain HTTP on a LAN address the
+camera silently fails to initialize.
+
+This matters because the photo step leads onboarding. Handle it as a normal
+state, not an error, per `docs/04_UIUX_SPEC.md` §10:
+
+- The photo screen must detect that capture is unavailable and route the user to
+  the `staples` skip path with honest copy — *"Camera needs a secure connection.
+  Add your staples instead."* Never "getUserMedia failed", never a stack trace,
+  and never a dead end.
+- Verify this branch by loading the beta over a LAN IP, not just `localhost`.
+
+Report to the team that testing the photo flow across machines needs HTTPS —
+a tunnel or a hosted deploy — rather than the plain `serve-web.mjs` on a LAN
+address. That is a deployment decision, not yours to make here.
+
+**Verify:** `npm run web:beta`, open in a desktop browser, confirm the bundle
+loads with no console error from `storage`. Re-run after Task 3 and confirm the
+session persists across a reload.
+
+**Commit:** `Add web storage adapter and web config`
 
 ---
 
@@ -501,6 +603,19 @@ fails, say so with the output rather than reporting the task complete.
 - [ ] A recipe card opens the recipe screen
 - [ ] Relaxation banner appears when a soft constraint is relaxed, and does
       **not** appear for tier 2 escalation alone
+
+**Web — the beta target, so this is not optional:**
+- [ ] `npm run web:beta` builds and serves with no console error from `storage`
+- [ ] The whole flow above completes in a desktop browser: onboarding → home →
+      results → more → recipe → pantry
+- [ ] The Supabase session survives a page reload
+- [ ] Browser back/forward move through the stack correctly, and a deep link
+      pasted straight into the address bar resolves (this is what `output:
+      "single"` plus the `serve-web.mjs` fallback buys)
+- [ ] Verified in **Chrome, Firefox, and Safari** — the beta has to work on any OS
+- [ ] Layout holds from a 1440px desktop window down to a 375px mobile viewport
+- [ ] Served over a LAN IP (not `localhost`), the photo screen routes to
+      `staples` with the secure-connection copy instead of hanging or crashing
 
 **Accessibility — these are Definition-of-Done gates, not polish:**
 - [ ] VoiceOver/TalkBack announces each recipe card as one unit

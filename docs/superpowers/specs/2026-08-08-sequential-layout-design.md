@@ -54,6 +54,8 @@ recorded with its rationale in Decisions 1–4 below.
    buckets; none of this reaches it.
 6. The team keeps a working offline surface for exercising the engine without
    Supabase.
+7. **The whole flow runs as a web app on any OS**, so the beta can be handed to
+   testers with a URL instead of a build.
 
 ## Non-goals
 
@@ -206,6 +208,41 @@ exercises the pure engine in a browser with no network — the `npm run web:beta
 workflow that already exists — and it keeps that job. It simply stops being
 the application.
 
+### 8. Web is a first-class beta target, via a `.web.ts` storage adapter
+
+The beta is distributed as a URL, not a build, so every screen here must run in
+a desktop browser on any OS.
+
+`npm run web:beta` already builds and serves an SPA, and `scripts/serve-web.mjs`
+already falls back to `index.html` for unknown paths. But it works **today only
+because nothing imports `@/lib/supabase` yet** — the photo-to-pantry design says
+so in as many words. This work changes that: every screen from the routing gate
+onward needs a session, and the Supabase client stores it in
+`src/lib/storage.ts`, which breaks in a browser at module load for two verified
+reasons:
+
+- `react-native-mmkv@4`'s web build throws outright when passed an
+  `encryptionKey`, and `storage.ts` always passes one.
+- `expo-secure-store`'s web implementation is literally `export default {}`, so
+  `SecureStore.getItem` calls `undefined(...)`.
+
+The fix is a sibling `src/lib/storage.web.ts` exporting the same three symbols.
+Metro resolves `.web.ts` ahead of `.ts` for the web bundle, so no caller
+changes and **no `Platform.OS` branching enters the codebase** — the platform
+split stays at the file boundary, where it can't leak into screen code.
+
+Web is deliberately a **lower-security target than native**: no keychain, no
+encryption at rest, `localStorage` origin scoping only. That is acceptable for
+the beta because the only thing stored is an anonymous Supabase session whose
+access is already RLS-scoped to one `household`. It is not acceptable for a
+production native build, and native keeps the encrypted MMKV path unchanged.
+
+**One consequence worth naming now:** `expo-camera` on web needs a secure
+context, so the photo step only works over HTTPS or `localhost`. On a plain-HTTP
+LAN address it must route to the staples skip path with honest copy, never a
+dead end. Testing photo capture across machines therefore needs a tunnel or a
+hosted deploy — a deployment decision, not a code one.
+
 ## Architecture
 
 ```
@@ -232,6 +269,9 @@ app/
     index.tsx              grouped chips, add-by-photo primary
     photo.tsx              unchanged from photo plan Task 19
   dev/beta.tsx             BetaDashboard, preserved
+
+src/lib/
+  storage.web.ts           web session storage — Decision 8
 
 src/components/
   DecisionScreen.tsx       the one-decision primitive
