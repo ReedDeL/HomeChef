@@ -96,7 +96,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "anchovy fillet",
     "id": "anchovy_fillet",
     "isStaple": false
@@ -486,7 +488,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "bowtie pasta",
     "id": "bowtie_pasta",
     "isStaple": false
@@ -528,13 +533,19 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "bread rolls",
     "id": "bread_rolls",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "breadcrumbs",
     "id": "breadcrumbs",
     "isStaple": false
@@ -546,7 +557,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "brie",
     "id": "brie",
     "isStaple": false
@@ -594,7 +607,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "bryndza cheese",
     "id": "bryndza_cheese",
     "isStaple": false
@@ -618,13 +633,19 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "bun",
     "id": "bun",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "buns",
     "id": "buns",
     "isStaple": false
@@ -644,7 +665,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "buttermilk",
     "id": "buttermilk",
     "isStaple": false
@@ -788,7 +811,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "nut",
+      "tree_nut"
+    ],
     "displayName": "cashew nuts",
     "id": "cashew_nuts",
     "isStaple": false
@@ -879,7 +905,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "cheese curds",
     "id": "cheese_curds",
     "isStaple": false
@@ -999,7 +1027,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "chilled butter",
     "id": "chilled_butter",
     "isStaple": false
@@ -1155,7 +1185,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "clams",
     "id": "clams",
     "isStaple": false
@@ -1167,7 +1199,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "clotted cream",
     "id": "clotted_cream",
     "isStaple": false
@@ -1245,19 +1279,25 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "cod",
     "id": "cod",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "codfish bulljaw",
     "id": "codfish_bulljaw",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "colby jack cheese",
     "id": "colby_jack_cheese",
     "isStaple": false
@@ -1269,7 +1309,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "condensed milk",
     "id": "condensed_milk",
     "isStaple": false
@@ -1353,13 +1395,18 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "couscous",
     "id": "couscous",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "crab meay",
     "id": "crab_meay",
     "isStaple": false
@@ -1379,7 +1426,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "cream cheese",
     "id": "cream_cheese",
     "isStaple": false
@@ -1403,7 +1452,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "crusty bread",
     "id": "crusty_bread",
     "isStaple": false
@@ -1451,7 +1503,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "custard",
     "id": "custard",
     "isStaple": false
@@ -1643,7 +1697,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "dried shrimp",
     "id": "dried_shrimp",
     "isStaple": false
@@ -1717,7 +1773,11 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat",
+      "egg"
+    ],
     "displayName": "egg noodles",
     "id": "egg_noodles",
     "isStaple": false
@@ -1741,7 +1801,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "egg"
+    ],
     "displayName": "egg wash",
     "id": "egg_wash",
     "isStaple": false
@@ -1755,7 +1817,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "egg"
+    ],
     "displayName": "egg yolks",
     "id": "egg_yolks",
     "isStaple": false
@@ -1799,7 +1863,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "evaporated milk",
     "id": "evaporated_milk",
     "isStaple": false
@@ -1883,7 +1949,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "feta",
     "id": "feta",
     "isStaple": false
@@ -1907,7 +1975,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "filo pastry",
     "id": "filo_pastry",
     "isStaple": false
@@ -1919,7 +1990,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "fish fillet",
     "id": "fish_fillet",
     "isStaple": false
@@ -1933,7 +2006,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "fish stock",
     "id": "fish_stock",
     "isStaple": false
@@ -1945,7 +2020,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "nut",
+      "tree_nut"
+    ],
     "displayName": "flaked almonds",
     "id": "flaked_almonds",
     "isStaple": false
@@ -1981,13 +2059,17 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "egg"
+    ],
     "displayName": "free range egg beaten",
     "id": "free_range_egg_beaten",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "egg"
+    ],
     "displayName": "free range eggs beaten",
     "id": "free_range_eggs_beaten",
     "isStaple": false
@@ -2041,7 +2123,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "frozen prawns",
     "id": "frozen_prawns",
     "isStaple": false
@@ -2137,7 +2221,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "ghee",
     "id": "ghee",
     "isStaple": false
@@ -2191,7 +2277,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "goats cheese",
     "id": "goats_cheese",
     "isStaple": false
@@ -2221,7 +2309,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "gouda cheese",
     "id": "gouda_cheese",
     "isStaple": false
@@ -2269,7 +2359,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "greek yogurt",
     "id": "greek_yogurt",
     "isStaple": false
@@ -2329,7 +2421,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "gruyere",
     "id": "gruyere",
     "isStaple": false
@@ -2347,7 +2441,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "haddock",
     "id": "haddock",
     "isStaple": false
@@ -2451,7 +2547,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "ice cream",
     "id": "ice_cream",
     "isStaple": false
@@ -2535,7 +2633,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "jumbo shrimp",
     "id": "jumbo_shrimp",
     "isStaple": false
@@ -2595,7 +2695,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "king prawns",
     "id": "king_prawns",
     "isStaple": false
@@ -2781,7 +2883,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "linguine pasta",
     "id": "linguine_pasta",
     "isStaple": false
@@ -2813,13 +2918,18 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "macaroni",
     "id": "macaroni",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "mackerel",
     "id": "mackerel",
     "isStaple": false
@@ -2903,7 +3013,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "mascarpone",
     "id": "mascarpone",
     "isStaple": false
@@ -2921,7 +3033,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "egg"
+    ],
     "displayName": "mayonnaise",
     "id": "mayonnaise",
     "isStaple": false
@@ -2939,13 +3053,17 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "melted butter",
     "id": "melted_butter",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "egg"
+    ],
     "displayName": "meringue nests",
     "id": "meringue_nests",
     "isStaple": false
@@ -2965,7 +3083,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "milk chocolate",
     "id": "milk_chocolate",
     "isStaple": false
@@ -3031,7 +3151,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "monkfish",
     "id": "monkfish",
     "isStaple": false
@@ -3055,7 +3177,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "mozzarella",
     "id": "mozzarella",
     "isStaple": false
@@ -3097,7 +3221,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "mussels",
     "id": "mussels",
     "isStaple": false
@@ -3133,7 +3259,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "natural yoghurt",
     "id": "natural_yoghurt",
     "isStaple": false
@@ -3145,7 +3273,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "noodles",
     "id": "noodles",
     "isStaple": false
@@ -3259,13 +3390,17 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "oyster sauce",
     "id": "oyster_sauce",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "oysters",
     "id": "oysters",
     "isStaple": false
@@ -3351,7 +3486,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "parmesan cheese",
     "id": "parmesan_cheese",
     "isStaple": false
@@ -3420,7 +3557,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "nut",
+      "peanut"
+    ],
     "displayName": "peanut oil",
     "id": "peanut_oil",
     "isStaple": false
@@ -3447,7 +3587,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "nut",
+      "tree_nut"
+    ],
     "displayName": "pecan nuts",
     "id": "pecan_nuts",
     "isStaple": false
@@ -3543,7 +3686,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "nut",
+      "tree_nut"
+    ],
     "displayName": "pine nuts",
     "id": "pine_nuts",
     "isStaple": false
@@ -3594,7 +3740,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "pita bread",
     "id": "pita_bread",
     "isStaple": false
@@ -3762,7 +3911,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "puff pastry",
     "id": "puff_pastry",
     "isStaple": false
@@ -4020,7 +4172,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "ricotta",
     "id": "ricotta",
     "isStaple": false
@@ -4032,7 +4186,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "nut",
+      "peanut"
+    ],
     "displayName": "roasted peanut",
     "id": "roasted_peanut",
     "isStaple": false
@@ -4098,7 +4255,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten"
+    ],
     "displayName": "rye bread",
     "id": "rye_bread",
     "isStaple": false
@@ -4160,19 +4319,25 @@
     "isStaple": true
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "salt cod",
     "id": "salt_cod",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "salted butter",
     "id": "salted_butter",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "sardines",
     "id": "sardines",
     "isStaple": false
@@ -4256,7 +4421,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "self raising flour",
     "id": "self_raising_flour",
     "isStaple": false
@@ -4346,7 +4514,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "shortcrust pastry",
     "id": "shortcrust_pastry",
     "isStaple": false
@@ -4366,13 +4537,17 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "shrimp paste",
     "id": "shrimp_paste",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "shrimp stock",
     "id": "shrimp_stock",
     "isStaple": false
@@ -4390,7 +4565,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "single cream",
     "id": "single_cream",
     "isStaple": false
@@ -4420,13 +4597,17 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "smoked flaked salmon",
     "id": "smoked_flaked_salmon",
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "smoked haddock",
     "id": "smoked_haddock",
     "isStaple": false
@@ -4480,7 +4661,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "sour cream",
     "id": "sour_cream",
     "isStaple": false
@@ -4513,7 +4696,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "soy"
+    ],
     "displayName": "soya bean",
     "id": "soya_bean",
     "isStaple": false
@@ -4525,7 +4710,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "spaghetti",
     "id": "spaghetti",
     "isStaple": false
@@ -4627,7 +4815,10 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "gluten",
+      "wheat"
+    ],
     "displayName": "strong white bread flour",
     "id": "strong_white_bread_flour",
     "isStaple": false
@@ -4873,7 +5064,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "shellfish"
+    ],
     "displayName": "tiger prawns",
     "id": "tiger_prawns",
     "isStaple": false
@@ -5033,7 +5226,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "unsalted butter",
     "id": "unsalted_butter",
     "isStaple": false
@@ -5243,7 +5438,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "dairy"
+    ],
     "displayName": "whipping cream",
     "id": "whipping_cream",
     "isStaple": false
@@ -5291,7 +5488,9 @@
     "isStaple": false
   },
   {
-    "allergenGroups": [],
+    "allergenGroups": [
+      "fish"
+    ],
     "displayName": "white fish",
     "id": "white_fish",
     "isStaple": false

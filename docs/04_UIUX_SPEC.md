@@ -1,8 +1,13 @@
 # HomeChef — UI/UX Specification
 
 **Company:** Application42 · **Product:** HomeChef
-**Version:** 1.0 · **Date:** August 3, 2026
+**Version:** 1.1 · **Date:** August 8, 2026
 **Scope:** August 24 MVP
+
+**Changed in 1.1** — sequential layout. One decision per screen, enforced by the
+`DecisionScreen` primitive (§2). Onboarding leads with the fridge photo (§3).
+Results renders one bucket, not four (§5). Tab bar cut (§12). Rationale in
+`docs/superpowers/specs/2026-08-08-sequential-layout-design.md`.
 
 ---
 
@@ -82,24 +87,67 @@ Elevation: subtle only — `sm` for cards, `lg` for sheets. Flat-with-borders in
 
 ## 2. Screen Inventory
 
-Eight screens for launch. Anything not on this list is out of scope.
+Eleven screens for launch, plus one skip destination. Anything not on this list
+is out of scope.
+
+**One screen asks one question.** This is structural, not stylistic: screens 1–6
+are built on the shared `DecisionScreen` primitive, whose `primaryAction` prop
+is singular and required, so a second primary CTA is a type error rather than a
+review comment.
+
+**There is no tab bar.** A tab bar is a permanently visible second decision on
+every screen in the app. Everything is a stack; back is the only navigation
+affordance, and Pantry is reached from one quiet row on Home (§4).
 
 | # | Screen | Route | Purpose |
 |---|---|---|---|
-| 1 | Kitchen setup | `(onboarding)/equipment` | Declare equipment tier — asked once, ever |
-| 2 | Allergies & diet | `(onboarding)/restrictions` | Safety constraints — asked once, ever |
-| 3 | Pantry starter | `(onboarding)/staples` | Confirm assumed staples, first photo capture |
-| 4 | **Home** | `(tabs)/index` | Time input → the decision |
-| 5 | **Results** | `(tabs)/index` (same screen, post-input) | Four buckets |
-| 6 | Recipe | `recipe/[id]` | Ingredients, steps, start cooking |
-| 7 | Cook mode | `cook/[id]` | One step at a time, hands-free-ish |
-| 8 | Pantry | `(tabs)/pantry` | View, add, correct |
+| 1 | Welcome | `(onboarding)/welcome` | One line, one button — sets expectations |
+| 2 | **Fridge photo** | `(onboarding)/photo` | Capture — the product, before the setup tax |
+| 3 | Confirm detected | `(onboarding)/confirm` | "Tap any we got wrong" |
+| — | Pantry starter | `(onboarding)/staples` | Skip destination for screen 2 — assumed staples |
+| 4 | Kitchen setup | `(onboarding)/equipment` | Declare equipment tier — asked once, ever |
+| 5 | Allergies & diet | `(onboarding)/restrictions` | Safety constraints — asked once, ever |
+| 6 | **Home** | `(main)/home` | Time input → the decision |
+| 7 | **Results** | `(main)/results` | The `ready` bucket — max 4 cards |
+| 8 | More options | `(main)/more` | The other three buckets, for completeness |
+| 9 | Recipe | `recipe/[id]` | Ingredients, steps, start cooking |
+| 10 | Cook mode | `cook/[id]` | One step at a time, hands-free-ish |
+| 11 | Pantry | `pantry/index` | View, add, correct |
+
+Onboarding runs once, gated on `user_preferences.onboarding_done`. The
+returning-user path is two screens and one tap: Home → Results.
 
 ---
 
-## 3. Onboarding — three screens, under 60 seconds
+## 3. Onboarding — five screens, under 60 seconds
 
 Onboarding is a tax the user pays before receiving any value. Keep it short, make each screen obviously worth it, and never ask twice.
+
+**Order:** welcome → 📸 photo → confirm → equipment → allergies → Home.
+
+Photo leads because it is the only onboarding step that *is* the product rather
+than a form. Everything else is a tax; the camera is the thing they downloaded
+the app for. Leading with it also means the first results screen is built from a
+real pantry instead of a preset — the difference between a demo and a product.
+
+This reverses the earlier equipment-first order. That argument was about
+differentiation (equipment is our third wedge, and no competitor has it); this
+one is about value ordering, and value ordering wins. Differentiation still
+lands — it just lands on screen 4 instead of screen 1, by which point the user
+has already seen something no competitor does.
+
+**Safety is not compromised by the reorder.** No recipe is rendered anywhere in
+the onboarding stack, so allergens are always captured before the first recipe is
+shown.
+
+**The photo step is skippable.** Declining the camera routes to §3.4, the staples
+screen, which becomes the skip destination rather than a mandatory step.
+
+### 3.0 Welcome
+
+One line, one button. `display` type, a single accent CTA, nothing else on the
+screen. Its only job is to make the camera permission prompt on the next screen
+feel like part of a sequence rather than an ambush.
 
 ### 3.1 Kitchen setup
 
@@ -134,7 +182,12 @@ Onboarding is a tax the user pays before receiving any value. Keep it short, mak
 
 **Interaction:** single-select tier, multi-select appliances. The subtitle under each tier does the explaining — no help text, no tooltip.
 
-**Why this screen is first:** it is our third wedge and no competitor has it. Leading with it signals immediately that this app is different from the one the user just deleted.
+**One decision, not two.** The tier is the decision; "Anything else?" is
+progressive disclosure below it, and a user who never scrolls past the three
+cards has answered the question correctly. Do not promote the appliance pills
+into a co-equal section.
+
+**Why this screen matters:** equipment is our third wedge and no competitor has it. It signals that this app is different from the one the user just deleted.
 
 ### 3.2 Allergies & diet
 
@@ -144,13 +197,31 @@ Searchable list of common allergens plus dietary presets (vegetarian, vegan, hal
 
 Skippable, with a clear "Add later in settings."
 
-### 3.3 Pantry starter
+### 3.3 Fridge photo, and confirming it
+
+Two screens, and they are the reason onboarding exists in this order.
+
+**Photo (screen 2).** Full-bleed camera with one shutter button. Copy:
+**"Take a photo of your fridge."** Up to 10 shots in one session. The secondary
+action is **"I'll add them myself"**, which routes to §3.4.
+
+**Confirm (screen 3).** The detection confirmation sheet, per §8. Everything
+under 0.7 confidence is pre-flagged "Not sure about this one." Copy: **"Tap any
+we got wrong."** Nothing is written to `inventory` until this screen is
+confirmed — a bad VLM read must never poison the pantry silently.
+
+These screens establish the app's central interaction pattern — *tap to remove
+what's wrong* — with real data, on the user's own fridge, before they have
+learned anything else about the app.
+
+### 3.4 Pantry starter — the skip destination
+
+Reached only by declining the camera on screen 2.
 
 Pre-populated with assumed staples (salt, pepper, oil, flour, sugar, butter, eggs) shown as removable chips. Copy: **"We assumed you have these. Tap any you don't."**
 
-Then the first capture prompt: **"Take a photo of your fridge"** — with a prominent camera button and a secondary "I'll add them manually" link.
-
-This screen establishes the app's central interaction pattern — *tap to remove what's wrong* — before the user has any pantry worth breaking.
+The camera offer remains available here as a secondary link — declining once is
+not declining forever — but it never blocks progress to screen 4.
 
 ---
 
@@ -170,14 +241,10 @@ The most important screen in the product. It exists to convert "I don't know wha
 │  │  min  │ │  min  │ │  min  │ │
 │  └───────┘ └───────┘ └───────┘ │
 │                                 │
-│  ─────────────────────────────  │
-│                                 │
-│  🍽  Feeling like something?    │  caption — OPTIONAL, de-emphasized
-│  ( Any )( Italian )( Asian ) →  │  ← horizontal scroll
-│                                 │
 │  ┌───────────────────────────┐  │
 │  │      Show me meals        │  │  accent, 56pt
 │  └───────────────────────────┘  │
+│                                 │
 │                                 │
 │  📸 Update pantry · 24 items    │  caption, tappable
 └─────────────────────────────────┘
@@ -185,15 +252,15 @@ The most important screen in the product. It exists to convert "I don't know wha
 
 **Design notes:**
 
-- **Time is the only required input.** Everything else is optional and visually subordinate. This is the "time-first, not ingredient-first" wedge made literal in the layout.
+- **Time is the only input on this screen.** One question, three answers. This is the "time-first, not ingredient-first" wedge made literal in the layout.
 - **Three time options, not a slider.** A slider is a decision. Three buttons are a reflex.
-- Cuisine is optional, de-emphasized, and horizontally scrolled so it never competes with the primary action.
-- Pantry count is visible but quiet — reassurance that the app knows what you have, without demanding management.
-- **Tapping a time tile can go straight to results.** The "Show me meals" button is a fallback for users who expect it, not the required path. Fewer taps beats explicit confirmation here.
+- **Cuisine is cut from Home** (was in v1.0, de-emphasized below a divider). Even a subordinate second control makes the 6pm user read the screen instead of tapping it, and cuisine is the first thing the relaxation ladder discards anyway (Technical Spec §4.3) — a preference the engine is designed to throw away does not earn a permanent slot on the most important screen in the product. Revisit post-launch with usage data, not before.
+- Pantry count is visible but quiet — reassurance that the app knows what you have, without demanding management. It is a link, not a decision.
+- **Tapping a time tile goes straight to results.** The "Show me meals" button is a fallback for users who expect it, not the required path. Fewer taps beats explicit confirmation here.
 
 ---
 
-## 5. Results — the four buckets
+## 5. Results — one bucket, then a door
 
 ```
 ┌─────────────────────────────────┐
@@ -209,24 +276,33 @@ The most important screen in the product. It exists to convert "I don't know wha
 │  │ [img]  Microwave Mug Mac  │  │
 │  │        8 min · Microwave  │  │
 │  └───────────────────────────┘  │
-│                                 │
-│  🟡 MISSING A FEW               │  heading, near
 │  ┌───────────────────────────┐  │
-│  │ [img]  Beef Stroganoff    │  │
-│  │        30 min · Stove     │  │
-│  │        Need: sour cream,  │  │  ← chips, tappable
-│  │              mushrooms    │  │
+│  │ [img]  Egg Fried Toast    │  │
+│  │        10 min · Stove     │  │
 │  └───────────────────────────┘  │
 │                                 │
-│  ⚪ MISSING MORE          (3) ▾ │  ← collapsed by default
-│  ⚪ GROCERY RUN           (8) ▾ │  ← collapsed by default
+│  More options (11)           →  │  ← caption, pushes (main)/more
 └─────────────────────────────────┘
 ```
 
 ### 5.1 Rules
 
-- **Maximum 4 cards per bucket.** Truncation is the product. Adding a "show more" link inside the top buckets would rebuild the paralysis we exist to remove.
-- **The bottom two buckets are collapsed by default.** They exist for completeness, not for browsing.
+- **The results screen renders one bucket: `ready`. Maximum 4 cards.** `CLAUDE.md`
+  is the governing sentence — the engine "emits 3-4 answers," and *showing more
+  options is a regression, not a feature.* Four buckets stacked on one screen is
+  up to sixteen cards, which is a browsing surface, not a decision.
+- **Everything else lives behind one row.** `More options (N) →` pushes
+  `(main)/more`, where `missing_few` renders expanded and `missing_some` /
+  `grocery_run` render collapsed, all at max 4 cards each. That screen exists for
+  completeness, not for browsing, and the user reaches it deliberately.
+- **The engine still computes all four buckets.** Nothing about
+  `decideWithRelaxation` changes. This is a rule about what the first screen
+  renders, not about what the engine returns.
+- **When `ready` is empty**, the relaxation ladder has already promoted
+  `missing_few` into it (§5.3, Technical Spec §4.3), so the top bucket is
+  populated by promotion and the banner explains why. A results screen with an
+  empty top bucket means the engine has a bug.
+- **Truncation is the product.** No "show more" link inside the bucket.
 - **Every ingredient name anywhere is a chip**, and every chip is long-pressable for "I don't have this." This is the drift mitigation (R3) and it must be implemented as one shared `IngredientChip` component, never re-implemented per screen.
 - **Every card shows required equipment.** Constant proof that the app respects the constraint the user declared.
 - **Swipe left on a card to skip.** Records a `skipped` verdict — a weak negative signal, distinct from an explicit dislike.
@@ -456,6 +532,10 @@ Named explicitly so nobody builds them by accident:
 
 Shopping list · roommate/household sharing UI · expiry tracking and warnings · macro and nutrition goals · barcode scanning (**cut permanently, not deferred**) · wake-word voice · social sharing · recipe submission · meal planning calendar · servings scaling · dark mode toggle (follow the OS, do not offer a setting).
 
+**Tab bar** — cut, not deferred. A tab bar puts a second decision on every screen
+in an app whose entire thesis is removing decisions. Navigation is a stack; Home
+reaches Pantry through one quiet row (§4).
+
 ---
 
-*Application42 · HomeChef · UI/UX Specification v1.0 · August 3, 2026*
+*Application42 · HomeChef · UI/UX Specification v1.1 · August 8, 2026*
