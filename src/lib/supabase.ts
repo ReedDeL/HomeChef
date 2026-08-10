@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { storage } from '@/lib/storage';
 import type { Database } from '@/types/supabase-generated';
@@ -47,7 +48,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: mmkvAuthStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // There is no URL to parse a session from in a native app.
-    detectSessionInUrl: false,
+    // Native has no URL to parse a session from. The web build does — OAuth
+    // and magic-link redirects come back with the session in the fragment, and
+    // leaving this false there would silently drop every sign-in.
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
