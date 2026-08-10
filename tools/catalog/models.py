@@ -109,9 +109,7 @@ class CatalogIngredient(BaseModel):
 
     id: str
     measure: str
-    allergen_groups: list[str] = Field(
-        default_factory=list, serialization_alias="allergenGroups"
-    )
+    allergen_groups: list[str] = Field(default_factory=list, serialization_alias="allergenGroups")
 
 
 class CatalogRecipe(BaseModel):

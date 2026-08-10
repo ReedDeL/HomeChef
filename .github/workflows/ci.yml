@@ -31,7 +31,7 @@ jobs:
       - name: Reset local database
         run: npx supabase db reset --workdir supabase --local --no-seed --yes
       - name: Verify RLS policies
-        run: npx supabase db query --workdir supabase --local --file supabase/tests/rls_verification.sql
+        run: npx supabase db query --workdir supabase --local --file tests/rls_verification.sql
 
   python:
     runs-on: ubuntu-latest
