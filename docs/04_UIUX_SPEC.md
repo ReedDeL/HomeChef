@@ -465,9 +465,6 @@ These are Definition-of-Done gates, not polish. Full technical detail in Technic
 ## 10. Copy Guidelines
 
 The app's voice is a competent friend who cooks, not a brand.
-
-| Do | Don't |
-|---|---|
 | "Nothing fits 20 min. Here's what works in 30." | "No results found for your search criteria." |
 | "We assumed you have these. Tap any you don't." | "Default pantry items have been pre-populated." |
 | "Reading your fridge..." | "Processing image. Please wait." |
