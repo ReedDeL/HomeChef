@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { extname, join, normalize } from 'node:path';
-import { readFile, stat } from 'node:fs/promises';
+import { dirname, extname, join, normalize } from 'node:path';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import process from 'node:process';
 import { URL } from 'node:url';
 
@@ -58,10 +58,39 @@ async function resolveFile(candidate) {
     throw new Error('Path traversal blocked');
   }
 
-  const fileStats = await stat(candidate);
-  if (fileStats.isFile()) {
-    return candidate;
+  // `expo export` writes static routes as sibling files -- /equipment becomes
+  // equipment.html, not equipment/index.html. Without the .html attempt every
+  // route but "/" fell through to the SPA fallback, so the browser was handed
+  // the home page's markup for every deep link and only recovered once the
+  // client-side router hydrated.
+  for (const attempt of [candidate, `${candidate}.html`, join(candidate, 'index.html')]) {
+    try {
+      const fileStats = await stat(attempt);
+      if (fileStats.isFile()) return attempt;
+    } catch {
+      // Try the next shape.
+    }
   }
 
+  // Dynamic routes -- e.g. recipe/[id] -- export as a literal `[id].html`
+  // file, so a hard refresh on /recipe/123 has no literal match above and
+  // fell through to the outer index.html fallback: the browser got the home
+  // page's markup for a route it has nothing to do with. Look for a
+  // bracketed sibling in the same directory before giving up.
+  const dynamicMatch = await resolveDynamicSibling(candidate);
+  if (dynamicMatch) return dynamicMatch;
+
   throw new Error('Not a file');
+}
+
+async function resolveDynamicSibling(candidate) {
+  let entries;
+  try {
+    entries = await readdir(dirname(candidate));
+  } catch {
+    return null;
+  }
+
+  const bracketed = entries.find((entry) => /^\[.+\]\.html$/.test(entry));
+  return bracketed ? join(dirname(candidate), bracketed) : null;
 }
