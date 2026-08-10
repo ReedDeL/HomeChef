@@ -1,11 +1,40 @@
 # HomeChef
 
-Photo-based meal decision engine. Application42. Launch: **Aug 24, 2026**.
+**Stop scrolling. Start cooking.**
 
-Not a recipe search engine — a **decision engine**. It consumes constraints
-(time, equipment, pantry, allergens) and emits 3–4 answers.
+HomeChef turns a photo of your kitchen into a short, confident answer to
+"what can I make right now?" — instead of another endless scroll through
+recipes you can't cook, don't have the equipment for, or simply don't have
+time for tonight.
 
-Full specs in [`docs/`](docs/). Architecture rules in [`CLAUDE.md`](CLAUDE.md).
+Point your camera at your pantry, tell us how much time you have, and
+HomeChef hands you 3–4 meals you can actually make — not a hundred
+options to sort through yourself. Every suggestion respects your
+equipment, your allergies, and your dietary needs, no exceptions.
+
+**Launching August 24, 2026.**
+
+### Why people will love it
+
+- **A decision, not a search engine.** We do the filtering so you don't
+  have to — a handful of great answers beats an infinite scroll.
+- **Built around your actual kitchen.** No stovetop? No blender? HomeChef
+  already knows, and it never suggests a dish you can't cook.
+- **Safety you can trust.** Allergens and dietary needs are treated as
+  hard limits, never a "close enough."
+- **Made for real life.** Fifteen minutes before practice or a lazy Sunday
+  afternoon — tell HomeChef how much time you have and get answers sized
+  to fit.
+- **Private by default.** Your pantry and preferences are yours alone,
+  even when you share a kitchen with roommates.
+
+---
+
+## Developer documentation
+
+Everything below this line is technical documentation for the engineering
+team and contributors. Full specs live in [`docs/`](docs/); architecture
+rules live in [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
