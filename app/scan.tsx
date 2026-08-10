@@ -1,0 +1,259 @@
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+
+import { CandidateRow } from '@/components/ui/CandidateRow';
+import { Card } from '@/components/ui/Card';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { Screen } from '@/components/ui/Screen';
+import { Text } from '@/components/ui/Text';
+import type { VocabularyEntry } from '@/data/catalog';
+import {
+  MAX_PHOTOS,
+  PantryPhotoError,
+  acceptedIngredientIds,
+  analyzePantryPhotos,
+  correctCandidate,
+  type PantryCandidate,
+} from '@/lib/pantry-photo';
+import { useKitchenStore } from '@/store/kitchen';
+import { radius, space } from '@/theme/tokens';
+import { useTheme } from '@/theme/useTheme';
+
+type Phase = 'capture' | 'analyzing' | 'review';
+
+/**
+ * Photo → pantry, from the user's side (Technical Spec §5.1, UI/UX Spec §3.3).
+ *
+ * The screen is built around one assumption: the model will get some of this
+ * wrong. So the scan never writes anything on its own. It proposes, the user
+ * corrects, and only the confirmed list reaches the pantry — which is also the
+ * cheapest moment to catch an error, because the alternative is discovering it
+ * three days later as a recipe suggestion that makes no sense.
+ */
+export default function ScanScreen() {
+  const router = useRouter();
+  const { color } = useTheme();
+  const addPantryItems = useKitchenStore((state) => state.addPantryItems);
+
+  const [phase, setPhase] = useState<Phase>('capture');
+  const [uris, setUris] = useState<string[]>([]);
+  const [candidates, setCandidates] = useState<PantryCandidate[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const acceptedCount = useMemo(
+    () => candidates.filter((candidate) => candidate.accepted && candidate.ingredientId).length,
+    [candidates]
+  );
+
+  const pick = useCallback(async (source: 'camera' | 'library') => {
+    setError(null);
+
+    if (source === 'camera') {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setError('We need camera access to photograph your kitchen.');
+        return;
+      }
+    }
+
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 1 })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: 'images',
+            quality: 1,
+            allowsMultipleSelection: true,
+            selectionLimit: MAX_PHOTOS,
+          });
+
+    if (result.canceled) return;
+
+    setUris((current) =>
+      [...current, ...result.assets.map((asset) => asset.uri)].slice(0, MAX_PHOTOS)
+    );
+  }, []);
+
+  const analyze = useCallback(async () => {
+    setPhase('analyzing');
+    setError(null);
+
+    try {
+      setCandidates(await analyzePantryPhotos(uris));
+      setPhase('review');
+    } catch (caught) {
+      // Manual entry is a complete fallback (§2.4), so a failure here is a
+      // detour rather than a dead end — and it says so.
+      setError(
+        caught instanceof PantryPhotoError
+          ? caught.message
+          : 'We could not read those photos. You can still add ingredients by hand.'
+      );
+      setPhase('capture');
+    }
+  }, [uris]);
+
+  const confirm = useCallback(() => {
+    addPantryItems(acceptedIngredientIds(candidates));
+    router.back();
+  }, [candidates, addPantryItems, router]);
+
+  const updateCandidate = useCallback(
+    (key: string, change: (candidate: PantryCandidate) => PantryCandidate) => {
+      setCandidates((current) =>
+        current.map((candidate) => (candidate.key === key ? change(candidate) : candidate))
+      );
+    },
+    []
+  );
+
+  if (phase === 'review') {
+    return (
+      <Screen
+        footer={
+          <View style={styles.footer}>
+            <PrimaryButton
+              label={acceptedCount === 0 ? 'Nothing selected' : `Add ${acceptedCount} to pantry`}
+              onPress={confirm}
+              disabled={acceptedCount === 0}
+              accessibilityHint="Adds the ticked ingredients to your pantry"
+            />
+            <PrimaryButton
+              label="Start over"
+              variant="ghost"
+              onPress={() => {
+                setPhase('capture');
+                setUris([]);
+                setCandidates([]);
+              }}
+              accessibilityHint="Discards this scan"
+            />
+          </View>
+        }
+      >
+        <View style={styles.intro}>
+          <Text variant="display">Does this look right?</Text>
+          <Text variant="body" tone="muted">
+            Tick what you actually have. We flagged the ones we&apos;re unsure about.
+          </Text>
+        </View>
+
+        {candidates.length === 0 ? (
+          <Card variant="alt">
+            <Text variant="heading">We didn&apos;t spot any ingredients.</Text>
+            <Text variant="body" tone="muted">
+              Try a closer photo with the door open, or add what you have by hand.
+            </Text>
+          </Card>
+        ) : (
+          candidates.map((candidate) => (
+            <CandidateRow
+              key={candidate.key}
+              candidate={candidate}
+              onToggle={(key) => updateCandidate(key, (c) => ({ ...c, accepted: !c.accepted }))}
+              onCorrect={(key, entry: VocabularyEntry) =>
+                updateCandidate(key, (c) => correctCandidate(c, entry.id, entry.displayName))
+              }
+              onDismiss={(key) => setCandidates((current) => current.filter((c) => c.key !== key))}
+            />
+          ))
+        )}
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen
+      footer={
+        <View style={styles.footer}>
+          <PrimaryButton
+            label={phase === 'analyzing' ? 'Reading your photos…' : 'Read my photos'}
+            onPress={analyze}
+            disabled={uris.length === 0 || phase === 'analyzing'}
+            accessibilityHint="Sends the photos to be read for ingredients"
+          />
+          <PrimaryButton
+            label="I'll add them manually"
+            variant="ghost"
+            onPress={() => router.back()}
+            accessibilityHint="Returns to the pantry"
+          />
+        </View>
+      }
+    >
+      <View style={styles.intro}>
+        <Text variant="display">Take a photo of your fridge</Text>
+        <Text variant="body" tone="muted">
+          Open the door and get the shelves in frame. You can add up to {MAX_PHOTOS} photos —
+          fridge, freezer, cupboard.
+        </Text>
+      </View>
+
+      {error ? (
+        <Card variant="alt">
+          <Text variant="body" tone="near">
+            {error}
+          </Text>
+        </Card>
+      ) : null}
+
+      <View style={styles.pickRow}>
+        <PrimaryButton
+          label="Take a photo"
+          onPress={() => pick('camera')}
+          accessibilityHint="Opens the camera"
+        />
+        <PrimaryButton
+          label="Choose from library"
+          variant="ghost"
+          onPress={() => pick('library')}
+          accessibilityHint="Opens your photo library"
+        />
+      </View>
+
+      {uris.length > 0 ? (
+        <View style={styles.group}>
+          <Text variant="heading">
+            {uris.length} {uris.length === 1 ? 'photo' : 'photos'}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.thumbRow}
+          >
+            {uris.map((uri) => (
+              <Pressable
+                key={uri}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Remove this photo"
+                accessibilityHint="Drops the photo from this scan"
+                onPress={() => setUris((current) => current.filter((item) => item !== uri))}
+              >
+                <Image
+                  source={{ uri }}
+                  style={[styles.thumb, { borderColor: color.border }]}
+                  accessibilityIgnoresInvertColors
+                />
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Text variant="caption" tone="muted">
+            Tap a photo to remove it. Photos are read and discarded — we store the ingredients,
+            never the pictures.
+          </Text>
+        </View>
+      ) : null}
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  intro: { gap: space.sm },
+  group: { gap: space.sm },
+  footer: { gap: space.sm },
+  pickRow: { gap: space.sm },
+  thumbRow: { flexDirection: 'row', gap: space.sm },
+  thumb: { width: 96, height: 96, borderRadius: radius.md, borderWidth: 1 },
+});

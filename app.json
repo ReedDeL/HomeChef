@@ -1,3 +1,38 @@
 {
-  "plugins": ["expo-secure-store"]
+  "expo": {
+    "name": "HomeChef",
+    "slug": "homechef",
+    "scheme": "homechef",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow HomeChef to access your photos so you can add pantry items from your library.",
+          "cameraPermission": "Allow HomeChef to access your camera to photograph your fridge and pantry.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "488f4cae-deb6-48fe-ae7c-703ad63bed2b"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.application42.homechef",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.application42.homechef"
+    }
+  }
 }

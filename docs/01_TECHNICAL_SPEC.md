@@ -520,6 +520,20 @@ Implementation requirements:
 - **Never write low-confidence items silently.** Anything under 0.7 goes into a confirmation sheet.
 - **Upsert, never insert.** Enforced by the unique constraint; increments quantity on an existing row.
 
+#### 5.1.1 Implementation notes (added August 10, 2026)
+
+Three departures from the diagram above, each deliberate.
+
+**Nothing is written before confirmation.** The diagram shows the Edge Function upserting to Postgres and *then* returning a confirmation sheet. Built the other way round: the function returns candidates, the user reviews and corrects them, and only the confirmed list is written. Correcting a misread after it has been stored means the user has to notice it later, which is exactly the drift (R3) the confirmation step exists to prevent. `confidence < 0.7` still drives which rows arrive pre-ticked.
+
+**Normalization runs on the client, not the Edge Function.** §5.1's reason for putting it server-side is correctness of the canonical mapping, and that is preserved — it resolves against `src/data/ingredients.json`, the same bundled vocabulary the engine matches on. The client is the better seat for two reasons: correcting a name has to re-resolve instantly, so a server-side implementation would either make every keystroke a round trip or require a *second* normalizer on the client — and two normalizers that disagree is the precise failure §5.1 exists to prevent. Second, the vocabulary ships with the app, so a server normalizing against a newer list could return ids the running build has never heard of.
+
+The mapping lives in `src/lib/ingredients/` (`normalize.ts`, `resolve.ts`, `candidates.ts`), is free of React, Expo, and Supabase imports for the same reason `src/engine/` is, and mirrors `tools/catalog/normalize.py`. A test asserts the two synonym tables stay identical.
+
+**The response schema uses uppercase type names.** The `INGREDIENT_SCHEMA` printed in §2.4 spells types lowercase (`"array"`, `"string"`). Gemini's `responseSchema` is an OpenAPI subset carried over protobuf, whose JSON enum parsing is case-sensitive, so the values must be `ARRAY`, `OBJECT`, `STRING`, `NUMBER`. The shipped schema is otherwise identical to the spec.
+
+**Matching tiers.** A name resolves through exact → synonym → plural → partial → fuzzy, and the tier is reported rather than collapsed, because the confirmation sheet's job is to show what the machine was unsure about. Only exact, synonym, and plural are auto-accepted. `partial` (qualifier words dropped, e.g. "baby spinach" → spinach) is never auto-accepted: the same mechanism turns "oat milk" into "milk", which is plausible, wrong, and precisely what poisons the pantry set difference.
+
 ### 5.2 Catalog build — Python, build-time, run once
 
 **This is where Python lives, and it is genuinely load-bearing work — it produces the entire product catalog and closes our single largest data gap (B6).**

@@ -1,0 +1,26 @@
+services:
+  android-build:
+    image: homechef-android-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.android
+    command: ['npm', 'run', 'android:test:build']
+    volumes:
+      - gradle-cache:/root/.gradle
+      - ./build/android-test:/artifacts
+
+  android-emulator:
+    profiles: ['emulator']
+    image: homechef-android-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.android
+    command: ['npm', 'run', 'android:test:emulator']
+    devices:
+      - /dev/kvm:/dev/kvm
+    volumes:
+      - gradle-cache:/root/.gradle
+      - ./build/android-test:/artifacts
+
+volumes:
+  gradle-cache:
