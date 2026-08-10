@@ -1,3 +1,8 @@
+// Hermes has no global `crypto`. This polyfill installs `crypto.getRandomValues`
+// as a side effect and must be imported before `getOrCreateEncryptionKey` runs
+// at module scope below, so it stays the first import in this file.
+import 'react-native-get-random-values';
+
 import { createMMKV } from 'react-native-mmkv';
 import * as SecureStore from 'expo-secure-store';
 

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
+    "android:dev": "expo start --dev-client --android",
     "android:test:build": "bash scripts/android-test.sh build",
     "android:test:emulator": "bash scripts/android-test.sh emulator",
     "ios": "expo run:ios",
