@@ -26,8 +26,8 @@ begin;
 -- further blind. Remove once root-caused.
 select current_user, session_user, current_database();
 select current_setting('search_path') as search_path;
-select schemaname, tablename from pg_tables where tablename = 'household_members';
-select to_regclass('household_members') as unqualified, to_regclass('public.household_members') as qualified;
+select schemaname, tablename from pg_tables where schemaname = 'public' order by 1, 2;
+select version, name from supabase_migrations.schema_migrations order by version;
 
 create temp table _rls_results (
   n         int,
