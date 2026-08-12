@@ -19,14 +19,6 @@
 
 begin;
 
--- The seed statements below are unqualified; the DO block further down
--- schema-qualifies everything because it runs as authenticated/anon roles
--- whose search_path cannot be assumed. Set it explicitly rather than rely on
--- the connecting role's default -- that default is what silently turned
--- every seed statement into "relation does not exist" the first time this
--- ran outside a human's already-configured psql session.
-set search_path = public;
-
 create temp table _rls_results (
   n         int,
   assertion text,
@@ -49,32 +41,32 @@ values
 
 -- A2 moves into A's household. This is the roommate case -- the only reason the
 -- household/user split exists at all.
-update household_members
-   set household_id = (select household_id from profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001')
+update public.household_members
+   set household_id = (select household_id from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001')
  where user_id = 'aaaaaaaa-0000-4000-8000-000000000002';
 
-update profiles
-   set household_id = (select household_id from profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001')
+update public.profiles
+   set household_id = (select household_id from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001')
  where id = 'aaaaaaaa-0000-4000-8000-000000000002';
 
 -- Seeded as the table owner, which bypasses RLS. Every read below does not.
-insert into inventory (household_id, ingredient_id, source)
+insert into public.inventory (household_id, ingredient_id, source)
 select household_id, x.ingredient_id, 'manual'
-  from profiles p
+  from public.profiles p
   cross join (values ('egg'), ('milk')) as x(ingredient_id)
  where p.id = 'aaaaaaaa-0000-4000-8000-000000000001';
 
-insert into inventory (household_id, ingredient_id, source)
+insert into public.inventory (household_id, ingredient_id, source)
 select household_id, 'rice', 'manual'
-  from profiles where id = 'bbbbbbbb-0000-4000-8000-000000000001';
+  from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000001';
 
-insert into meal_feedback (user_id, recipe_id, verdict)
+insert into public.meal_feedback (user_id, recipe_id, verdict)
 values ('aaaaaaaa-0000-4000-8000-000000000001', 'tier1-0001', 'liked'),
        ('bbbbbbbb-0000-4000-8000-000000000001', 'tier1-0002', 'disliked');
 
 -- An allergen is the highest-stakes private field in the schema. If a roommate
 -- can read this row, the privacy model has failed.
-update user_preferences
+update public.user_preferences
    set allergens = array['peanut'], equipment = array['microwave']
  where user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
 
