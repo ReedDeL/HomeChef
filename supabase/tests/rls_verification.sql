@@ -19,6 +19,14 @@
 
 begin;
 
+-- The seed statements below are unqualified; the DO block further down
+-- schema-qualifies everything because it runs as authenticated/anon roles
+-- whose search_path cannot be assumed. Set it explicitly rather than rely on
+-- the connecting role's default -- that default is what silently turned
+-- every seed statement into "relation does not exist" the first time this
+-- ran outside a human's already-configured psql session.
+set search_path = public;
+
 create temp table _rls_results (
   n         int,
   assertion text,
@@ -183,6 +191,19 @@ select n, assertion, expected, actual,
        case when pass then 'PASS' else 'FAIL' end as result
   from _rls_results
  order by n;
+
+-- The SELECT above is just a report -- a FAIL row does not make psql exit
+-- non-zero on its own. Raise so a real regression cannot read as CI green.
+do $$
+declare
+  failed int;
+begin
+  select count(*) into failed from _rls_results where not pass;
+  if failed > 0 then
+    raise exception '% of % RLS assertions failed -- see the table above', failed,
+      (select count(*) from _rls_results);
+  end if;
+end $$;
 
 -- Nothing above is kept. Re-runnable as many times as you like.
 rollback;
