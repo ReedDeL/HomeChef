@@ -137,36 +137,45 @@ begin
   get diagnostics n = row_count;
   results := results || format('11|A cannot clear B pantry|0|%s', n);
 
+  -- Positive control: a policy set that denies everything is not a passing
+  -- policy set. Assertions 8-11 above only mean something if A can still
+  -- write their own household's pantry.
+  insert into public.inventory (household_id, ingredient_id, source)
+  values ((select household_id from public.profiles where id = user_a), 'flour', 'manual');
+  get diagnostics n = row_count;
+  results := results || format('12|Positive control: A CAN stock own pantry|1|%s', n);
+
   ----------------------------------------------------- as A2, the roommate ---
   perform set_config('request.jwt.claims',
                      json_build_object('sub', user_a2, 'role', 'authenticated')::text, true);
 
   -- Shared: this one is supposed to succeed. A pantry nobody can share is just
-  -- as broken as preferences everybody can read.
+  -- as broken as preferences everybody can read. 3, not 2 -- the positive
+  -- control above added flour to the same household.
   select count(*) into n from public.inventory;
-  results := results || format('12|Roommate SHARES the pantry|2|%s', n);
+  results := results || format('13|Roommate SHARES the pantry|3|%s', n);
 
   select count(*) into n from public.user_preferences;
-  results := results || format('13|Roommate sees only own preferences|1|%s', n);
+  results := results || format('14|Roommate sees only own preferences|1|%s', n);
 
   select count(*) into n from public.user_preferences where 'peanut' = any(allergens);
-  results := results || format('14|Roommate cannot read A allergens|0|%s', n);
+  results := results || format('15|Roommate cannot read A allergens|0|%s', n);
 
   select count(*) into n from public.meal_feedback;
-  results := results || format('15|Roommate cannot read A feedback|0|%s', n);
+  results := results || format('16|Roommate cannot read A feedback|0|%s', n);
 
   --------------------------------------------------------------- as anon -----
   perform set_config('role', 'anon', true);
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
 
   select count(*) into n from public.inventory;
-  results := results || format('16|Anon sees no pantry|0|%s', n);
+  results := results || format('17|Anon sees no pantry|0|%s', n);
 
   select count(*) into n from public.user_preferences;
-  results := results || format('17|Anon sees no preferences|0|%s', n);
+  results := results || format('18|Anon sees no preferences|0|%s', n);
 
   select count(*) into n from public.households;
-  results := results || format('18|Anon sees no households|0|%s', n);
+  results := results || format('19|Anon sees no households|0|%s', n);
 
   perform set_config('role', 'postgres', true);
 
