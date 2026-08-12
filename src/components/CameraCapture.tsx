@@ -1,9 +1,4 @@
-interface CameraCaptureProps {
-  visible: boolean;
-  onCapture: (dataUri: string) => void;
-  onClose: () => void;
-  onUnavailable: () => void;
-}
+import type { CameraCaptureProps } from '@/lib/webcam';
 
 /**
  * Native already has a working live camera through expo-image-picker's

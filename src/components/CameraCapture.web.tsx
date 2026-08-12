@@ -1,22 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/ui/Chip';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { toCameraDevices, videoConstraintsFor, type CameraDevice } from '@/lib/webcam';
-import { radius, space } from '@/theme/tokens';
+import {
+  toCameraDevices,
+  videoConstraintsFor,
+  type CameraCaptureProps,
+  type CameraDevice,
+} from '@/lib/webcam';
+import { layout, radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
-type Phase = 'requesting' | 'live' | 'closed';
-
-interface CameraCaptureProps {
-  visible: boolean;
-  onCapture: (dataUri: string) => void;
-  onClose: () => void;
-  onUnavailable: () => void;
-}
+type Phase = 'requesting' | 'live' | 'closed' | 'unavailable';
 
 /**
  * Live getUserMedia camera for the web build
@@ -49,7 +47,7 @@ export function CameraCapture({ visible, onCapture, onClose, onUnavailable }: Ca
   const startStream = useCallback(
     async (deviceId: string | null) => {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        onUnavailable();
+        setPhase('unavailable');
         return;
       }
 
@@ -74,23 +72,31 @@ export function CameraCapture({ visible, onCapture, onClose, onUnavailable }: Ca
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+          try {
+            await videoRef.current.play();
+          } catch {
+            // A rejected play() (e.g. AbortError from an autoplay-policy
+            // edge case) doesn't mean the stream failed — the <video> has
+            // autoplay set and will typically start on its own. Treat the
+            // stream as acquired either way rather than falling into the
+            // catch below and reporting a working camera as unavailable.
+          }
         }
 
         const settledDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId;
         setActiveDeviceId(settledDeviceId ?? null);
 
         const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+        if (requestId !== requestIdRef.current) return;
         setDevices(toCameraDevices(mediaDevices));
 
         setPhase('live');
       } catch {
         if (requestId !== requestIdRef.current) return;
-        setPhase('closed');
-        onUnavailable();
+        setPhase('unavailable');
       }
     },
-    [onUnavailable, stopStream]
+    [stopStream]
   );
 
   useEffect(() => {
@@ -166,57 +172,80 @@ export function CameraCapture({ visible, onCapture, onClose, onUnavailable }: Ca
 
   if (!visible) return null;
 
+  const unavailable = phase === 'unavailable';
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.overlay, { backgroundColor: color.bg }]}>
-        <View style={styles.content}>
-          <Text variant="display">Point your camera</Text>
-          <Text variant="body" tone="muted">
-            {phase === 'requesting'
-              ? 'Requesting camera access…'
-              : 'Get the shelves in frame, then capture.'}
-          </Text>
-
-          <View ref={setPreviewContainer} style={[styles.preview, { borderColor: color.border }]} />
-
-          {devices.length > 1 ? (
-            <View style={styles.deviceRow}>
-              {devices.map((device) => (
-                <Chip
-                  key={device.deviceId}
-                  label={device.label}
-                  selected={device.deviceId === activeDeviceId}
-                  onPress={() => handleSelectDevice(device.deviceId)}
-                  accessibilityLabel={`Use ${device.label}`}
-                  accessibilityHint="Switches the live preview to this camera"
+      <View style={[styles.backdrop, { backgroundColor: color.surfaceAlt }]}>
+        <View style={styles.column}>
+          <Screen
+            footer={
+              <View style={styles.footer}>
+                {unavailable ? (
+                  <PrimaryButton
+                    label="Choose a photo instead"
+                    onPress={onUnavailable}
+                    accessibilityHint="Opens your photo library instead of the camera"
+                  />
+                ) : (
+                  <PrimaryButton
+                    label="Capture photo"
+                    onPress={handleCapture}
+                    disabled={phase !== 'live'}
+                    accessibilityHint="Takes a photo with the live camera"
+                  />
+                )}
+                <PrimaryButton
+                  label="Cancel"
+                  variant="ghost"
+                  onPress={onClose}
+                  accessibilityHint="Closes the camera without taking a photo"
                 />
-              ))}
-            </View>
-          ) : null}
-        </View>
+              </View>
+            }
+          >
+            <Text variant="display">Point your camera</Text>
+            <Text variant="body" tone="muted">
+              {unavailable
+                ? "We couldn't reach a camera on this device."
+                : phase === 'requesting'
+                  ? 'Requesting camera access…'
+                  : 'Get the shelves in frame, then capture.'}
+            </Text>
 
-        <View style={styles.footer}>
-          <PrimaryButton
-            label="Capture photo"
-            onPress={handleCapture}
-            disabled={phase !== 'live'}
-            accessibilityHint="Takes a photo with the live camera"
-          />
-          <PrimaryButton
-            label="Cancel"
-            variant="ghost"
-            onPress={onClose}
-            accessibilityHint="Closes the camera without taking a photo"
-          />
+            {unavailable ? null : (
+              <>
+                <View
+                  ref={setPreviewContainer}
+                  style={[styles.preview, { borderColor: color.border }]}
+                />
+
+                {devices.length > 1 ? (
+                  <View style={styles.deviceRow}>
+                    {devices.map((device) => (
+                      <Chip
+                        key={device.deviceId}
+                        label={device.label}
+                        selected={device.deviceId === activeDeviceId}
+                        onPress={() => handleSelectDevice(device.deviceId)}
+                        accessibilityLabel={`Use ${device.label}`}
+                        accessibilityHint="Switches the live preview to this camera"
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </>
+            )}
+          </Screen>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'space-between' },
-  content: { padding: space.lg, gap: space.md },
+  backdrop: { flex: 1, alignItems: 'center' },
+  column: { flex: 1, width: '100%', maxWidth: layout.mobileViewportMaxWidth, alignSelf: 'center' },
   preview: {
     aspectRatio: 4 / 3,
     borderRadius: radius.md,
@@ -224,5 +253,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   deviceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  footer: { padding: space.lg, gap: space.sm },
+  footer: { gap: space.sm },
 });

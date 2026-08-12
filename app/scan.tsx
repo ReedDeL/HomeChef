@@ -240,14 +240,14 @@ export default function ScanScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.thumbRow}
             >
-              {uris.map((uri) => (
+              {uris.map((uri, index) => (
                 <Pressable
-                  key={uri}
+                  key={index}
                   accessible
                   accessibilityRole="button"
                   accessibilityLabel="Remove this photo"
                   accessibilityHint="Drops the photo from this scan"
-                  onPress={() => setUris((current) => current.filter((item) => item !== uri))}
+                  onPress={() => setUris((current) => current.filter((_, i) => i !== index))}
                 >
                   <Image
                     source={{ uri }}

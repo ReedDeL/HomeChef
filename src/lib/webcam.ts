@@ -9,6 +9,22 @@ export interface CameraDevice {
   label: string;
 }
 
+/**
+ * Public contract shared by CameraCapture.tsx (native stub) and
+ * CameraCapture.web.tsx (real implementation). Metro resolves the platform
+ * file at bundle time, but `tsc` only ever sees the native one when
+ * type-checking `@/components/CameraCapture` — so this lives here, in a
+ * module both files import, instead of being declared twice and risking
+ * silent drift. Web-only internals (like the "unavailable" phase) stay out
+ * of this type; they're private to CameraCapture.web.tsx.
+ */
+export interface CameraCaptureProps {
+  visible: boolean;
+  onCapture: (dataUri: string) => void;
+  onClose: () => void;
+  onUnavailable: () => void;
+}
+
 interface DeviceLike {
   kind: string;
   deviceId: string;
