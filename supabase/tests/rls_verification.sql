@@ -19,16 +19,6 @@
 
 begin;
 
--- TEMPORARY DIAGNOSTIC -- public.household_members has failed to resolve
--- from this top-level session in CI despite existing (proven by the signup
--- trigger, a SECURITY DEFINER function, writing to it moments earlier in the
--- same transaction). Print what this session actually sees before guessing
--- further blind. Remove once root-caused.
-select current_user, session_user, current_database();
-select current_setting('search_path') as search_path;
-select schemaname, tablename from pg_tables where schemaname = 'public' order by 1, 2;
-select version, name from supabase_migrations.schema_migrations order by version;
-
 create temp table _rls_results (
   n         int,
   assertion text,
