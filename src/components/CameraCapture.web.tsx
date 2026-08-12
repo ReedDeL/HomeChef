@@ -30,12 +30,17 @@ export function CameraCapture({ visible, onCapture, onClose, onUnavailable }: Ca
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Bumped on every stopStream() and every new startStream() call so a
+  // slow-resolving getUserMedia from a superseded request can tell it's
+  // stale and back out instead of orphaning a stream or stomping newer state.
+  const requestIdRef = useRef(0);
 
   const [phase, setPhase] = useState<Phase>('closed');
   const [devices, setDevices] = useState<CameraDevice[]>([]);
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
 
   const stopStream = useCallback(() => {
+    requestIdRef.current += 1;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -50,12 +55,21 @@ export function CameraCapture({ visible, onCapture, onClose, onUnavailable }: Ca
 
       setPhase('requesting');
       stopStream();
+      const requestId = ++requestIdRef.current;
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: videoConstraintsFor(deviceId),
           audio: false,
         });
+
+        // A newer request (cancel, close, or another device switch) landed
+        // while this one was in flight — stop the now-unwanted tracks and
+        // leave streamRef/videoRef/state alone; they belong to that request.
+        if (requestId !== requestIdRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
 
         streamRef.current = stream;
         if (videoRef.current) {
@@ -71,6 +85,7 @@ export function CameraCapture({ visible, onCapture, onClose, onUnavailable }: Ca
 
         setPhase('live');
       } catch {
+        if (requestId !== requestIdRef.current) return;
         setPhase('closed');
         onUnavailable();
       }
