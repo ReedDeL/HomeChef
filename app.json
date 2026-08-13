@@ -13,7 +13,9 @@
           "cameraPermission": "Allow HomeChef to access your camera to photograph your fridge and pantry.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-localization",
+      "posthog-react-native/expo"
     ],
     "web": {
       "bundler": "metro",
