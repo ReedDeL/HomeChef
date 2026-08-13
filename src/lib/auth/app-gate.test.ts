@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { appGatePhase, needsRouteReplacement } from '@/lib/auth/app-gate';
+import { appGatePhase, needsRouteReplacement, rootRouteIsAvailable } from '@/lib/auth/app-gate';
+
+const DYNAMIC_APP_ROUTES = ['cook/[id]', 'recipe/[id]'] as const;
 
 describe('app gate routing', () => {
   it('does not replace when the user is already in the target group', () => {
@@ -21,4 +23,14 @@ describe('app gate routing', () => {
     expect(appGatePhase(true, false, 'loading', '/')).toBe('redirecting');
     expect(appGatePhase(true, false, '(auth)', '/(auth)/sign-in')).toBe('ready');
   });
+
+  it.each(DYNAMIC_APP_ROUTES)(
+    'protects the %s route while loading and while signed out',
+    (routeName) => {
+      expect(rootRouteIsAvailable(routeName, 'loading', '/(auth)/sign-in')).toBe(false);
+      expect(rootRouteIsAvailable(routeName, 'redirecting', '/(auth)/sign-in')).toBe(false);
+      expect(rootRouteIsAvailable(routeName, 'ready', '/(auth)/sign-in')).toBe(false);
+      expect(rootRouteIsAvailable(routeName, 'ready', '/')).toBe(true);
+    }
+  );
 });

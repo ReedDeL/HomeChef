@@ -5,7 +5,12 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MobileViewport } from '@/components/MobileViewport';
-import { appGatePhase, authRoute } from '@/lib/auth/app-gate';
+import {
+  appGatePhase,
+  authRoute,
+  ROOT_ROUTE_NAMES,
+  rootRouteIsAvailable,
+} from '@/lib/auth/app-gate';
 import { useAuthSession } from '@/lib/auth/useAuthSession';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
@@ -72,25 +77,11 @@ function AppGate() {
 
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-      <Stack.Protected guard={phase === 'loading'}>
-        <Stack.Screen name="loading" />
-      </Stack.Protected>
-
-      <Stack.Protected guard={phase !== 'loading' && target === '/(auth)/sign-in'}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-
-      <Stack.Protected guard={phase !== 'loading' && target === '/(onboarding)/equipment'}>
-        <Stack.Screen name="(onboarding)" />
-      </Stack.Protected>
-
-      <Stack.Protected guard={phase !== 'loading' && target === '/'}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="cook" />
-        <Stack.Screen name="recipe" />
-        <Stack.Screen name="scan" />
-        <Stack.Screen name="settings" />
-      </Stack.Protected>
+      {ROOT_ROUTE_NAMES.map((routeName) => (
+        <Stack.Protected key={routeName} guard={rootRouteIsAvailable(routeName, phase, target)}>
+          <Stack.Screen name={routeName} />
+        </Stack.Protected>
+      ))}
     </Stack>
   );
 }
