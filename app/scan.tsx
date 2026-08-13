@@ -18,6 +18,12 @@ import {
   correctCandidate,
   type PantryCandidate,
 } from '@/lib/pantry-photo';
+import {
+  trackPantryItemAdded,
+  trackPantryScanCompleted,
+  trackPantryScanFailed,
+  trackPantryScanStarted,
+} from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -50,6 +56,7 @@ export default function ScanScreen() {
   );
 
   const pick = useCallback(async (source: 'camera' | 'library') => {
+    trackPantryScanStarted({ source });
     setError(null);
 
     if (source === 'camera' && Platform.OS === 'web') {
@@ -97,9 +104,16 @@ export default function ScanScreen() {
     setError(null);
 
     try {
-      setCandidates(await analyzePantryPhotos(uris));
+      const result = await analyzePantryPhotos(uris);
+      setCandidates(result);
+      trackPantryScanCompleted({
+        photo_count: uris.length,
+        candidate_count: result.length,
+        accepted_count: acceptedIngredientIds(result).length,
+      });
       setPhase('review');
     } catch (caught) {
+      trackPantryScanFailed({ photo_count: uris.length, failure_stage: 'analyze' });
       // Manual entry is a complete fallback (§2.4), so a failure here is a
       // detour rather than a dead end — and it says so.
       setError(
@@ -112,7 +126,9 @@ export default function ScanScreen() {
   }, [uris]);
 
   const confirm = useCallback(() => {
-    addPantryItems(acceptedIngredientIds(candidates));
+    const acceptedIds = acceptedIngredientIds(candidates);
+    trackPantryItemAdded({ source: 'photo_scan', item_count: acceptedIds.length });
+    addPantryItems(acceptedIds);
     router.back();
   }, [candidates, addPantryItems, router]);
 

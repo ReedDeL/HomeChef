@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
@@ -9,6 +9,13 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TIER1_CATALOG, lookupIngredient } from '@/data/catalog';
 import { formatCuisine, formatDuration, formatEquipment } from '@/lib/format';
+import {
+  trackCookModeStarted,
+  trackPantryItemAdded,
+  trackPantryItemRemoved,
+  trackRecipeDisliked,
+  trackRecipeViewed,
+} from '@/lib/analytics';
 import { recordDislike, useKitchenStore } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -30,6 +37,20 @@ export default function RecipeScreen() {
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
 
   const recipe = useMemo(() => TIER1_CATALOG.find((candidate) => candidate.id === id), [id]);
+
+  useEffect(() => {
+    if (recipe) trackRecipeViewed({ recipe_id: recipe.id, source: 'results' });
+  }, [recipe]);
+
+  const toggleIngredient = (ingredientId: (typeof pantry)[number]) => {
+    const adding = !pantry.includes(ingredientId);
+    togglePantryItem(ingredientId);
+    if (adding) {
+      trackPantryItemAdded({ source: 'recipe', item_count: 1 });
+    } else {
+      trackPantryItemRemoved({ source: 'recipe', item_count: 1 });
+    }
+  };
 
   if (!recipe) {
     return (
@@ -57,7 +78,10 @@ export default function RecipeScreen() {
       footer={
         <PrimaryButton
           label="👨‍🍳 Start cooking"
-          onPress={() => router.push(`/cook/${recipe.id}`)}
+          onPress={() => {
+            trackCookModeStarted({ recipe_id: recipe.id, step_count: steps.length });
+            router.push(`/cook/${recipe.id}`);
+          }}
           accessibilityHint="Enters step-by-step cook mode"
         />
       }
@@ -99,7 +123,7 @@ export default function RecipeScreen() {
           </Text>
           <View style={styles.chipRow}>
             {missing.map((ingredient) => (
-              <IngredientChip key={ingredient.id} id={ingredient.id} onToggle={togglePantryItem} />
+              <IngredientChip key={ingredient.id} id={ingredient.id} onToggle={toggleIngredient} />
             ))}
           </View>
           <Text variant="caption" tone="muted">
@@ -148,6 +172,7 @@ export default function RecipeScreen() {
         accessibilityLabel="Not for me"
         accessibilityHint="Stops suggesting this recipe"
         onPress={() => {
+          trackRecipeDisliked({ recipe_id: recipe.id });
           recordDislike(recipe.id);
           router.back();
         }}

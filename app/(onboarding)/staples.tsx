@@ -9,6 +9,7 @@ import { StepIndicator } from '@/components/ui/StepIndicator';
 import { Text } from '@/components/ui/Text';
 import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
 import { STAPLE_INGREDIENT_IDS } from '@/data/catalog';
+import { trackOnboardingCompleted, trackPantryItemAdded, trackPantryItemRemoved } from '@/lib/analytics';
 import { space } from '@/theme/tokens';
 
 /**
@@ -29,12 +30,31 @@ import { space } from '@/theme/tokens';
 export default function StaplesScreen() {
   const router = useRouter();
   const pantry = useKitchenStore((state) => state.pantry);
+  const tierId = useKitchenStore((state) => state.tierId);
+  const allergens = useKitchenStore((state) => state.allergens);
+  const dietary = useKitchenStore((state) => state.dietary);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
   const completeOnboarding = useKitchenStore((state) => state.completeOnboarding);
 
   const finish = () => {
+    trackOnboardingCompleted({
+      pantry_count: pantry.length,
+      equipment_tier: tierId,
+      allergen_count: allergens.length,
+      dietary_restriction_count: dietary.length,
+    });
     completeOnboarding();
     router.replace('/');
+  };
+
+  const toggleIngredient = (id: (typeof pantry)[number]) => {
+    const adding = !pantry.includes(id);
+    togglePantryItem(id);
+    if (adding) {
+      trackPantryItemAdded({ source: 'onboarding', item_count: 1 });
+    } else {
+      trackPantryItemRemoved({ source: 'onboarding', item_count: 1 });
+    }
   };
 
   const back = () => router.back();
@@ -70,7 +90,7 @@ export default function StaplesScreen() {
               key={id}
               id={id}
               inPantry={pantry.includes(id)}
-              onToggle={togglePantryItem}
+              onToggle={toggleIngredient}
             />
           ))}
         </View>
@@ -84,7 +104,7 @@ export default function StaplesScreen() {
               key={id}
               id={id}
               inPantry={pantry.includes(id)}
-              onToggle={togglePantryItem}
+              onToggle={toggleIngredient}
             />
           ))}
         </View>
