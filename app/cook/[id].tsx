@@ -1,15 +1,22 @@
+import { useMutation } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { MealSatietyCheckIn } from '@/components/ui/MealSatietyCheckIn';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TIER1_CATALOG } from '@/data/catalog';
+import { supabase } from '@/lib/supabase';
+import { recordMealSatiety } from '@/lib/queries/preferences';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { MealSatietyLevel } from '@/types/database';
+
+type CompletionStep = 'cooking' | 'verdict' | 'satiety';
 
 /**
  * Spec §7 — Cook Mode: hands-free-ish, one step at a time.
@@ -33,7 +40,7 @@ export default function CookModeScreen() {
   }, [recipe]);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [completed, setCompleted] = useState(false);
+  const [completionStep, setCompletionStep] = useState<CompletionStep>('cooking');
 
   // Timer state for current step if duration detected
   const currentStepText = steps[currentStepIndex] ?? '';
@@ -67,29 +74,43 @@ export default function CookModeScreen() {
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex((prev) => prev + 1);
     } else {
-      setCompleted(true);
+      setCompletionStep('verdict');
     }
   }, [currentStepIndex, steps.length]);
 
   const handleBack = useCallback(() => {
-    if (completed) {
-      setCompleted(false);
+    if (completionStep === 'satiety') {
+      setCompletionStep('verdict');
+    } else if (completionStep === 'verdict') {
+      setCompletionStep('cooking');
     } else if (currentStepIndex > 0) {
       setCurrentStepIndex((prev) => prev - 1);
     }
-  }, [completed, currentStepIndex]);
+  }, [completionStep, currentStepIndex]);
 
-  const handleFinishCooking = useCallback(
+  const handleVerdict = useCallback(
     (removeIngredients: boolean) => {
       if (removeIngredients && recipe) {
         for (const ingredient of recipe.ingredients) {
           removePantryItem(ingredient.id);
         }
       }
-      router.replace('/');
+      setCompletionStep('satiety');
     },
-    [recipe, removePantryItem, router]
+    [recipe, removePantryItem]
   );
+
+  const satietyMutation = useMutation({
+    mutationFn: async (level: MealSatietyLevel) => {
+      if (!recipe) throw new Error('Recipe not found.');
+
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!data.user) throw new Error('Sign in is required to save a hunger stat.');
+      await recordMealSatiety(data.user.id, recipe.id, level);
+    },
+    onSuccess: () => router.replace('/'),
+  });
 
   if (!recipe || steps.length === 0) {
     return (
@@ -104,14 +125,28 @@ export default function CookModeScreen() {
     );
   }
 
-  if (completed) {
+  if (completionStep === 'satiety') {
+    return (
+      <Screen>
+        <MealSatietyCheckIn
+          recipeTitle={recipe.title}
+          isSaving={satietyMutation.isPending}
+          errorMessage={satietyMutation.isError ? 'Unable to save hunger stat.' : null}
+          onSave={satietyMutation.mutate}
+          onSkip={() => router.replace('/')}
+        />
+      </Screen>
+    );
+  }
+
+  if (completionStep === 'verdict') {
     return (
       <Screen
         footer={
           <View style={styles.footer}>
             <PrimaryButton
               label="Back to results"
-              onPress={() => handleFinishCooking(false)}
+              onPress={() => router.replace('/')}
               accessibilityHint="Finishes cook mode and returns to results"
             />
           </View>
@@ -131,7 +166,7 @@ export default function CookModeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thumbs up, liked it"
               accessibilityHint="Records positive feedback and deducts used pantry ingredients"
-              onPress={() => handleFinishCooking(true)}
+              onPress={() => handleVerdict(true)}
               style={[
                 styles.rateButton,
                 { backgroundColor: color.surface, borderColor: color.border },
@@ -148,7 +183,7 @@ export default function CookModeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thumbs down, did not like"
               accessibilityHint="Records feedback and keeps pantry unchanged"
-              onPress={() => handleFinishCooking(false)}
+              onPress={() => handleVerdict(false)}
               style={[
                 styles.rateButton,
                 { backgroundColor: color.surface, borderColor: color.border },
