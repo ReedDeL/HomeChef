@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MobileViewport } from '@/components/MobileViewport';
+import { authRoute, needsRouteReplacement } from '@/lib/auth/app-gate';
+import { useAuthSession } from '@/lib/auth/useAuthSession';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
 
@@ -34,7 +36,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <MobileViewport>
-          <OnboardingGate />
+          <AppGate />
           <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
         </MobileViewport>
       </SafeAreaProvider>
@@ -43,36 +45,32 @@ export default function RootLayout() {
 }
 
 /**
- * Sends a first-run user through onboarding, and keeps a returning one out of
- * it. Renders nothing — it only redirects.
+ * Keeps signed-out users outside the app, sends a first-run signed-in user
+ * through onboarding, and keeps a returning one out of it. Renders nothing —
+ * it only redirects.
  *
  * The equipment tier and allergen list are hard constraints the engine cannot
  * do without, so this is a gate rather than a prompt: there is no "skip"
  * through the equipment screen, only through the optional restrictions one.
  */
-function OnboardingGate() {
+function AppGate() {
   const router = useRouter();
   const segments = useSegments();
   const onboardingDone = useKitchenStore((state) => state.onboardingDone);
   const hydrated = useStoreHydrated();
+  const { isAuthenticated, isLoading } = useAuthSession();
 
   useEffect(() => {
-    // Redirecting before the persisted state is read would bounce a returning
-    // user back through onboarding on every cold start.
-    if (!hydrated) return;
+    // Redirecting before both persisted stores are ready can briefly expose the
+    // wrong route and can bounce a returning user through sign-in or onboarding.
+    if (!hydrated || isLoading) return;
 
-    // `/scan` and `/settings` are reachable before onboarding completes.
-    // They live outside the `(onboarding)` group, so without this the gate would
-    // treat them as unauthorized and bounce the user back to the equipment screen.
-    const inOnboarding =
-      segments[0] === '(onboarding)' || segments[0] === 'scan' || segments[0] === 'settings';
+    const target = authRoute({ isAuthenticated, onboardingDone });
+    const currentGroup =
+      segments[0] === '(auth)' || segments[0] === '(onboarding)' ? segments[0] : undefined;
 
-    if (!onboardingDone && !inOnboarding) {
-      router.replace('/(onboarding)/equipment');
-    } else if (onboardingDone && segments[0] === '(onboarding)') {
-      router.replace('/');
-    }
-  }, [hydrated, onboardingDone, segments, router]);
+    if (needsRouteReplacement(currentGroup, target)) router.replace(target);
+  }, [hydrated, isAuthenticated, isLoading, onboardingDone, router, segments]);
 
   return null;
 }
