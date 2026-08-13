@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PostHogProvider } from 'posthog-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AnalyticsObserver } from '@/components/AnalyticsObserver';
 import { MobileViewport } from '@/components/MobileViewport';
+import { isAnalyticsConfigured } from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
 
@@ -35,12 +36,7 @@ export default function RootLayout() {
   const { isDark } = useTheme();
 
   return (
-    <PostHogProvider
-      apiKey={posthogApiKey}
-      options={{ host: posthogHost, disabled: posthogApiKey.length === 0 }}
-      autocapture={false}
-    >
-      <AnalyticsObserver />
+    <AnalyticsProvider>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
           <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -50,6 +46,17 @@ export default function RootLayout() {
           </MobileViewport>
         </SafeAreaProvider>
       </QueryClientProvider>
+    </AnalyticsProvider>
+  );
+}
+
+function AnalyticsProvider({ children }: { children: ReactNode }) {
+  if (!isAnalyticsConfigured(posthogApiKey)) return children;
+
+  return (
+    <PostHogProvider apiKey={posthogApiKey} options={{ host: posthogHost }} autocapture={false}>
+      <AnalyticsObserver />
+      {children}
     </PostHogProvider>
   );
 }

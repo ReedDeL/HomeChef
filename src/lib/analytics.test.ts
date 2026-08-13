@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   createRouteChangeGuard,
+  isAnalyticsConfigured,
   normalizeRoute,
   setAnalyticsClient,
   trackCookModeCompleted,
@@ -41,6 +42,12 @@ describe('analytics helpers', () => {
     trackPageView('/');
 
     expect(events).toEqual([]);
+  });
+
+  it('requires a non-empty API key before enabling the SDK', () => {
+    expect(isAnalyticsConfigured('')).toBe(false);
+    expect(isAnalyticsConfigured('  ')).toBe(false);
+    expect(isAnalyticsConfigured('phc_test_key')).toBe(true);
   });
 
   it('normalizes grouped and dynamic routes', () => {

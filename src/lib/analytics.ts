@@ -61,6 +61,10 @@ export interface SettingsUpdatedProperties extends AnalyticsProperties {
 
 let analyticsClient: AnalyticsClient | null = null;
 
+export function isAnalyticsConfigured(apiKey: string): boolean {
+  return apiKey.trim().length > 0;
+}
+
 export function setAnalyticsClient(client: AnalyticsClient | null): void {
   analyticsClient = client;
 }
