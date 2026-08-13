@@ -20,3 +20,4 @@ create policy meal_satiety_insert_own on meal_satiety
   with check (user_id = (select auth.uid()));
 
 grant select, insert on public.meal_satiety to authenticated;
+grant select on public.meal_satiety to anon;
