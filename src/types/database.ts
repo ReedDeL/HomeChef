@@ -37,6 +37,11 @@ export type FeedbackVerdict = 'liked' | 'disliked' | 'skipped';
 
 export type MealFeedbackRow = NarrowColumn<Tables<'meal_feedback'>, 'verdict', FeedbackVerdict>;
 
+/** `meal_satiety.level`, per the CHECK in 0005_add_meal_satiety.sql. */
+export type MealSatietyLevel = 'still_hungry' | 'satisfied' | 'too_full';
+
+export type MealSatietyRow = NarrowColumn<Tables<'meal_satiety'>, 'level', MealSatietyLevel>;
+
 /** `inventory.source`, per the CHECK in 0001_initial_schema.sql. */
 export type InventorySource = 'manual' | 'photo' | 'staple' | 'shopping_list';
 
