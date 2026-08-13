@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  createRouteChangeGuard,
   normalizeRoute,
   setAnalyticsClient,
   trackCookModeCompleted,
@@ -47,6 +48,14 @@ describe('analytics helpers', () => {
     expect(normalizeRoute(['(onboarding)', 'equipment'])).toBe('/onboarding/equipment');
     expect(normalizeRoute(['recipe', 'meal-1'])).toBe('/recipe/:id');
     expect(normalizeRoute(['cook', 'meal-1'])).toBe('/cook/:id');
+  });
+
+  it('only reports a route when it changes', () => {
+    const guard = createRouteChangeGuard();
+
+    expect(guard('/')).toBe(true);
+    expect(guard('/')).toBe(false);
+    expect(guard('/recipe/:id')).toBe(true);
   });
 
   it('forwards page-view and settings properties unchanged', () => {

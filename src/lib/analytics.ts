@@ -5,39 +5,39 @@ export interface AnalyticsClient {
   capture(event: string, properties?: AnalyticsProperties): void;
 }
 
-export interface OnboardingCompletedProperties {
+export interface OnboardingCompletedProperties extends AnalyticsProperties {
   pantry_count: number;
   equipment_tier: string;
   allergen_count: number;
   dietary_restriction_count: number;
 }
 
-export interface PantryScanStartedProperties {
+export interface PantryScanStartedProperties extends AnalyticsProperties {
   source: 'camera' | 'library';
 }
 
-export interface PantryScanCompletedProperties {
+export interface PantryScanCompletedProperties extends AnalyticsProperties {
   photo_count: number;
   candidate_count: number;
   accepted_count: number;
 }
 
-export interface PantryScanFailedProperties {
+export interface PantryScanFailedProperties extends AnalyticsProperties {
   photo_count: number;
   failure_stage: string;
 }
 
-export interface PantryItemChangedProperties {
+export interface PantryItemChangedProperties extends AnalyticsProperties {
   source: string;
   item_count: number;
 }
 
-export interface RecipeViewedProperties {
+export interface RecipeViewedProperties extends AnalyticsProperties {
   recipe_id: string;
   source: string;
 }
 
-export interface RecipeProperties {
+export interface RecipeProperties extends AnalyticsProperties {
   recipe_id: string;
 }
 
@@ -54,7 +54,7 @@ export interface RecipeFeedbackSubmittedProperties extends RecipeProperties {
   liked: boolean;
 }
 
-export interface SettingsUpdatedProperties {
+export interface SettingsUpdatedProperties extends AnalyticsProperties {
   setting: string;
   value: AnalyticsProperty;
 }
@@ -147,4 +147,14 @@ export function normalizeRoute(segments: readonly string[]): string {
   }
 
   return routeSegments.length === 0 ? '/' : `/${routeSegments.join('/')}`;
+}
+
+export function createRouteChangeGuard(): (route: string) => boolean {
+  let previousRoute: string | null = null;
+
+  return (route: string) => {
+    if (route === previousRoute) return false;
+    previousRoute = route;
+    return true;
+  };
 }

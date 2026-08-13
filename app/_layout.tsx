@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { PostHogProvider } from 'posthog-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AnalyticsObserver } from '@/components/AnalyticsObserver';
 import { MobileViewport } from '@/components/MobileViewport';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
@@ -26,19 +28,29 @@ const queryClient = new QueryClient({
   },
 });
 
+const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? '';
+const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+
 export default function RootLayout() {
   const { isDark } = useTheme();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <MobileViewport>
-          <OnboardingGate />
-          <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
-        </MobileViewport>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <PostHogProvider
+      apiKey={posthogApiKey}
+      options={{ host: posthogHost, disabled: posthogApiKey.length === 0 }}
+      autocapture={false}
+    >
+      <AnalyticsObserver />
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <MobileViewport>
+            <OnboardingGate />
+            <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
+          </MobileViewport>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </PostHogProvider>
   );
 }
 
