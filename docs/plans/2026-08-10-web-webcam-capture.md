@@ -8,7 +8,7 @@
 
 **Tech Stack:** Expo 57 / React Native 0.86 / React 19.2 / TypeScript 6.0 (`strict: true`), `react-native-web`, browser `MediaDevices`/`getUserMedia` API, vitest.
 
-**Full design spec:** `docs/superpowers/specs/2026-08-10-web-webcam-capture-design.md`
+**Full design spec:** `docs/specs/2026-08-10-web-webcam-capture-design.md`
 
 ## Global Constraints
 
@@ -235,7 +235,7 @@ interface CameraCaptureProps {
 
 /**
  * Live getUserMedia camera for the web build
- * (docs/superpowers/specs/2026-08-10-web-webcam-capture-design.md).
+ * (docs/specs/2026-08-10-web-webcam-capture-design.md).
  * expo-image-picker has no real camera on web, so this replaces "Take a
  * photo" there. Native gets CameraCapture.tsx, which renders nothing.
  */

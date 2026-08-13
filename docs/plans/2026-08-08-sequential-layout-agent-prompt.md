@@ -11,8 +11,8 @@ React Native photo-based meal decision engine launching August 24, 2026.
 **Read these three files before writing any code. They govern everything here
 and they win any disagreement with this prompt:**
 
-1. `CLAUDE.md` — architecture rules, vocabulary, and the "Don't" list
-2. `docs/superpowers/specs/2026-08-08-sequential-layout-design.md` — the
+1. `AGENTS.md` — architecture rules, vocabulary, and the "Don't" list
+2. `docs/specs/2026-08-08-sequential-layout-design.md` — the
    governing design for this work, including the rationale for every decision
    below
 3. `docs/04_UIUX_SPEC.md` v1.1 — screens, tokens, copy rules, accessibility
@@ -38,7 +38,7 @@ already exists.
 ## Prerequisite — check this first
 
 This work depends on the photo-to-pantry pipeline
-(`docs/superpowers/plans/2026-08-08-photo-to-pantry.md`), specifically:
+(`docs/plans/2026-08-08-photo-to-pantry.md`), specifically:
 
 | From | You need |
 |---|---|
@@ -634,5 +634,5 @@ Report: which tasks landed, the actual output of the verification gate, and
 anything you could not complete and why. Do not report completion for a task
 whose manual checks you did not actually run.
 
-If you hit something where this prompt conflicts with `CLAUDE.md` or the design
+If you hit something where this prompt conflicts with `AGENTS.md` or the design
 spec, the spec wins — flag the conflict rather than silently picking one.

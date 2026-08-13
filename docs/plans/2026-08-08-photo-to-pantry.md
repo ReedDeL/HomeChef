@@ -17,7 +17,7 @@ detection can ship and be exercised before the write path is trusted.
 + Auth + Edge Functions), Zod, Deno (Edge Function runtime), Gemini 3.6 Flash
 via the Interactions API.
 
-**Governing spec:** `docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md`
+**Governing spec:** `docs/specs/2026-08-07-photo-to-pantry-design.md`
 
 ## Global Constraints
 
@@ -333,7 +333,7 @@ function approxBase64DecodedBytes(base64: string): number {
 
 /**
  * Validated on the Edge Function before any Gemini call, so an oversized or
- * malformed request costs nothing -- docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md
+ * malformed request costs nothing -- docs/specs/2026-08-07-photo-to-pantry-design.md
  * Decision 6.
  */
 export const analyzeRequestSchema = z.object({
@@ -587,7 +587,7 @@ Expected: FAIL — `Cannot find module '@/lib/photo/origin'`
  * "evil-homechef.app" or "homechef.app.evil.com" slips past a suffix/prefix
  * comparison. A missing Origin header (native apps never send one) passes
  * through here; the JWT check is what actually gates a native caller --
- * docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 5.
+ * docs/specs/2026-08-07-photo-to-pantry-design.md Decision 5.
  */
 export function isAllowedOrigin(origin: string | null, allowlist: readonly string[]): boolean {
   if (origin === null) return true;
@@ -1251,7 +1251,7 @@ git commit -m "Add batch inventory upsert for photo confirmation"
 -- ---------------------------------------------------------------------------
 -- photo_scan_quota: per-user daily cap on Gemini Vision calls.
 --
--- docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 4/5.
+-- docs/specs/2026-08-07-photo-to-pantry-design.md Decision 4/5.
 -- The analyze-pantry-photo Edge Function calls consume_photo_scan_quota() via
 -- supabase.rpc(), using the CALLER's own JWT -- never service_role. That is
 -- only possible if this function lives in `public`: `private` is deliberately
@@ -1422,7 +1422,7 @@ const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
 /**
  * Never `*` -- an exact-match allowlist, echoed back only when it matches, so
  * a browser on another origin never sees a permissive header at all.
- * docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 5.
+ * docs/specs/2026-08-07-photo-to-pantry-design.md Decision 5.
  */
 export function corsHeaders(origin: string | null): HeadersInit {
   const headers: Record<string, string> = {
@@ -1453,7 +1453,7 @@ verify_jwt = true
 
 Explicit even though `true` is the default — greppable, matches the
 project's "enforce with an explicit field... in code, not by convention"
-rule (CLAUDE.md).
+rule (AGENTS.md).
 
 - [ ] **Step 4: Document the new secret in `.env.example`**
 
@@ -1498,7 +1498,7 @@ export class GeminiCallError extends Error {}
 /**
  * Wire format verified against ai.google.dev/gemini-api/docs (Interactions
  * API, Aug 2026) -- see
- * docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 10.
+ * docs/specs/2026-08-07-photo-to-pantry-design.md Decision 10.
  * This is the ONLY file where that shape appears; a future correction stays
  * contained here.
  */
@@ -1737,7 +1737,7 @@ git commit -m "Add analyze-pantry-photo Edge Function"
  * this flag. Flipping it on is the one change that lets a confirmed item
  * reach `inventory` -- kept separate so the write path can be exercised
  * against a real Supabase project before it's trusted in production.
- * docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 2.
+ * docs/specs/2026-08-07-photo-to-pantry-design.md Decision 2.
  */
 export const PHOTO_PANTRY_WRITE_ENABLED = false;
 ```
@@ -1819,7 +1819,7 @@ import { supabase } from '@/lib/supabase';
  * The Edge Function's JWT check and inventory's RLS policies both need a
  * real Supabase session. Anonymous sign-in is the minimum that satisfies
  * both without building real auth screens.
- * docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 3.
+ * docs/specs/2026-08-07-photo-to-pantry-design.md Decision 3.
  */
 export async function ensureAnonymousSession(): Promise<string> {
   const { data: existing, error: getError } = await supabase.auth.getSession();
@@ -1962,7 +1962,7 @@ export interface AnalyzePhotoResult {
 /**
  * Calls the analyze-pantry-photo Edge Function. supabase-js attaches the
  * caller's JWT automatically. Detection only -- nothing is written to
- * inventory here. docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md
+ * inventory here. docs/specs/2026-08-07-photo-to-pantry-design.md
  * Decision 1 and 5.
  */
 export async function analyzePantryPhotos(images: readonly CompressedImage[]): Promise<AnalyzePhotoResult> {
@@ -2032,7 +2032,7 @@ export function useAnalyzePantryPhotos() {
  * Flag-gated: with PHOTO_PANTRY_WRITE_ENABLED off, confirming resolves
  * without touching Supabase, so detection and the confirmation sheet can be
  * exercised end-to-end before the write path is trusted in production.
- * docs/superpowers/specs/2026-08-07-photo-to-pantry-design.md Decision 2.
+ * docs/specs/2026-08-07-photo-to-pantry-design.md Decision 2.
  */
 export function useConfirmPantryPhotoItems(householdId: string | undefined) {
   const queryClient = useQueryClient();

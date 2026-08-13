@@ -55,7 +55,7 @@ of after real auth ships.
   exist in `src/lib/queries/inventory.ts` and are reused, not rebuilt.)
 - Spoonacular / Tier 2 — unrelated to this pipeline.
 - Voice, cook mode, shopping list — unrelated, explicitly out of scope per
-  CLAUDE.md.
+  AGENTS.md.
 - A distilled on-device model (§2.4 "Phase 3 option") — cloud VLM only.
 
 ## Decisions
@@ -184,7 +184,7 @@ the acceptance test for this function. Anything left unmatched is returned
 in a separate `unmatched` array and shown to the user distinctly on the
 confirmation sheet rather than silently dropped or silently invented as a new
 ID — inventing one would create exactly the permanent vocabulary duplicate
-`docs/superpowers/specs/2026-08-06-microwave-seed-catalog-design.md` was
+`docs/specs/2026-08-06-microwave-seed-catalog-design.md` was
 careful to avoid on the catalog side.
 
 Items with `confidence < 0.7` are flagged "Not sure about this one" on the

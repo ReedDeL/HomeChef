@@ -15,7 +15,8 @@
 | 04 | [UI/UX Specification](04_UIUX_SPEC.md) | Building a screen | Medium |
 | 05 | [AI Tooling Playbook](05_AI_TOOLING_PLAYBOOK.md) | Using AI to build faster | Medium |
 | 06 | [API Keys & Environment](06_API_KEYS_AND_ENV.md) | Setting up any third-party service | Short — **read before coding** |
-| — | [`../CLAUDE.md`](../CLAUDE.md) | A coding agent (loaded automatically) | Short |
+| 07 | [iPhone Web Testing Guide](HOW_TO_TEST_IPHONE_WEB.md) | Testing HomeChef on iOS Safari (Web) | Short — **testing guide** |
+| — | [`../AGENTS.md`](../AGENTS.md) | A coding agent (loaded automatically) | Short |
 
 **RJ, read first:** 03 (process, roles, critical path) → 01 §8 (risk register — three of the launch blockers are yours) → 04 (product surface).
 
