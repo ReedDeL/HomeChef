@@ -7,4 +7,5 @@ export const queryKeys = {
   inventory: (householdId: string) => ['inventory', householdId] as const,
   preferences: (userId: string) => ['preferences', userId] as const,
   feedback: (userId: string) => ['feedback', userId] as const,
+  satiety: (userId: string) => ['satiety', userId] as const,
 } as const;

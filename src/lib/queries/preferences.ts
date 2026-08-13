@@ -3,9 +3,11 @@
  * These join to `user_id` and are structurally unreachable by household
  * members -- roommates share a pantry, never a diet.
  */
+import { toMealSatietyInsert } from '@/lib/meal-satiety';
 import { supabase } from '@/lib/supabase';
 import type {
   FeedbackVerdict,
+  MealSatietyLevel,
   MealFeedbackRow,
   ProfileRow,
   UserPreferencesRow,
@@ -81,6 +83,18 @@ export async function recordVerdict(
   const { error } = await supabase
     .from('meal_feedback')
     .upsert({ user_id: userId, recipe_id: recipeId, verdict }, { onConflict: 'user_id,recipe_id' });
+
+  if (error) throw error;
+}
+
+export async function recordMealSatiety(
+  userId: string,
+  recipeId: string,
+  level: MealSatietyLevel
+): Promise<void> {
+  const { error } = await supabase
+    .from('meal_satiety')
+    .insert(toMealSatietyInsert(userId, recipeId, level));
 
   if (error) throw error;
 }
