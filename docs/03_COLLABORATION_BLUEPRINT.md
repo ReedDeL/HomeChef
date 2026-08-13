@@ -342,6 +342,12 @@ jobs:
 
 ## 7. The 21-Day Critical Path
 
+**This is the plan, not the status.** It is the single copy in the repo —
+`docs/README.md` and the Executive Summary point here rather than restating it.
+Live progress lives on the Notion board's Gantt view (§3.2), which is the only
+place that gets updated daily; a schedule maintained in two places is a
+schedule maintained in neither.
+
 ```
 Aug 3   ─┬─ Specs approved · repo initialized · board populated
          │

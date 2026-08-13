@@ -2,13 +2,28 @@
 
 **Application42 · Technical Blueprint for Launch**
 
+> ⚠️ **Point-in-time snapshot — August 3, 2026. Not maintained.**
+>
+> This records what was decided at kickoff, and is kept because the reasoning
+> is still worth reading. It is **not** a status document, and several of its
+> decisions have since changed:
+>
+> | Changed | Where it is now |
+> |---|---|
+> | Accounts and sign-in (federated Google, mandatory) | Technical Spec §2.2.1 |
+> | Offline support (retired — the app is online-only) | Technical Spec §2.3.1 |
+> | Spoonacular's `equipment` parameter (the claim here is wrong) | Technical Spec §5.2 |
+> | The web build (responsive, not letterboxed) | UI/UX Spec §13.1 |
+>
+> For current state read [`../README.md`](../README.md). For the schedule read
+> the Notion board.
+
 | | |
 |---|---|
 | **Prepared** | August 3, 2026 |
-| **Launch** | August 24, 2026 — 21 days |
-| **Go/No-Go** | August 9, 2026 — 6 days |
+| **Launch** | August 24, 2026 |
 | **Team** | RJ DeLancey (CEO) · Harshal Meka (CTO) · third seat unassigned |
-| **Status** | Specifications complete · backlog live in Notion · build not started |
+| **Status at time of writing** | Specifications complete · backlog live in Notion · build not started |
 
 ---
 
