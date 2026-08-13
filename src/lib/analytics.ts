@@ -117,9 +117,7 @@ export function trackCookModeCompleted(properties: CookModeCompletedProperties):
   capture('cook_mode_completed', properties);
 }
 
-export function trackRecipeFeedbackSubmitted(
-  properties: RecipeFeedbackSubmittedProperties
-): void {
+export function trackRecipeFeedbackSubmitted(properties: RecipeFeedbackSubmittedProperties): void {
   capture('recipe_feedback_submitted', properties);
 }
 
@@ -133,7 +131,10 @@ export function normalizeRoute(segments: readonly string[]): string {
     return segment.startsWith('(') ? [] : [segment];
   });
 
-  if (visibleSegments.length === 0 || (visibleSegments.length === 1 && visibleSegments[0] === 'index')) {
+  if (
+    visibleSegments.length === 0 ||
+    (visibleSegments.length === 1 && visibleSegments[0] === 'index')
+  ) {
     return '/';
   }
 

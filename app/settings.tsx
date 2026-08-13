@@ -8,6 +8,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { Text } from '@/components/ui/Text';
+import { trackSettingsUpdated } from '@/lib/analytics';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
@@ -70,11 +71,41 @@ export default function SettingsScreen() {
   const reset = useKitchenStore((state) => state.reset);
   const [resetConfirming, setResetConfirming] = useState(false);
 
+  const updateTheme = (value: ThemeMode) => {
+    setThemeMode(value);
+    trackSettingsUpdated({ setting: 'theme', value });
+  };
+
+  const updateTier = (value: string) => {
+    setTier(value);
+    trackSettingsUpdated({ setting: 'equipment_tier', value });
+  };
+
+  const updateExtra = (value: (typeof extras)[number]) => {
+    toggleExtra(value);
+    trackSettingsUpdated({ setting: 'extra_appliance', value });
+  };
+
+  const updateAllergen = (value: string) => {
+    toggleAllergen(value);
+    trackSettingsUpdated({ setting: 'allergen', value });
+  };
+
+  const updateDietary = (value: (typeof dietary)[number]) => {
+    toggleDietary(value);
+    trackSettingsUpdated({ setting: 'dietary_restriction', value });
+  };
+
+  const confirmReset = () => {
+    trackSettingsUpdated({ setting: 'reset', value: 'confirmed' });
+    reset();
+    router.replace('/(onboarding)/equipment');
+  };
+
   const handleReset = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Reset all pantry items and onboarding preferences?')) {
-        reset();
-        router.replace('/(onboarding)/equipment');
+        confirmReset();
       }
     } else {
       Alert.alert(
@@ -85,10 +116,7 @@ export default function SettingsScreen() {
           {
             text: 'Reset All',
             style: 'destructive',
-            onPress: () => {
-              reset();
-              router.replace('/(onboarding)/equipment');
-            },
+            onPress: confirmReset,
           },
         ]
       );
@@ -139,7 +167,7 @@ export default function SettingsScreen() {
               title={`${opt.icon}  ${opt.label}`}
               subtitle={opt.subtitle}
               selected={themeMode === opt.id}
-              onPress={() => setThemeMode(opt.id)}
+              onPress={() => updateTheme(opt.id)}
               accessibilityHint={`Switches app appearance to ${opt.label}`}
             />
           ))}
@@ -164,7 +192,7 @@ export default function SettingsScreen() {
               title={tier.label}
               subtitle={tier.subtitle}
               selected={tier.id === tierId}
-              onPress={() => setTier(tier.id)}
+              onPress={() => updateTier(tier.id)}
               accessibilityHint="Sets your primary kitchen setup"
             />
           ))}
@@ -177,7 +205,7 @@ export default function SettingsScreen() {
               key={appliance.id}
               label={appliance.label}
               selected={extras.includes(appliance.id)}
-              onPress={() => toggleExtra(appliance.id)}
+              onPress={() => updateExtra(appliance.id)}
               accessibilityLabel={appliance.label}
               accessibilityHint="Toggles this appliance in your kitchen"
             />
@@ -199,7 +227,7 @@ export default function SettingsScreen() {
               key={allergen.id}
               label={allergen.label}
               selected={allergens.includes(allergen.id)}
-              onPress={() => toggleAllergen(allergen.id)}
+              onPress={() => updateAllergen(allergen.id)}
               accessibilityLabel={allergen.label}
               accessibilityHint="Recipes containing this are excluded"
             />
@@ -213,7 +241,7 @@ export default function SettingsScreen() {
               key={preset.id}
               label={preset.label}
               selected={dietary.includes(preset.id)}
-              onPress={() => toggleDietary(preset.id)}
+              onPress={() => updateDietary(preset.id)}
               accessibilityLabel={preset.label}
               accessibilityHint="Filters recipes for this diet"
             />

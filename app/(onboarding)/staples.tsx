@@ -9,7 +9,11 @@ import { StepIndicator } from '@/components/ui/StepIndicator';
 import { Text } from '@/components/ui/Text';
 import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
 import { STAPLE_INGREDIENT_IDS } from '@/data/catalog';
-import { trackOnboardingCompleted, trackPantryItemAdded, trackPantryItemRemoved } from '@/lib/analytics';
+import {
+  trackOnboardingCompleted,
+  trackPantryItemAdded,
+  trackPantryItemRemoved,
+} from '@/lib/analytics';
 import { space } from '@/theme/tokens';
 
 /**
