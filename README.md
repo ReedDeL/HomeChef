@@ -34,7 +34,7 @@ equipment, your allergies, and your dietary needs, no exceptions.
 
 Everything below this line is technical documentation for the engineering
 team and contributors. Full specs live in [`docs/`](docs/); architecture
-rules live in [`CLAUDE.md`](CLAUDE.md).
+rules live in [`AGENTS.md`](AGENTS.md).
 
 ---
 

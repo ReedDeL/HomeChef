@@ -153,14 +153,62 @@ Deno.serve(async (req) => {
 });
 ```
 
+### 2.2.1 Authentication — Supabase Auth, federated sign-in
+
+**DECIDED Aug 12, 2026.** Accounts are mandatory from first launch (B1: "I set up
+my kitchen once and it never asks again" requires a durable server-side profile
+that survives reinstall). Sign-in is **federated via Google**, brokered by
+Supabase Auth.
+
+Supabase Auth issues the JWT that every RLS policy in §3 keys on, so the
+provider choice and the authorization model are the same decision. No custom
+session handling, no second identity store.
+
+**This is what makes the app online-only (§2.3.1).** A user cannot reach the
+first screen without a network round trip to an identity provider, so designing
+any downstream layer for offline operation protects a state that cannot occur.
+
+**Open items — owner RJ:**
+
+| Item | Why it matters |
+|---|---|
+| **Sign in with Apple** | Apple's App Store guidelines have historically required it wherever a third-party social login is offered. If that holds, iOS ships with both or is rejected at review. **Verify against current guidelines before the iOS build.** |
+| **Email fallback** | A federated-only app locks out anyone without a Google account, and makes review-team testing awkward. Supabase magic links cost nothing to add. |
+| **Session persistence** | Sessions must survive app restart, or "never asks again" fails on the second launch. |
+
 ### 2.3 Recipe catalog — two tiers, both free
 
-**DECIDED Aug 3, 2026.** The catalog is a **two-tier hybrid**: TheMealDB bundled as a guaranteed offline floor, Spoonacular queried live for breadth. Both on free tiers. Total recurring cost: **$0.**
+**DECIDED Aug 3, 2026.** The catalog is a **two-tier hybrid**: TheMealDB bundled as a zero-cost, zero-latency floor, Spoonacular queried live for breadth. Both on free tiers. Total recurring cost: **$0.**
+
+#### 2.3.1 Online-only — REVISED Aug 12, 2026
+
+**The app requires a network connection. Offline support is not a requirement.**
+
+Accounts are mandatory (B1) and sign-in is federated, so a user cannot reach the
+app's first screen without connectivity. Designing the catalog around offline
+capability was therefore protecting a state that cannot occur.
+
+**What this changes:** offline access is no longer a reason to prefer bundled
+data, and R12 (no offline access to Tier 2) is retired.
+
+**What it does not change:** Tier 1 still exists, for reasons that were always
+the stronger ones and were previously bundled under "offline" —
+
+| Reason | Why it survives the change |
+|---|---|
+| **Zero marginal query cost** | Borrowed data bills per search, per user, forever |
+| **<10ms ranking** | A remote round trip is ~300ms; the product promises fast answers |
+| **We own hard-constraint enforcement** | Allergens are a safety path (§4.1). Our code, our tests — not a vendor's query parameter |
+| **Vendor independence** | R11: third-party access can be revoked without notice |
+
+The open question for scaling is no longer storability. It is whether a
+candidate source's equipment metadata maps onto our closed nine-value enum
+(§5.2) — see R13.
 
 ```
                     ┌─────────────────────────────────────┐
   User query  ──▶   │  TIER 1 — bundled MealDB (~300)     │  always available
-                    │  offline · instant · owned          │  offline · 0 cost
+                    │  instant · owned · no quota         │  <10ms · 0 cost
                     └──────────────┬──────────────────────┘
                                    │ buckets thin?
                                    │ quota available? online?
@@ -175,11 +223,17 @@ Deno.serve(async (req) => {
 ~300 recipes with full instructions, measured ingredients, and images, pulled **once at build time** and shipped inside the app as JSON in `src/data/`.
 
 - **No runtime API call** → no quota, no rate limit, no vendor outage
-- **No network dependency** → cook mode works offline in a basement kitchen
-- **Zero query latency** → the decision engine runs locally (§4)
-- **Zero egress cost** → images ship bundled or CDN-served, never proxied through Supabase
+- **Zero marginal cost per query** → a search costs the same at 10 users and 10,000
+- **Zero query latency** → the decision engine runs locally (§4), ranking in <10ms
+- **We enforce our own hard constraints** → allergen and equipment filtering runs in
+  tested code we own, not a vendor's query parameter (§4.1)
 
 **This tier is why the app can never hard-fail.** It is the floor under every other decision in this document.
+
+> **Images are hotlinked, not bundled.** All 792 TheMealDB recipes reference
+> `themealdb.com` image URLs; `src/data/` ships JSON only. Acceptable under the
+> online-only decision (§2.3.1), but it means recipe cards depend on TheMealDB's
+> uptime and egress. The 20 hand-authored seed recipes have no images at all.
 
 #### Tier 2 — Spoonacular, live query, nothing stored
 
@@ -257,7 +311,7 @@ Pin the **stable** string, not `gemini-flash-latest`. The `latest` alias hot-swa
 
 Google's **Interactions API** is now GA and is the recommended surface for new builds. Use it for this integration rather than the older endpoint.
 
-**Accepted tradeoffs:** requires network connectivity (acceptable — capture is not the cooking-time path, and cook mode is fully offline); per-call cost scaling with usage (bounded — capture is infrequent); and a third-party dependency (mitigated — manual pantry entry is a complete fallback and is required anyway for B7).
+**Accepted tradeoffs:** requires network connectivity (acceptable — the app is online-only by decision, §2.3.1); per-call cost scaling with usage (bounded — capture is infrequent, and this is the app's largest per-user variable cost); and a third-party dependency (mitigated — manual pantry entry is a complete fallback and is required anyway for B7).
 
 **Phase 3 option:** once real user photos accumulate, a distilled on-device model could handle the ~200 most common ingredients locally and fall back to the cloud for the tail. A sound cost optimization, not a launch strategy.
 
@@ -552,7 +606,34 @@ The pipeline is a Python package under `tools/catalog/`, run manually, whose out
 
 Because this runs once at build time, its latency is irrelevant and its cost is a few dollars total. Python is the right tool: the team already writes it, and the ecosystem for this kind of messy-text ETL is unmatched.
 
-> **This pipeline runs on TheMealDB recipes only.** Running it over Spoonacular data would produce "derived data," which their terms prohibit. Spoonacular supplies equipment natively via its `equipment` parameter, so there is nothing to enrich.
+> **This pipeline runs on TheMealDB recipes only.** Running it over Spoonacular data would produce "derived data," which their terms prohibit.
+>
+> ⚠️ **CORRECTED Aug 13, 2026.** This section previously claimed "Spoonacular
+> supplies equipment natively via its `equipment` parameter, so there is nothing
+> to enrich." That is **wrong**, and it was load-bearing for Tier 2. Their
+> documented parameter is: *"The equipment required. **Multiple values will be
+> interpreted as 'or'.** For example, value could be 'blender, frying pan,
+> bowl'."*
+>
+> Three independent problems, in descending severity:
+>
+> 1. **OR semantics, not subset semantics.** Our constraint is
+>    `recipe.equipmentRequired ⊆ user.equipment` (§4.1). Theirs is "uses at
+>    least one of these." A microwave-only user querying `equipment=microwave`
+>    gets back every recipe that touches a microwave at any step — including one
+>    that also needs an oven. **The parameter cannot serve as our hard filter.**
+> 2. **Open vocabulary, not a closed enum.** Returned values are free text
+>    (`"pie form"`, `"bowl"`, `"frying pan"`). Our enum is nine fixed values, and
+>    the closed enum is precisely what makes §4.1 a set operation rather than a
+>    string-matching problem.
+> 3. **Not in search results.** Equipment arrives via `analyzedInstructions` or a
+>    per-recipe `equipmentWidget.json` call — not in `complexSearch` output — so
+>    obtaining it costs either extra parameters or extra calls.
+>
+> **Consequence:** equipment for Tier 2 must be computed client-side, in-session,
+> from `analyzedInstructions`, and run through our own `isEquipmentSatisfied`.
+> That is permitted (compute and display in-session, persist nothing) but it
+> means we cannot pre-filter, so we over-fetch and discard. See R13.
 
 ### 5.3 Spoonacular live query — Edge Function
 
@@ -633,10 +714,11 @@ Accessibility work here does double duty: the same APIs that serve screen-reader
 | # | Risk | Severity | Mitigation | Owner |
 |---|---|---|---|---|
 | R1 | **Catalog thinness.** ~300 bundled recipes produce thin results for constrained pantries and microwave-only users. | Medium *(was High)* | **Largely mitigated by Tier 2.** Spoonacular adds 380k recipes when quota allows. Aug 9 gate still tests three real dorm pantries against Tier 1 alone — Tier 1 must stand on its own, because Tier 2 is best-effort. | RJ |
-| R2 | **Equipment metadata gap** in TheMealDB. | Medium *(was High)* | LLM enrichment pipeline (§5.2) for Tier 1, with a mandatory 30-recipe human spot-check. Tier 2 supplies equipment natively. | Harshal |
+| R2 | **Equipment metadata gap** in TheMealDB. | Medium *(was High)* | LLM enrichment pipeline (§5.2) for Tier 1, with a mandatory 30-recipe human spot-check. ~~Tier 2 supplies equipment natively.~~ **Corrected Aug 13, 2026 — it does not; see R13.** | Harshal |
 | R10 | **Spoonacular quota exhaustion.** 50 points/day ≈ 15 searches total. A tester burning quota an hour before a demo. | **High** | Reserve rule (stop at 40 points), session cache, `number=20`, single-call fetch. **Tier 1 makes exhaustion invisible to users.** Demos scheduled after 5 PM Pacific, when quota resets. | Harshal |
 | R11 | **Spoonacular ToS violation** — storing ingredients or instructions, or running enrichment over their data, would breach terms and can revoke access without notice. | **High** | Explicit field whitelist (`id`, `title`, `imageUrl`) enforced in code, not convention. Code review checks every Spoonacular write path. Attribution and backlink shipped before launch. | Harshal |
-| R12 | **No offline access to Tier 2 recipes.** A user who saved a Spoonacular recipe cannot open it without a connection. | Medium | Saved meals store `id`/`title`/`imageUrl` and re-fetch on open. If offline, show the saved card with a "needs connection" state and surface Tier 1 alternatives. Never a blank screen. | Harshal |
+| R12 | ~~No offline access to Tier 2 recipes.~~ **RETIRED Aug 12, 2026** — the app is online-only (§2.3.1), so this state cannot occur. Saved meals still store only `id`/`title`/`imageUrl` and re-fetch on open. | — | — | Harshal |
+| R13 | **Tier 2 equipment cannot be filtered server-side.** CONFIRMED Aug 13, 2026 from Spoonacular's docs (§5.2). Their `equipment` parameter is OR-semantics over an open vocabulary and is absent from search results, so it cannot enforce our hard constraint. | **High — realized, not hypothetical** | Do not use their `equipment` parameter as a filter. Any Tier 2 integration must extract equipment from `analyzedInstructions` in-session, map it to our nine-value enum, and enforce with our own `isEquipmentSatisfied`. Accept the over-fetch. **Until that is built and tested, Tier 2 cannot ship** — §4.1 forbids relaxing equipment, and shipping unverified equipment would relax it silently. | RJ |
 | R3 | **Inventory drift.** Pantry desynchronizes from reality; recommendations rot; users disengage. | **High** | One-tap "I don't have this" on every ingredient chip app-wide, enforced via a single shared component. Confidence threshold at capture. | Harshal |
 | R4 | **TheMealDB licensing.** Supporter payment required before public App Store release. | **High** | Pay by **Aug 17**. Hard blocker with a dollar amount. | RJ |
 | R5 | **Supabase free-tier auto-pause** after 7 days idle — a dead demo. | Medium | Scheduled keep-alive ping, or upgrade to Pro before any external demo. Due Aug 20. | RJ |
@@ -682,7 +764,7 @@ homechef/
 │       ├── pyproject.toml
 │       └── src/catalog/
 ├── docs/                      # this specification and its companions
-├── CLAUDE.md                  # agent context for the repo
+├── AGENTS.md                  # agent context for the repo
 └── app.json
 ```
 
@@ -698,7 +780,7 @@ homechef/
 | `03_COLLABORATION_BLUEPRINT.md` | GitHub Flow, Notion board, Definition of Done, role boundaries |
 | `04_UIUX_SPEC.md` | Screen inventory, design tokens, interaction rules |
 | `05_AI_TOOLING_PLAYBOOK.md` | How the team uses AI tools without generating slop |
-| `CLAUDE.md` | Repo-root context file consumed by coding agents |
+| `AGENTS.md` | Repo-root context file consumed by coding agents |
 
 ---
 

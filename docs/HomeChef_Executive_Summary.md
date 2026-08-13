@@ -26,7 +26,7 @@ The full documents are:
 | 04 | UI/UX Specification | Screens, design tokens, interaction rules |
 | 05 | AI Tooling Playbook | Using AI tools without generating unreviewable code |
 
-A sixth file, `CLAUDE.md`, sits at the repository root and supplies this context automatically to coding agents.
+A sixth file, `AGENTS.md`, sits at the repository root and supplies this context automatically to coding agents.
 
 ---
 

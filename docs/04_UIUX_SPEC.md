@@ -7,7 +7,7 @@
 **Changed in 1.1** — sequential layout. One decision per screen, enforced by the
 `DecisionScreen` primitive (§2). Onboarding leads with the fridge photo (§3).
 Results renders one bucket, not four (§5). Tab bar cut (§12). Rationale in
-`docs/superpowers/specs/2026-08-08-sequential-layout-design.md`.
+`docs/specs/2026-08-08-sequential-layout-design.md`.
 
 ---
 
@@ -287,7 +287,7 @@ The most important screen in the product. It exists to convert "I don't know wha
 
 ### 5.1 Rules
 
-- **The results screen renders one bucket: `ready`. Maximum 4 cards.** `CLAUDE.md`
+- **The results screen renders one bucket: `ready`. Maximum 4 cards.** `AGENTS.md`
   is the governing sentence — the engine "emits 3-4 answers," and *showing more
   options is a regression, not a feature.* Four buckets stacked on one screen is
   up to sixteen cards, which is a browsing surface, not a decision.
@@ -475,9 +475,9 @@ The app's voice is a competent friend who cooks, not a brand.
 
 ---
 
-## 11. Attribution & Offline States
+## 11. Attribution & Network Failure States
 
-Two requirements that come from Spoonacular's terms rather than from design.
+Two requirements that come from vendor terms rather than from design.
 
 ### 11.1 Required attribution
 
@@ -485,15 +485,35 @@ Two requirements that come from Spoonacular's terms rather than from design.
 |---|---|---|
 | **Recipe card (Tier 2)** | *"via {publisher}"* in `caption`/`textMuted` | Content terms — credit the original source |
 | **Recipe page (Tier 2)** | Publisher name as a tappable link to the original page, below the instructions | Content terms — must be a hyperlink |
-| **About / Settings screen** | "Recipe data powered by [spoonacular](https://spoonacular.com/food-api)" | **Free-tier backlink requirement** |
+| **About / Settings screen** | "Recipe data & images from [TheMealDB](https://www.themealdb.com)" | **Required by TheMealDB's paid terms** — see below |
+| **About / Settings screen** | "Recipe data powered by [spoonacular](https://spoonacular.com/food-api)" | Free-tier backlink requirement — **only once a Spoonacular call actually ships** |
 
-The backlink goes on About/Settings, not the results screen. It satisfies the requirement without putting a competitor's brand on the screen our entire product thesis rests on.
+**TheMealDB attribution is the one that is currently required.** They supply 792
+of the 812 bundled recipes and every recipe image. Their paid terms: *"You can
+use our custom artwork in your projects but must mention us as the source of the
+data"*, and artwork *"should link back to our website where appropriate."*
+
+Spoonacular's backlink is conditional. Tier 2 is unimplemented as of Aug 12,
+2026, and crediting a vendor that supplies zero recipes while omitting the one
+that supplies all of them is worse than no attribution at all. Ship the
+Spoonacular link with the first Spoonacular call, not before.
+
+The backlinks go on About/Settings, not the results screen. That satisfies the
+requirement without putting a competitor's brand on the screen our entire
+product thesis rests on.
 
 **This ships before launch.** Missing attribution is a terms violation, and their access can be revoked without notice (Risk R11).
 
-### 11.2 Saved Tier 2 recipe, opened offline
+### 11.2 Saved Tier 2 recipe, when the re-fetch fails
 
-We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its ingredients or instructions. So a saved Tier 2 recipe opened without a connection has a title and a picture and nothing else.
+The app is online-only (Technical Spec §2.3.1), so sustained offline use is not a
+supported state. But a request can still fail — dropped connection, vendor
+outage, exhausted quota (HTTP 402) — and this screen is what the user sees when
+it does.
+
+We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its
+ingredients or instructions. So a saved Tier 2 recipe whose re-fetch fails has a
+title and a picture and nothing else.
 
 Handle it as a normal state, not an error:
 
