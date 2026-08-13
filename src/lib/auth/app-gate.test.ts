@@ -25,11 +25,11 @@ describe('app gate routing', () => {
   });
 
   it.each(DYNAMIC_APP_ROUTES)(
-    'protects the %s route while loading and while signed out',
+    'protects the %s route while signed out but exposes it for an authenticated redirect',
     (routeName) => {
       expect(rootRouteIsAvailable(routeName, 'loading', '/(auth)/sign-in')).toBe(false);
       expect(rootRouteIsAvailable(routeName, 'redirecting', '/(auth)/sign-in')).toBe(false);
-      expect(rootRouteIsAvailable(routeName, 'redirecting', '/')).toBe(false);
+      expect(rootRouteIsAvailable(routeName, 'redirecting', '/')).toBe(true);
       expect(rootRouteIsAvailable(routeName, 'ready', '/(auth)/sign-in')).toBe(false);
       expect(rootRouteIsAvailable(routeName, 'ready', '/')).toBe(true);
     }
