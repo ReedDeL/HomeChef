@@ -12,6 +12,7 @@ interface MealSatietyCheckInProps {
   recipeTitle: string;
   isSaving: boolean;
   errorMessage: string | null;
+  onBack: () => void;
   onSave: (level: MealSatietyLevel) => void;
   onSkip: () => void;
 }
@@ -24,6 +25,7 @@ export function MealSatietyCheckIn({
   recipeTitle,
   isSaving,
   errorMessage,
+  onBack,
   onSave,
   onSkip,
 }: MealSatietyCheckInProps) {
@@ -32,6 +34,14 @@ export function MealSatietyCheckIn({
 
   return (
     <View style={styles.container}>
+      <PrimaryButton
+        label="← Back to verdict"
+        variant="ghost"
+        disabled={isSaving}
+        onPress={onBack}
+        accessibilityHint="Returns to the meal verdict without leaving cook mode"
+      />
+
       <View style={styles.intro}>
         <Text variant="display">How full do you feel?</Text>
         <Text variant="body" tone="muted">
@@ -55,14 +65,15 @@ export function MealSatietyCheckIn({
               accessibilityRole="radio"
               accessibilityLabel={label}
               accessibilityHint={`Records that this meal left you ${label.toLowerCase()}.`}
-              accessibilityState={{ selected }}
+              accessibilityState={{ disabled: isSaving, selected }}
+              disabled={isSaving}
               onPress={() => setSelectedLevel(level)}
               style={({ pressed }) => [
                 styles.option,
                 {
                   backgroundColor: selected ? color.surfaceAlt : color.surface,
                   borderColor: selected ? color.accent : color.border,
-                  opacity: pressed ? 0.8 : 1,
+                  opacity: isSaving ? 0.4 : pressed ? 0.8 : 1,
                 },
               ]}
             >

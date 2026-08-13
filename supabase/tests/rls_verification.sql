@@ -145,21 +145,54 @@ begin
   results := results || format('11|A cannot write satiety as B|blocked|%s',
                                case when blocked then 'blocked' else 'ALLOWED' end);
 
+  -- Positive satiety control: this authenticated insert exercises the table
+  -- grant and own-row policy, then reads the row back through the SELECT grant
+  -- and own-row policy used by the app.
+  insert into public.meal_satiety (user_id, recipe_id, level)
+  values (user_a, 'tier1-own-satiety-control', 'still_hungry');
+
+  select count(*) into n
+    from public.meal_satiety
+   where user_id = user_a
+     and recipe_id = 'tier1-own-satiety-control'
+     and level = 'still_hungry';
+  results := results || format('12|Positive control: A CAN insert and read own satiety|1|%s', n);
+
+  blocked := false;
+  begin
+    update public.meal_satiety
+       set level = 'too_full'
+     where user_id = user_a
+       and recipe_id = 'tier1-own-satiety-control';
+  exception when insufficient_privilege then blocked := true;
+  end;
+  results := results || format('13|Submitted satiety cannot be updated|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  blocked := false;
+  begin
+    delete from public.meal_satiety
+     where user_id = user_a
+       and recipe_id = 'tier1-own-satiety-control';
+  exception when insufficient_privilege then blocked := true;
+  end;
+  results := results || format('14|Submitted satiety cannot be deleted|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
   update public.user_preferences set allergens = array['nothing'] where user_id = user_b;
   get diagnostics n = row_count;
-  results := results || format('12|A cannot edit B allergens|0|%s', n);
+  results := results || format('15|A cannot edit B allergens|0|%s', n);
 
   delete from public.inventory where household_id = household_b;
   get diagnostics n = row_count;
-  results := results || format('13|A cannot clear B pantry|0|%s', n);
+  results := results || format('16|A cannot clear B pantry|0|%s', n);
 
-  -- Positive control: a policy set that denies everything is not a passing
-  -- policy set. Assertions 9-13 above only mean something if A can still
-  -- write their own household's pantry.
+  -- Positive inventory control: a policy set that denies every pantry write
+  -- is not a passing policy set.
   insert into public.inventory (household_id, ingredient_id, source)
   values ((select household_id from public.profiles where id = user_a), 'flour', 'manual');
   get diagnostics n = row_count;
-  results := results || format('14|Positive control: A CAN stock own pantry|1|%s', n);
+  results := results || format('17|Positive control: A CAN stock own pantry|1|%s', n);
 
   ----------------------------------------------------- as A2, the roommate ---
   perform set_config('request.jwt.claims',
@@ -169,35 +202,35 @@ begin
   -- as broken as preferences everybody can read. 3, not 2 -- the positive
   -- control above added flour to the same household.
   select count(*) into n from public.inventory;
-  results := results || format('15|Roommate SHARES the pantry|3|%s', n);
+  results := results || format('18|Roommate SHARES the pantry|3|%s', n);
 
   select count(*) into n from public.user_preferences;
-  results := results || format('16|Roommate sees only own preferences|1|%s', n);
+  results := results || format('19|Roommate sees only own preferences|1|%s', n);
 
   select count(*) into n from public.user_preferences where 'peanut' = any(allergens);
-  results := results || format('17|Roommate cannot read A allergens|0|%s', n);
+  results := results || format('20|Roommate cannot read A allergens|0|%s', n);
 
   select count(*) into n from public.meal_feedback;
-  results := results || format('18|Roommate cannot read A feedback|0|%s', n);
+  results := results || format('21|Roommate cannot read A feedback|0|%s', n);
 
   select count(*) into n from public.meal_satiety;
-  results := results || format('19|Roommate cannot read A satiety|0|%s', n);
+  results := results || format('22|Roommate cannot read A satiety|0|%s', n);
 
   --------------------------------------------------------------- as anon -----
   perform set_config('role', 'anon', true);
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
 
   select count(*) into n from public.inventory;
-  results := results || format('20|Anon sees no pantry|0|%s', n);
+  results := results || format('23|Anon sees no pantry|0|%s', n);
 
   select count(*) into n from public.user_preferences;
-  results := results || format('21|Anon sees no preferences|0|%s', n);
+  results := results || format('24|Anon sees no preferences|0|%s', n);
 
   select count(*) into n from public.households;
-  results := results || format('22|Anon sees no households|0|%s', n);
+  results := results || format('25|Anon sees no households|0|%s', n);
 
   select count(*) into n from public.meal_satiety;
-  results := results || format('23|Anon sees no satiety|0|%s', n);
+  results := results || format('26|Anon sees no satiety|0|%s', n);
 
   perform set_config('role', 'postgres', true);
 
