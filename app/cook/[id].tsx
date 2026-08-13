@@ -128,6 +128,12 @@ export default function CookModeScreen() {
   if (completionStep === 'satiety') {
     return (
       <Screen>
+        <PrimaryButton
+          label="← Back to verdict"
+          variant="ghost"
+          onPress={handleBack}
+          accessibilityHint="Returns to the meal verdict without leaving cook mode"
+        />
         <MealSatietyCheckIn
           recipeTitle={recipe.title}
           isSaving={satietyMutation.isPending}

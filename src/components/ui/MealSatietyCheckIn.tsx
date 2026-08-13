@@ -103,6 +103,7 @@ export function MealSatietyCheckIn({
         <PrimaryButton
           label="Skip"
           variant="ghost"
+          disabled={isSaving}
           onPress={onSkip}
           accessibilityHint="Returns home without saving a hunger stat"
         />
@@ -129,14 +130,14 @@ const styles = StyleSheet.create({
     gap: space.md,
     padding: space.md,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   marker: {
     width: space.lg,
     height: space.lg,
     padding: space.xs,
     borderRadius: radius.full,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   markerDot: {
     flex: 1,
