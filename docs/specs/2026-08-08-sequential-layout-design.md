@@ -1,10 +1,9 @@
 # Sequential layout — one decision per screen
 
 **Date:** 2026-08-08
-**Status:** Design approved, not yet implemented
+**Status:** Implemented — `app/(onboarding)/`, `app/(tabs)/`,
+`src/components/ui/`. `BetaDashboard.tsx` is deleted.
 **Milestone:** MVP app shell (Aug 24 launch)
-**Depends on:** `docs/plans/2026-08-08-photo-to-pantry.md` Tasks 1–18
-**Supersedes:** that plan's Task 19
 
 ## Problem
 

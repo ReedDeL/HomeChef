@@ -1,7 +1,8 @@
 # Web live camera (webcam) capture for pantry scan
 
 **Date:** 2026-08-10
-**Status:** Draft
+**Status:** Implemented — `src/components/CameraCapture.web.tsx`,
+`src/lib/webcam.ts` (commit `be5a746`)
 
 ## Problem
 

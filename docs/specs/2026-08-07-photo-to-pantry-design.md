@@ -1,7 +1,8 @@
 # Photo → pantry (MVP)
 
 **Date:** 2026-08-07
-**Status:** Design approved, not yet implemented
+**Status:** Implemented — `app/scan.tsx`, `src/lib/pantry-photo.ts`,
+`supabase/functions/analyze-pantry-photo/`
 **Milestone:** MVP core loop (B2 — "I take a photo of my fridge and it knows
 what I have")
 

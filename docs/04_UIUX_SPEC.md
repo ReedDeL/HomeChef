@@ -561,18 +561,28 @@ Added after the first build of these screens. Where the code departs from the
 text above, the reason is recorded here rather than left for someone to
 rediscover.
 
-### 13.1 The web build is the phone layout, letterboxed
+### 13.1 The web build is a responsive workspace — REVISED Aug 12, 2026
 
-There is one UI, shared by iOS, Android, and the web. On a browser it is
-constrained to a 430pt centred column (`MobileViewport`, `layout.mobileViewportMaxWidth`)
-with the page behind it painted `surfaceAlt`.
+> **Retracted.** This section previously specified that the web build was the
+> phone layout letterboxed into a 430pt column, and recorded that a separate
+> desktop layout "was rejected." That decision was reversed. The text is
+> replaced rather than amended because leaving it invited the letterbox back.
 
-Left unbounded, the phone layout stretched to the full width of a monitor: the
-summary tiles became 600pt wide and the ingredient chips spread into a single
-sparse row. The alternative — a separate desktop layout — was rejected because
-it would be a second design to keep in sync with no user asking for it. §0's
-premise is a tired person holding a phone in one hand, and the browser build
-exists to review that, not to replace it.
+There is one UI, shared by iOS, Android, and the web, and one set of routes,
+store state, engine behaviour, and accessibility labels. What changes across
+viewports is composition, not functionality.
+
+`getResponsiveLayout(width)` (`src/components/ui/responsive-layout.ts`) is the
+single place a viewport width becomes a layout decision; `MobileViewport` and
+`Screen` are its only consumers. Mobile stays a single-column, edge-to-edge
+flow. Desktop renders a centred workspace capped near 1180pt with responsive
+gutters and multi-column content, on a `surfaceAlt` page canvas.
+
+Onboarding and cook mode stay focused single-column layouts at every width.
+§0's premise — a tired person, one hand free — governs those two regardless of
+how much room the browser has.
+
+**Governing spec:** `docs/specs/2026-08-12-responsive-web-layout-design.md`.
 
 ### 13.2 Deviations from the screens above
 
@@ -582,7 +592,7 @@ exists to review that, not to replace it.
 | §4 cuisine chips | Curated shortlist of 8 | The catalog's cuisine values are not a vocabulary — 209 recipes have none, and the rest mix `british` with `france` and `netherlands`. Validated against the catalog at module load. |
 | §3.2 searchable allergen list with free-text add | Eight fixed chips | Only allergen groups present in `ingredients.json` are offered. An allergen the vocabulary cannot detect is worse than an omitted one: it promises protection that does not exist. Sesame has no group and so is not listed. |
 | §3.3 first photo capture | Built, optional | Offered on the staples screen and from the pantry tab. Never required — making a camera permission prompt the price of finishing setup contradicts "onboarding is a tax, keep it short". |
-| §6 "Start cooking" | Present but disabled | Cook mode (§7) is not built. |
+| §6 "Start cooking" | Wired to `app/cook/[id]` | Cook mode (§7) shipped after this table was written. |
 | §5.1 swipe left to skip | Not built | Deferred; `recordSkip` exists and the recipe screen records an explicit dislike. |
 
 ### 13.3 The one empty state, and why it is allowed
@@ -601,4 +611,4 @@ actually about.
 ---
 
 *Application42 · HomeChef · UI/UX Specification v1.0 · August 3, 2026*
-*§13 added August 9, 2026.*
+*§13 added August 9, 2026 · §13.1 retracted and rewritten August 12, 2026.*

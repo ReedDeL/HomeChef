@@ -1,7 +1,8 @@
 # HomeChef Responsive Web Layout Design
 
 **Date:** August 12, 2026  
-**Status:** Approved for implementation  
+**Status:** Implemented — `src/components/ui/responsive-layout.ts`, consumed by
+`MobileViewport` and `Screen`. **Supersedes UI/UX Spec §13.1.**  
 **Scope:** Responsive web presentation for the existing HomeChef app
 
 ## Goal
