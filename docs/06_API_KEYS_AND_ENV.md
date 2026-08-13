@@ -32,6 +32,8 @@ React Native bundles are trivially extractable — `.ipa` and `.apk` files are Z
 | **Spoonacular API key** | [spoonacular.com/food-api/console](https://spoonacular.com/food-api/console) | Supabase secret | ❌ **Never** |
 | **Supabase URL** | Supabase dashboard → Settings → API | Client `.env` | ✅ Yes — public by design |
 | **Supabase anon key** | Supabase dashboard → Settings → API | Client `.env` | ✅ Yes — RLS protects the data |
+| **Google OAuth client ID** | Google Cloud → Google Auth Platform → Clients | Supabase Dashboard; local `supabase/.env.local` | ❌ Not needed by the app bundle |
+| **Google OAuth client secret** | Google Cloud → Google Auth Platform → Clients | Supabase Dashboard; local `supabase/.env.local` | ❌ **Never** |
 | **Supabase service_role key** | Supabase dashboard → Settings → API | **Nowhere yet** | ❌ **Never** — bypasses all RLS |
 
 ### On the two Supabase keys
@@ -90,6 +92,54 @@ SPOONACULAR_API_KEY=your_key_here
 ```bash
 supabase functions serve --env-file supabase/.env.local
 ```
+
+### Step 4a — Google OAuth (web and Android)
+
+Google OAuth is brokered by Supabase Auth. Create **one Web application** OAuth
+client in Google Cloud → **Google Auth Platform → Clients**. Do not create an
+Android OAuth client for this flow.
+
+1. In Supabase Dashboard → **Authentication → Providers → Google**, copy the
+   displayed callback URL. In the Google Web client, add that exact value under
+   **Authorized redirect URIs**.
+2. Under **Authorized JavaScript origins**, add only the deployed HomeChef web
+   origin and `http://localhost:8081`. Do not add an Android scheme here.
+3. Back in Supabase Dashboard → **Authentication → Providers → Google**, enable
+   Google and enter the Web client ID and client secret. Those values belong in
+   the Dashboard, never in `app.json`, client `.env`, `.env.example`, or source
+   code.
+4. In Supabase Dashboard → **Authentication → URL Configuration → Redirect
+   URLs**, add the deployed HomeChef web origin, `http://localhost:8081`, and
+   `homechef://**`. Keep the deployed origin exact; do not use a broad web
+   wildcard.
+
+For local Supabase Auth only, put the credentials in the ignored
+`supabase/.env.local` file:
+
+```bash
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=
+```
+
+`supabase/config.toml` reads those names with `env(...)`; values must never be
+committed. The Google client secret is not an Edge Function secret, but it is
+still server-side configuration managed by Supabase Auth.
+
+#### Live OAuth verification
+
+After the Google Cloud and hosted Supabase Dashboard settings above are in
+place, verify both round trips:
+
+1. Run `npm run web`, sign in at `http://localhost:8081`, confirm a new account
+   reaches equipment onboarding, then reload and confirm the session remains.
+2. Run `npm run android:dev`, complete sign-in in the Android auth browser,
+   confirm the `homechef://` return opens HomeChef, then relaunch and confirm
+   the session remains.
+
+Repository configuration cannot perform those sign-ins: they require a real
+Google Cloud OAuth client and access to the hosted Supabase Dashboard. Record
+the result after that external setup is available; until then, treat live OAuth
+verification as blocked rather than simulated.
 
 ### Step 5 — `.gitignore`
 
