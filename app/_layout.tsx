@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MobileViewport } from '@/components/MobileViewport';
-import { authRoute, needsRouteReplacement } from '@/lib/auth/app-gate';
+import { appGatePhase, authRoute } from '@/lib/auth/app-gate';
 import { useAuthSession } from '@/lib/auth/useAuthSession';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
@@ -37,7 +37,6 @@ export default function RootLayout() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <MobileViewport>
           <AppGate />
-          <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
         </MobileViewport>
       </SafeAreaProvider>
     </QueryClientProvider>
@@ -46,8 +45,9 @@ export default function RootLayout() {
 
 /**
  * Keeps signed-out users outside the app, sends a first-run signed-in user
- * through onboarding, and keeps a returning one out of it. Renders nothing —
- * it only redirects.
+ * through onboarding, and keeps a returning one out of it. Until both stores
+ * hydrate, its navigator exposes only a blank route; after that, only the
+ * destination group can mount while an explicit replacement finishes.
  *
  * The equipment tier and allergen list are hard constraints the engine cannot
  * do without, so this is a gate rather than a prompt: there is no "skip"
@@ -59,20 +59,40 @@ function AppGate() {
   const onboardingDone = useKitchenStore((state) => state.onboardingDone);
   const hydrated = useStoreHydrated();
   const { isAuthenticated, isLoading } = useAuthSession();
+  const target = authRoute({ isAuthenticated, onboardingDone });
+  const currentGroup =
+    segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'loading'
+      ? segments[0]
+      : undefined;
+  const phase = appGatePhase(hydrated, isLoading, currentGroup, target);
 
   useEffect(() => {
-    // Redirecting before both persisted stores are ready can briefly expose the
-    // wrong route and can bounce a returning user through sign-in or onboarding.
-    if (!hydrated || isLoading) return;
+    if (phase === 'redirecting') router.replace(target);
+  }, [phase, router, target]);
 
-    const target = authRoute({ isAuthenticated, onboardingDone });
-    const currentGroup =
-      segments[0] === '(auth)' || segments[0] === '(onboarding)' ? segments[0] : undefined;
+  return (
+    <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack.Protected guard={phase === 'loading'}>
+        <Stack.Screen name="loading" />
+      </Stack.Protected>
 
-    if (needsRouteReplacement(currentGroup, target)) router.replace(target);
-  }, [hydrated, isAuthenticated, isLoading, onboardingDone, router, segments]);
+      <Stack.Protected guard={phase !== 'loading' && target === '/(auth)/sign-in'}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
 
-  return null;
+      <Stack.Protected guard={phase !== 'loading' && target === '/(onboarding)/equipment'}>
+        <Stack.Screen name="(onboarding)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={phase !== 'loading' && target === '/'}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="cook" />
+        <Stack.Screen name="recipe" />
+        <Stack.Screen name="scan" />
+        <Stack.Screen name="settings" />
+      </Stack.Protected>
+    </Stack>
+  );
 }
 
 /**
