@@ -42,5 +42,5 @@ export function rootRouteIsAvailable(
   if (phase === 'loading') return routeName === 'loading';
   if (target === '/(auth)/sign-in') return routeName === '(auth)';
   if (target === '/(onboarding)/equipment') return routeName === '(onboarding)';
-  return APP_ROUTE_NAMES.some((appRouteName) => appRouteName === routeName);
+  return phase === 'ready' && APP_ROUTE_NAMES.some((appRouteName) => appRouteName === routeName);
 }

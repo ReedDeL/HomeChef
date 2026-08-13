@@ -20,7 +20,7 @@ describe('app gate routing', () => {
 
   it('withholds the current route until its group matches the target', () => {
     expect(appGatePhase(true, false, '(tabs)', '/(auth)/sign-in')).toBe('redirecting');
-    expect(appGatePhase(true, false, 'loading', '/')).toBe('redirecting');
+    expect(appGatePhase(true, false, undefined, '/')).toBe('ready');
     expect(appGatePhase(true, false, '(auth)', '/(auth)/sign-in')).toBe('ready');
   });
 
@@ -29,6 +29,7 @@ describe('app gate routing', () => {
     (routeName) => {
       expect(rootRouteIsAvailable(routeName, 'loading', '/(auth)/sign-in')).toBe(false);
       expect(rootRouteIsAvailable(routeName, 'redirecting', '/(auth)/sign-in')).toBe(false);
+      expect(rootRouteIsAvailable(routeName, 'redirecting', '/')).toBe(false);
       expect(rootRouteIsAvailable(routeName, 'ready', '/(auth)/sign-in')).toBe(false);
       expect(rootRouteIsAvailable(routeName, 'ready', '/')).toBe(true);
     }

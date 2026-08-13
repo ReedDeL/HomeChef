@@ -66,9 +66,7 @@ function AppGate() {
   const { isAuthenticated, isLoading } = useAuthSession();
   const target = authRoute({ isAuthenticated, onboardingDone });
   const currentGroup =
-    segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'loading'
-      ? segments[0]
-      : undefined;
+    segments[0] === '(auth)' || segments[0] === '(onboarding)' ? segments[0] : undefined;
   const phase = appGatePhase(hydrated, isLoading, currentGroup, target);
 
   useEffect(() => {
