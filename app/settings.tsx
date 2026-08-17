@@ -87,13 +87,15 @@ export default function SettingsScreen() {
   };
 
   const updateAllergen = (value: string) => {
+    const enabled = !allergens.includes(value);
     toggleAllergen(value);
-    trackSettingsUpdated({ setting: 'allergen', value });
+    trackSettingsUpdated({ setting: 'allergen_filter_enabled', value: enabled });
   };
 
   const updateDietary = (value: (typeof dietary)[number]) => {
+    const enabled = !dietary.includes(value);
     toggleDietary(value);
-    trackSettingsUpdated({ setting: 'dietary_restriction', value });
+    trackSettingsUpdated({ setting: 'dietary_filter_enabled', value: enabled });
   };
 
   const confirmReset = () => {
