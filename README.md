@@ -42,10 +42,10 @@ rules live in [`AGENTS.md`](AGENTS.md).
 
 | Milestone                                            | State                                                                               |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **1 — DB-to-Engine binding**                         | ✅ Done                                                                              |
-| 2 — Decision engine hardening + equipment enrichment | ⏳ Engine built and tested; LLM enrichment + 30-recipe spot-check outstanding      |
+| **1 — DB-to-Engine binding**                         | ✅ Done                                                                             |
+| 2 — Decision engine hardening + equipment enrichment | ⏳ Engine built and tested; LLM enrichment + 30-recipe spot-check outstanding       |
 | 3 — App shell & photo pipeline                       | ⏳ Screens, cook mode, and scan built; Edge Function unverified against live Gemini |
-| 4 — Tier 2 (Spoonacular)                             | ⬜ Not started                                                                     |
+| 4 — Tier 2 (Spoonacular)                             | ⬜ Not started                                                                      |
 
 The browser beta harness is gone. `app/` now holds the real screens from
 `docs/04_UIUX_SPEC.md` — onboarding, the time-first home screen, the four
