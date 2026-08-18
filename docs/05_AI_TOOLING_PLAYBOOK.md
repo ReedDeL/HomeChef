@@ -41,7 +41,7 @@ The single largest quality difference between useful AI output and slop is **how
 
 ### 2.1 The repo context file
 
-`CLAUDE.md` at the repository root is loaded automatically by coding agents. It is the highest-leverage file in the project — it converts our written standards into an automatic constraint on every generation.
+`AGENTS.md` at the repository root is loaded automatically by coding agents. It is the highest-leverage file in the project — it converts our written standards into an automatic constraint on every generation.
 
 **Keep it under 200 lines.** A context file that grows unbounded dilutes itself; the important rules get lost among the trivia. When it grows, cut rather than append.
 
@@ -240,7 +240,7 @@ We do **not** mark AI-generated code in comments or commits. Reasons: it dates i
 
 ## 9. Repository Context File
 
-**`CLAUDE.md` exists at the repo root — [read it there](../CLAUDE.md).** It is the single source of truth for agent context; the outline below is illustrative only, and if the two ever disagree, `CLAUDE.md` wins. Do not maintain a second copy.
+**`AGENTS.md` exists at the repo root — [read it there](../AGENTS.md).** It is the single source of truth for agent context; the outline below is illustrative only, and if the two ever disagree, `AGENTS.md` wins. Do not maintain a second copy.
 
 Keep it under 200 lines. When it grows, cut rather than append — a context file that grows unbounded dilutes itself, and the important rules get lost among the trivia.
 

@@ -34,25 +34,25 @@ equipment, your allergies, and your dietary needs, no exceptions.
 
 Everything below this line is technical documentation for the engineering
 team and contributors. Full specs live in [`docs/`](docs/); architecture
-rules live in [`CLAUDE.md`](CLAUDE.md).
+rules live in [`AGENTS.md`](AGENTS.md).
 
 ---
 
 ## Status: Milestone 1 complete
 
-| Milestone                                            | State                                                                         |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **1 — DB-to-Engine binding**                         | ✅ Done                                                                       |
-| 2 — Decision engine hardening + equipment enrichment | ⏳ Engine built and tested; LLM enrichment + 30-recipe spot-check outstanding |
-| 3 — App shell & photo pipeline                       | ⏳ Screens built to spec; photo pipeline and cook mode outstanding            |
-| 4 — Tier 2 (Spoonacular)                             | ⬜ Not started                                                                |
+| Milestone                                            | State                                                                               |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **1 — DB-to-Engine binding**                         | ✅ Done                                                                              |
+| 2 — Decision engine hardening + equipment enrichment | ⏳ Engine built and tested; LLM enrichment + 30-recipe spot-check outstanding      |
+| 3 — App shell & photo pipeline                       | ⏳ Screens, cook mode, and scan built; Edge Function unverified against live Gemini |
+| 4 — Tier 2 (Spoonacular)                             | ⬜ Not started                                                                     |
 
 The browser beta harness is gone. `app/` now holds the real screens from
 `docs/04_UIUX_SPEC.md` — onboarding, the time-first home screen, the four
-result buckets, recipe detail, and the pantry — and the same code runs on iOS,
-Android, and the web. The web build letterboxes that phone layout into a
-430pt column rather than stretching it across a monitor, so the browser shows
-what the device shows.
+result buckets, recipe detail, cook mode, and the pantry — and the same code
+runs on iOS, Android, and the web. On the web it is a responsive workspace:
+one column on a phone, a centred multi-column layout on a desktop, driven by
+`src/components/ui/responsive-layout.ts`.
 
 What exists:
 
@@ -264,17 +264,17 @@ enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
 
 ## Known gaps
 
-- **The vocabulary carries singular and plural spellings as separate ids, and
-  recipes use both.** `egg` appears in 121 recipes and `eggs` in 106; `carrot`
-  in 1 and `carrots` in 85. A pantry holding one spelling silently fails to
-  match every recipe written with the other, which is the exact set-difference
-  break `tools/catalog/normalize.py` warns about in its own docstring. Eleven
-  pairs are affected. `src/lib/ingredients/resolve.ts` collapses ten of them so
-  the photo pipeline cannot make it worse (`clove`/`cloves` is left alone — the
-  spice and the garlic unit are different things), but that only fixes the
-  pantry side. **The real fix is to collapse plurals during catalog
-  normalization and regenerate**, and until then recipe coverage is
-  overstated.
+> Each gap is stated once here and explained where it is enforced. Where a
+> bullet names a file, that file is the reference — do not restate its
+> reasoning in this list.
+
+- **Singular and plural spellings are separate ids, and recipes use both.**
+  Eleven pairs affected (`egg`/`eggs`, `carrot`/`carrots`, …).
+  `src/lib/ingredients/resolve.ts` collapses ten on the pantry side so the
+  photo pipeline cannot worsen it; the real fix is collapsing plurals during
+  catalog normalization and regenerating. Until then recipe coverage is
+  overstated. Reasoning: `src/lib/ingredients/normalize.ts` and
+  `resolve.test.ts`.
 - **Two synonyms point at ids the catalog never mints.** `capsicum` and
   `bell pepper` rewrite to `bell_pepper`, and `beef mince` to `ground_beef`;
   neither exists in `ingredients.json`. The resolver degrades to a flagged
@@ -286,19 +286,13 @@ enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
   against the real API. See "Photo → pantry" below for the smoke test.
 
 - **The app does not talk to Supabase yet.** Constraints and the pantry live in
-  local storage on the device. The data layer for the server-backed version is
-  built and tested (`src/lib/queries/`, `src/hooks/`), but nothing produces a
-  `userId`, so every one of those hooks is inert. Anonymous sign-in was the
-  intended way in and is **disabled** on the project — `/auth/v1/settings`
-  reports `"anonymous_users": false`. Enabling it in the dashboard (Auth →
-  Providers) is the unblocking step; the signup trigger in `0001` already
-  creates the household, profile, membership, and preferences row, and every
-  RLS policy targets `authenticated`, which anonymous users are.
-- **Cook mode and the photo pipeline are not built.** "Start cooking" on the
-  recipe screen is deliberately disabled rather than wired to a stub, and the
-  first-photo prompt is omitted from the pantry-starter screen for the same
-  reason — a dead button on the screen that teaches trust is worse than an
-  absent one.
+  local storage on the device. The data layer is built and tested
+  (`src/lib/queries/`, `src/hooks/`), but nothing produces a `userId`, so every
+  one of those hooks is inert. Federated Google sign-in is the unblocking step
+  and is in flight — Technical Spec §2.2.1,
+  `docs/specs/2026-08-12-google-oauth-android-web-design.md`. The signup
+  trigger in `0001` already creates the household, profile, membership, and
+  preferences row.
 - **Allergen coverage is thin.** Only the allergen groups that exist in
   `src/data/ingredients.json` are offered, so the list is eight items and
   sesame is absent entirely. That is deliberate: an allergen the vocabulary
@@ -307,14 +301,12 @@ enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
   allergen filtering should not be considered trustworthy until the vocabulary
   is enriched.
 
-- **76 of 812 recipes are `unclassified` and shown to nobody.** The keyword pass
-  could not classify them. They used to fall back to `none`, which the equipment
-  filter treats as always satisfied — so they were served to microwave-only users
-  as though confirmed microwave-safe. `unclassified` is now a distinct value that
-  never satisfies the filter: unknown excludes, it does not admit. The cost is
-  that a full-kitchen user sees 736 recipes rather than 812. That number climbs
-  back as the LLM enrichment pass and its **mandatory 30-recipe human spot-check**
-  (Technical Spec §5.2 step 6) classify the backlog.
+- **76 of 812 recipes are `unclassified` and shown to nobody.** The keyword
+  pass could not classify them, and unknown excludes rather than admits, so a
+  full-kitchen user sees 736. That number climbs back as the LLM enrichment
+  pass and its **mandatory 30-recipe human spot-check** (Technical Spec §5.2
+  step 6) work the backlog. Reasoning: `src/engine/filter-hard.ts` and
+  `docs/specs/2026-08-06-microwave-seed-catalog-design.md`.
 - **The microwave wedge rests on 20 hand-written recipes.** TheMealDB supplies
   exactly two microwave-only recipes and both are 240-minute fudge, which the
   relaxation ladder tops out below — so a microwave-only user got _zero_ results
@@ -324,10 +316,6 @@ enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
 - **`dietaryTags` is empty for every recipe, deliberately.** Dietary is a hard
   constraint, so a wrong tag ships a violation to the user. Absent beats wrong.
   A verified pass must populate it before dietary filtering is meaningful.
-- **The catalog is 792 recipes, not the ~300 the spec assumed.** TheMealDB grew.
-  Client-side ranking is still well under 10 ms, so no architecture changes.
-- **The two-account RLS run is scripted but not yet executed end to end.**
-  `supabase/tests/rls_verification.sql` holds 19 assertions and the blocking bug
-  it was written to find is fixed and confirmed gone; the seeded run itself
-  still needs one `psql -f` pass by a human before the privacy model can be
-  called verified. Do not treat roommate privacy as proven until that is green.
+- **The catalog is 812 recipes, not the ~300 the spec assumed** — 792 from
+  TheMealDB plus 20 seed. TheMealDB grew. Client-side ranking is still well
+  under 10 ms, so no architecture changes.
