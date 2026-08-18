@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AnalyticsObserver } from '@/components/AnalyticsObserver';
 import { MobileViewport } from '@/components/MobileViewport';
+import { configureMealPrepNotifications } from '@/lib/meal-prep-notifications';
 import { isAnalyticsConfigured } from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
@@ -34,6 +35,12 @@ const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.postho
 
 export default function RootLayout() {
   const { isDark } = useTheme();
+
+  useEffect(() => {
+    configureMealPrepNotifications().catch((error: unknown) => {
+      console.warn('[notifications] Unable to configure', error);
+    });
+  }, []);
 
   return (
     <AnalyticsProvider>
