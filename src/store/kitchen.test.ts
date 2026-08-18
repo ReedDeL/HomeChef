@@ -159,3 +159,23 @@ describe('useKitchenStore step navigation state retention', () => {
     expect(useKitchenStore.getState().dietary).toContain('vegetarian');
   });
 });
+
+describe('useKitchenStore meal-prep reminder preferences', () => {
+  it('defaults reminders to off at the recipe-required start time', () => {
+    expect(useKitchenStore.getState().mealPrepRemindersEnabled).toBe(false);
+    expect(useKitchenStore.getState().mealPrepReminderLeadMinutes).toBe(0);
+  });
+
+  it('restores reminder defaults when all local data is reset', () => {
+    useKitchenStore.getState().setMealPrepRemindersEnabled(true);
+    useKitchenStore.getState().setMealPrepReminderLeadMinutes(30);
+
+    expect(useKitchenStore.getState().mealPrepRemindersEnabled).toBe(true);
+    expect(useKitchenStore.getState().mealPrepReminderLeadMinutes).toBe(30);
+
+    useKitchenStore.getState().reset();
+
+    expect(useKitchenStore.getState().mealPrepRemindersEnabled).toBe(false);
+    expect(useKitchenStore.getState().mealPrepReminderLeadMinutes).toBe(0);
+  });
+});
