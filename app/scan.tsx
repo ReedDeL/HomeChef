@@ -1,8 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { CameraCapture } from '@/components/CameraCapture';
 import { CandidateRow } from '@/components/ui/CandidateRow';
 import { Card } from '@/components/ui/Card';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -17,6 +18,12 @@ import {
   correctCandidate,
   type PantryCandidate,
 } from '@/lib/pantry-photo';
+import {
+  trackPantryItemAdded,
+  trackPantryScanCompleted,
+  trackPantryScanFailed,
+  trackPantryScanStarted,
+} from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -41,6 +48,7 @@ export default function ScanScreen() {
   const [uris, setUris] = useState<string[]>([]);
   const [candidates, setCandidates] = useState<PantryCandidate[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const acceptedCount = useMemo(
     () => candidates.filter((candidate) => candidate.accepted && candidate.ingredientId).length,
@@ -48,7 +56,13 @@ export default function ScanScreen() {
   );
 
   const pick = useCallback(async (source: 'camera' | 'library') => {
+    trackPantryScanStarted({ source });
     setError(null);
+
+    if (source === 'camera' && Platform.OS === 'web') {
+      setCameraOpen(true);
+      return;
+    }
 
     if (source === 'camera') {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -75,14 +89,31 @@ export default function ScanScreen() {
     );
   }, []);
 
+  const handleWebCapture = useCallback((dataUri: string) => {
+    setCameraOpen(false);
+    setUris((current) => [...current, dataUri].slice(0, MAX_PHOTOS));
+  }, []);
+
+  const handleWebCameraUnavailable = useCallback(() => {
+    setCameraOpen(false);
+    void pick('library');
+  }, [pick]);
+
   const analyze = useCallback(async () => {
     setPhase('analyzing');
     setError(null);
 
     try {
-      setCandidates(await analyzePantryPhotos(uris));
+      const result = await analyzePantryPhotos(uris);
+      setCandidates(result);
+      trackPantryScanCompleted({
+        photo_count: uris.length,
+        candidate_count: result.length,
+        accepted_count: acceptedIngredientIds(result).length,
+      });
       setPhase('review');
     } catch (caught) {
+      trackPantryScanFailed({ photo_count: uris.length, failure_stage: 'analyze' });
       // Manual entry is a complete fallback (§2.4), so a failure here is a
       // detour rather than a dead end — and it says so.
       setError(
@@ -95,7 +126,9 @@ export default function ScanScreen() {
   }, [uris]);
 
   const confirm = useCallback(() => {
-    addPantryItems(acceptedIngredientIds(candidates));
+    const acceptedIds = acceptedIngredientIds(candidates);
+    trackPantryItemAdded({ source: 'photo_scan', item_count: acceptedIds.length });
+    addPantryItems(acceptedIds);
     router.back();
   }, [candidates, addPantryItems, router]);
 
@@ -164,88 +197,97 @@ export default function ScanScreen() {
   }
 
   return (
-    <Screen
-      footer={
-        <View style={styles.footer}>
+    <>
+      <Screen
+        footer={
+          <View style={styles.footer}>
+            <PrimaryButton
+              label={phase === 'analyzing' ? 'Reading your photos…' : 'Read my photos'}
+              onPress={analyze}
+              disabled={uris.length === 0 || phase === 'analyzing'}
+              accessibilityHint="Sends the photos to be read for ingredients"
+            />
+            <PrimaryButton
+              label="I'll add them manually"
+              variant="ghost"
+              onPress={() => router.back()}
+              accessibilityHint="Returns to the pantry"
+            />
+          </View>
+        }
+      >
+        <View style={styles.intro}>
+          <Text variant="display">Take a photo of your fridge</Text>
+          <Text variant="body" tone="muted">
+            Open the door and get the shelves in frame. You can add up to {MAX_PHOTOS} photos —
+            fridge, freezer, cupboard.
+          </Text>
+        </View>
+
+        {error ? (
+          <Card variant="alt">
+            <Text variant="body" tone="near">
+              {error}
+            </Text>
+          </Card>
+        ) : null}
+
+        <View style={styles.pickRow}>
           <PrimaryButton
-            label={phase === 'analyzing' ? 'Reading your photos…' : 'Read my photos'}
-            onPress={analyze}
-            disabled={uris.length === 0 || phase === 'analyzing'}
-            accessibilityHint="Sends the photos to be read for ingredients"
+            label="Take a photo"
+            onPress={() => pick('camera')}
+            accessibilityHint="Opens the camera"
           />
           <PrimaryButton
-            label="I'll add them manually"
+            label="Choose from library"
             variant="ghost"
-            onPress={() => router.back()}
-            accessibilityHint="Returns to the pantry"
+            onPress={() => pick('library')}
+            accessibilityHint="Opens your photo library"
           />
         </View>
-      }
-    >
-      <View style={styles.intro}>
-        <Text variant="display">Take a photo of your fridge</Text>
-        <Text variant="body" tone="muted">
-          Open the door and get the shelves in frame. You can add up to {MAX_PHOTOS} photos —
-          fridge, freezer, cupboard.
-        </Text>
-      </View>
 
-      {error ? (
-        <Card variant="alt">
-          <Text variant="body" tone="near">
-            {error}
-          </Text>
-        </Card>
-      ) : null}
+        {uris.length > 0 ? (
+          <View style={styles.group}>
+            <Text variant="heading">
+              {uris.length} {uris.length === 1 ? 'photo' : 'photos'}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbRow}
+            >
+              {uris.map((uri, index) => (
+                <Pressable
+                  key={index}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove this photo"
+                  accessibilityHint="Drops the photo from this scan"
+                  onPress={() => setUris((current) => current.filter((_, i) => i !== index))}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={[styles.thumb, { borderColor: color.border }]}
+                    accessibilityIgnoresInvertColors
+                  />
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Text variant="caption" tone="muted">
+              Tap a photo to remove it. Photos are read and discarded — we store the ingredients,
+              never the pictures.
+            </Text>
+          </View>
+        ) : null}
+      </Screen>
 
-      <View style={styles.pickRow}>
-        <PrimaryButton
-          label="Take a photo"
-          onPress={() => pick('camera')}
-          accessibilityHint="Opens the camera"
-        />
-        <PrimaryButton
-          label="Choose from library"
-          variant="ghost"
-          onPress={() => pick('library')}
-          accessibilityHint="Opens your photo library"
-        />
-      </View>
-
-      {uris.length > 0 ? (
-        <View style={styles.group}>
-          <Text variant="heading">
-            {uris.length} {uris.length === 1 ? 'photo' : 'photos'}
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.thumbRow}
-          >
-            {uris.map((uri) => (
-              <Pressable
-                key={uri}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Remove this photo"
-                accessibilityHint="Drops the photo from this scan"
-                onPress={() => setUris((current) => current.filter((item) => item !== uri))}
-              >
-                <Image
-                  source={{ uri }}
-                  style={[styles.thumb, { borderColor: color.border }]}
-                  accessibilityIgnoresInvertColors
-                />
-              </Pressable>
-            ))}
-          </ScrollView>
-          <Text variant="caption" tone="muted">
-            Tap a photo to remove it. Photos are read and discarded — we store the ingredients,
-            never the pictures.
-          </Text>
-        </View>
-      ) : null}
-    </Screen>
+      <CameraCapture
+        visible={cameraOpen}
+        onCapture={handleWebCapture}
+        onClose={() => setCameraOpen(false)}
+        onUnavailable={handleWebCameraUnavailable}
+      />
+    </>
   );
 }
 

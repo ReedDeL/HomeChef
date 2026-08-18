@@ -7,6 +7,11 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TIER1_CATALOG } from '@/data/catalog';
+import {
+  trackCookModeCompleted,
+  trackPantryItemRemoved,
+  trackRecipeFeedbackSubmitted,
+} from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -80,12 +85,23 @@ export default function CookModeScreen() {
   }, [completed, currentStepIndex]);
 
   const handleFinishCooking = useCallback(
-    (removeIngredients: boolean) => {
-      if (removeIngredients && recipe) {
+    (liked: boolean, feedbackSubmitted: boolean) => {
+      if (!recipe) return;
+
+      if (liked) {
         for (const ingredient of recipe.ingredients) {
           removePantryItem(ingredient.id);
         }
+        trackPantryItemRemoved({ source: 'cook_mode', item_count: recipe.ingredients.length });
       }
+      if (feedbackSubmitted) {
+        trackRecipeFeedbackSubmitted({ recipe_id: recipe.id, liked });
+      }
+      trackCookModeCompleted({
+        recipe_id: recipe.id,
+        liked,
+        removed_ingredients: liked ? recipe.ingredients.length : 0,
+      });
       router.replace('/');
     },
     [recipe, removePantryItem, router]
@@ -111,7 +127,7 @@ export default function CookModeScreen() {
           <View style={styles.footer}>
             <PrimaryButton
               label="Back to results"
-              onPress={() => handleFinishCooking(false)}
+              onPress={() => handleFinishCooking(false, false)}
               accessibilityHint="Finishes cook mode and returns to results"
             />
           </View>
@@ -131,7 +147,7 @@ export default function CookModeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thumbs up, liked it"
               accessibilityHint="Records positive feedback and deducts used pantry ingredients"
-              onPress={() => handleFinishCooking(true)}
+              onPress={() => handleFinishCooking(true, true)}
               style={[
                 styles.rateButton,
                 { backgroundColor: color.surface, borderColor: color.border },
@@ -148,7 +164,7 @@ export default function CookModeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thumbs down, did not like"
               accessibilityHint="Records feedback and keeps pantry unchanged"
-              onPress={() => handleFinishCooking(false)}
+              onPress={() => handleFinishCooking(false, true)}
               style={[
                 styles.rateButton,
                 { backgroundColor: color.surface, borderColor: color.border },

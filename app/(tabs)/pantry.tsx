@@ -8,6 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { INGREDIENT_VOCABULARY } from '@/data/catalog';
 import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
+import { trackPantryItemAdded, trackPantryItemRemoved } from '@/lib/analytics';
 import { radius, space, touchTarget } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
@@ -30,6 +31,16 @@ export default function PantryScreen() {
   const removePantryItem = useKitchenStore((state) => state.removePantryItem);
 
   const [query, setQuery] = useState('');
+
+  const addPantryItem = (id: (typeof pantry)[number]) => {
+    togglePantryItem(id);
+    trackPantryItemAdded({ source: 'pantry', item_count: 1 });
+  };
+
+  const removePantryItemWithTracking = (id: (typeof pantry)[number]) => {
+    removePantryItem(id);
+    trackPantryItemRemoved({ source: 'pantry', item_count: 1 });
+  };
 
   const suggestions = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -83,8 +94,8 @@ export default function PantryScreen() {
             key={id}
             id={id}
             inPantry
-            onToggle={removePantryItem}
-            onRemove={removePantryItem}
+            onToggle={removePantryItemWithTracking}
+            onRemove={removePantryItemWithTracking}
           />
         ))}
       </View>
@@ -107,7 +118,7 @@ export default function PantryScreen() {
 
         <View style={styles.chipRow}>
           {suggestions.map((id) => (
-            <IngredientChip key={id} id={id} onToggle={togglePantryItem} />
+            <IngredientChip key={id} id={id} onToggle={addPantryItem} />
           ))}
         </View>
 

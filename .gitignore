@@ -27,6 +27,7 @@ node_modules/
 
 # Expo / React Native
 .expo/
+.worktrees/
 dist/
 web-build/
 expo-env.d.ts
