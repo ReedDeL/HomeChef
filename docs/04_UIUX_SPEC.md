@@ -7,7 +7,7 @@
 **Changed in 1.1** — sequential layout. One decision per screen, enforced by the
 `DecisionScreen` primitive (§2). Onboarding leads with the fridge photo (§3).
 Results renders one bucket, not four (§5). Tab bar cut (§12). Rationale in
-`docs/superpowers/specs/2026-08-08-sequential-layout-design.md`.
+`docs/specs/2026-08-08-sequential-layout-design.md`.
 
 ---
 
@@ -287,7 +287,7 @@ The most important screen in the product. It exists to convert "I don't know wha
 
 ### 5.1 Rules
 
-- **The results screen renders one bucket: `ready`. Maximum 4 cards.** `CLAUDE.md`
+- **The results screen renders one bucket: `ready`. Maximum 4 cards.** `AGENTS.md`
   is the governing sentence — the engine "emits 3-4 answers," and *showing more
   options is a regression, not a feature.* Four buckets stacked on one screen is
   up to sixteen cards, which is a browsing surface, not a decision.
@@ -475,9 +475,9 @@ The app's voice is a competent friend who cooks, not a brand.
 
 ---
 
-## 11. Attribution & Offline States
+## 11. Attribution & Network Failure States
 
-Two requirements that come from Spoonacular's terms rather than from design.
+Two requirements that come from vendor terms rather than from design.
 
 ### 11.1 Required attribution
 
@@ -485,15 +485,35 @@ Two requirements that come from Spoonacular's terms rather than from design.
 |---|---|---|
 | **Recipe card (Tier 2)** | *"via {publisher}"* in `caption`/`textMuted` | Content terms — credit the original source |
 | **Recipe page (Tier 2)** | Publisher name as a tappable link to the original page, below the instructions | Content terms — must be a hyperlink |
-| **About / Settings screen** | "Recipe data powered by [spoonacular](https://spoonacular.com/food-api)" | **Free-tier backlink requirement** |
+| **About / Settings screen** | "Recipe data & images from [TheMealDB](https://www.themealdb.com)" | **Required by TheMealDB's paid terms** — see below |
+| **About / Settings screen** | "Recipe data powered by [spoonacular](https://spoonacular.com/food-api)" | Free-tier backlink requirement — **only once a Spoonacular call actually ships** |
 
-The backlink goes on About/Settings, not the results screen. It satisfies the requirement without putting a competitor's brand on the screen our entire product thesis rests on.
+**TheMealDB attribution is the one that is currently required.** They supply 792
+of the 812 bundled recipes and every recipe image. Their paid terms: *"You can
+use our custom artwork in your projects but must mention us as the source of the
+data"*, and artwork *"should link back to our website where appropriate."*
+
+Spoonacular's backlink is conditional. Tier 2 is unimplemented as of Aug 12,
+2026, and crediting a vendor that supplies zero recipes while omitting the one
+that supplies all of them is worse than no attribution at all. Ship the
+Spoonacular link with the first Spoonacular call, not before.
+
+The backlinks go on About/Settings, not the results screen. That satisfies the
+requirement without putting a competitor's brand on the screen our entire
+product thesis rests on.
 
 **This ships before launch.** Missing attribution is a terms violation, and their access can be revoked without notice (Risk R11).
 
-### 11.2 Saved Tier 2 recipe, opened offline
+### 11.2 Saved Tier 2 recipe, when the re-fetch fails
 
-We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its ingredients or instructions. So a saved Tier 2 recipe opened without a connection has a title and a picture and nothing else.
+The app is online-only (Technical Spec §2.3.1), so sustained offline use is not a
+supported state. But a request can still fail — dropped connection, vendor
+outage, exhausted quota (HTTP 402) — and this screen is what the user sees when
+it does.
+
+We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its
+ingredients or instructions. So a saved Tier 2 recipe whose re-fetch fails has a
+title and a picture and nothing else.
 
 Handle it as a normal state, not an error:
 
@@ -541,18 +561,28 @@ Added after the first build of these screens. Where the code departs from the
 text above, the reason is recorded here rather than left for someone to
 rediscover.
 
-### 13.1 The web build is the phone layout, letterboxed
+### 13.1 The web build is a responsive workspace — REVISED Aug 12, 2026
 
-There is one UI, shared by iOS, Android, and the web. On a browser it is
-constrained to a 430pt centred column (`MobileViewport`, `layout.mobileViewportMaxWidth`)
-with the page behind it painted `surfaceAlt`.
+> **Retracted.** This section previously specified that the web build was the
+> phone layout letterboxed into a 430pt column, and recorded that a separate
+> desktop layout "was rejected." That decision was reversed. The text is
+> replaced rather than amended because leaving it invited the letterbox back.
 
-Left unbounded, the phone layout stretched to the full width of a monitor: the
-summary tiles became 600pt wide and the ingredient chips spread into a single
-sparse row. The alternative — a separate desktop layout — was rejected because
-it would be a second design to keep in sync with no user asking for it. §0's
-premise is a tired person holding a phone in one hand, and the browser build
-exists to review that, not to replace it.
+There is one UI, shared by iOS, Android, and the web, and one set of routes,
+store state, engine behaviour, and accessibility labels. What changes across
+viewports is composition, not functionality.
+
+`getResponsiveLayout(width)` (`src/components/ui/responsive-layout.ts`) is the
+single place a viewport width becomes a layout decision; `MobileViewport` and
+`Screen` are its only consumers. Mobile stays a single-column, edge-to-edge
+flow. Desktop renders a centred workspace capped near 1180pt with responsive
+gutters and multi-column content, on a `surfaceAlt` page canvas.
+
+Onboarding and cook mode stay focused single-column layouts at every width.
+§0's premise — a tired person, one hand free — governs those two regardless of
+how much room the browser has.
+
+**Governing spec:** `docs/specs/2026-08-12-responsive-web-layout-design.md`.
 
 ### 13.2 Deviations from the screens above
 
@@ -562,7 +592,7 @@ exists to review that, not to replace it.
 | §4 cuisine chips | Curated shortlist of 8 | The catalog's cuisine values are not a vocabulary — 209 recipes have none, and the rest mix `british` with `france` and `netherlands`. Validated against the catalog at module load. |
 | §3.2 searchable allergen list with free-text add | Eight fixed chips | Only allergen groups present in `ingredients.json` are offered. An allergen the vocabulary cannot detect is worse than an omitted one: it promises protection that does not exist. Sesame has no group and so is not listed. |
 | §3.3 first photo capture | Built, optional | Offered on the staples screen and from the pantry tab. Never required — making a camera permission prompt the price of finishing setup contradicts "onboarding is a tax, keep it short". |
-| §6 "Start cooking" | Present but disabled | Cook mode (§7) is not built. |
+| §6 "Start cooking" | Wired to `app/cook/[id]` | Cook mode (§7) shipped after this table was written. |
 | §5.1 swipe left to skip | Not built | Deferred; `recordSkip` exists and the recipe screen records an explicit dislike. |
 
 ### 13.3 The one empty state, and why it is allowed
@@ -581,4 +611,4 @@ actually about.
 ---
 
 *Application42 · HomeChef · UI/UX Specification v1.0 · August 3, 2026*
-*§13 added August 9, 2026.*
+*§13 added August 9, 2026 · §13.1 retracted and rewritten August 12, 2026.*
