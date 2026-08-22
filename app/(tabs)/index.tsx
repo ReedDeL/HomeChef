@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BucketSection } from '@/components/ui/BucketSection';
@@ -9,12 +9,14 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { RelaxationBanner } from '@/components/ui/RelaxationBanner';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { TIER1_CATALOG } from '@/data/catalog';
+import { OFFLINE_TRANSITIONAL_CATALOG } from '@/data/catalog';
 import { decide } from '@/engine/decide';
 import { decideWithRelaxation } from '@/engine/relax';
 import type { Bucket, Minutes } from '@/engine/types';
+import { catalogRecipeCache, mergeCatalogCandidates } from '@/lib/catalog';
 import { CUISINE_OPTIONS } from '@/lib/cuisines';
 import { formatDuration } from '@/lib/format';
+import { useCatalogCandidates } from '@/lib/queries/catalog';
 import { TimeTile } from '@/components/ui/TimeTile';
 import { toEnginePreferences, useKitchenStore } from '@/store/kitchen';
 import { space } from '@/theme/tokens';
@@ -63,19 +65,46 @@ export default function HomeScreen() {
 
   const pantrySet = useMemo(() => new Set(pantry), [pantry]);
 
+  const catalogRequest = useMemo(
+    () =>
+      timeLimit === null
+        ? null
+        : {
+            pantryIngredientIds: pantry,
+            ownedEquipment: preferences.equipment,
+            allergens: preferences.allergens,
+            dietaryRestrictions: preferences.dietary,
+            requestedMinutes: timeLimit,
+            cuisine: preferences.preferredCuisine,
+            excludedRecipeIds: [...preferences.dislikedRecipeIds],
+            limit: 100,
+          },
+    [pantry, preferences, timeLimit]
+  );
+  const hostedCandidates = useCatalogCandidates(catalogRequest);
+
+  useEffect(() => {
+    if (hostedCandidates.data) catalogRecipeCache.setCandidates(hostedCandidates.data);
+  }, [hostedCandidates.data]);
+
+  const catalog = useMemo(
+    () => mergeCatalogCandidates(OFFLINE_TRANSITIONAL_CATALOG, hostedCandidates.data ?? []),
+    [hostedCandidates.data]
+  );
+
   const decision = useMemo(() => {
     if (timeLimit === null) return null;
     if (strict) {
       // `decide` never relaxes, so this can legitimately come back empty. That
       // is the one empty state the product allows, because the user asked for
       // it explicitly and can undo it — unlike an app that dead-ends on its own.
-      return { ...decide(TIER1_CATALOG, pantrySet, preferences, timeLimit), relaxed: false };
+      return { ...decide(catalog, pantrySet, preferences, timeLimit), relaxed: false };
     }
     return {
-      ...decideWithRelaxation(TIER1_CATALOG, pantrySet, preferences, timeLimit),
+      ...decideWithRelaxation(catalog, pantrySet, preferences, timeLimit),
       relaxed: true,
     };
-  }, [timeLimit, pantrySet, preferences, strict]);
+  }, [catalog, timeLimit, pantrySet, preferences, strict]);
 
   const totalResults = decision
     ? BUCKET_ORDER.reduce((sum, bucket) => sum + decision.buckets[bucket].length, 0)

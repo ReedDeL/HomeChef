@@ -6,7 +6,7 @@ import {
   type DetectedItem,
   type PantryCandidate,
 } from '@/lib/ingredients/candidates';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 /**
  * The I/O half of the photo → pantry pipeline: compress,
@@ -77,7 +77,7 @@ export async function analyzePantryPhotos(uris: readonly string[]): Promise<Pant
 
   const images = await Promise.all(uris.map(compressForUpload));
 
-  const { data, error } = await supabase.functions.invoke<{ items: DetectedItem[] }>(
+  const { data, error } = await getSupabase().functions.invoke<{ items: DetectedItem[] }>(
     'analyze-pantry-photo',
     { body: { images, mimeType: 'image/jpeg' } }
   );

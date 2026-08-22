@@ -7,8 +7,8 @@ import { isTrustedMatch, resolveIngredient, type MatchKind } from '@/lib/ingredi
  * Deliberately free of React, Expo, and Supabase imports — the same reasoning
  * that keeps `src/engine/` pure. This is where the judgement calls live (what
  * counts as trustworthy, what merges with what, what the user is shown first),
- * so it is the part most worth testing, and it tests in milliseconds with no
- * device, network, or API quota. `pantry-photo.ts` holds the I/O.
+ * so it is the part most worth testing, and it tests in milliseconds without
+ * device or network state. `pantry-photo.ts` holds the I/O.
  */
 
 /** Matches MAX_IMAGES in the analyze-pantry-photo Edge Function. */

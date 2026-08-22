@@ -135,7 +135,6 @@ describe('toRecipe', () => {
     dietaryTags: ['vegetarian'],
     ingredients: [{ id: 'egg', measure: '2', allergenGroups: ['egg'] }],
     instructions: 'Bake.',
-    source: 'tier1',
   };
 
   it('maps a well-formed bundled record', () => {
@@ -143,6 +142,7 @@ describe('toRecipe', () => {
     expect(recipe).not.toBeNull();
     expect(recipe?.id).toBe('52959');
     expect(recipe?.ingredients[0]?.allergenGroups).toEqual(['egg']);
+    expect(recipe).not.toHaveProperty('source');
   });
 
   it('defaults allergenGroups to an empty array when absent', () => {
@@ -150,14 +150,39 @@ describe('toRecipe', () => {
     expect(recipe?.ingredients[0]?.allergenGroups).toEqual([]);
   });
 
-  it('drops equipment outside the closed enum rather than passing it through', () => {
+  it('marks mixed known and invalid equipment as unclassified', () => {
     const recipe = toRecipe({ ...raw, equipmentRequired: ['oven', 'sous_vide'] });
-    expect(recipe?.equipmentRequired).toEqual(['oven']);
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
   });
 
-  it('falls back to "none" when no valid equipment survives', () => {
+  it('marks unrecognised equipment as unclassified instead of no-equipment', () => {
     const recipe = toRecipe({ ...raw, equipmentRequired: ['sous_vide'] });
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  });
+
+  it('marks missing equipment as unclassified instead of no-equipment', () => {
+    const recipe = toRecipe({ ...raw, equipmentRequired: [] });
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  });
+
+  it('preserves an explicit verified no-equipment value', () => {
+    const recipe = toRecipe({ ...raw, equipmentRequired: ['none'] });
     expect(recipe?.equipmentRequired).toEqual(['none']);
+  });
+
+  it('does not let an invalid value piggyback on no-equipment', () => {
+    const recipe = toRecipe({ ...raw, equipmentRequired: ['none', 'sous_vide'] });
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  });
+
+  it('marks duplicate no-equipment claims as unclassified', () => {
+    const recipe = toRecipe({ ...raw, equipmentRequired: ['none', 'none'] });
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  });
+
+  it('marks no-equipment mixed with real equipment as unclassified', () => {
+    const recipe = toRecipe({ ...raw, equipmentRequired: ['none', 'oven'] });
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
   });
 
   it('returns null for a record missing required fields', () => {

@@ -36,7 +36,6 @@ export function toRecipe(raw: unknown): Recipe | null {
     dietaryTags: keepKnown(raw.dietaryTags, DIETARY_TAGS),
     ingredients,
     instructions: asString(raw.instructions) ?? '',
-    source: raw.source === 'tier2' ? 'tier2' : 'tier1',
   };
 }
 
@@ -72,15 +71,24 @@ function toIngredients(raw: unknown): RecipeIngredient[] {
 }
 
 /**
- * `none` rather than an empty list when nothing is recognised: the engine reads
- * `none` as always-satisfied, which cannot wrongly exclude a user. Silently
- * passing an unknown appliance through would.
+ * `none` is an explicit verified no-equipment claim. Missing or invalid data
+ * is unknown, so it must exclude rather than admitting a recipe for everyone.
  */
 function toEquipment(raw: unknown): Equipment[] {
+  if (!Array.isArray(raw) || raw.length === 0) return ['unclassified'];
+
+  const allowed = new Set<string>(EQUIPMENT);
+  if (raw.some((item) => typeof item !== 'string' || !allowed.has(item))) {
+    return ['unclassified'];
+  }
+
   const known = keepKnown(raw, EQUIPMENT);
+  if (known.includes('none')) {
+    return known.length === 1 && known[0] === 'none' ? ['none'] : ['unclassified'];
+  }
   const real = known.filter((item) => item !== 'none');
   if (real.length > 0) return real;
-  return known.length > 0 ? ['none'] : ['none'];
+  return ['unclassified'];
 }
 
 function keepKnown<T extends Equipment | DietaryTag>(raw: unknown, allowed: readonly T[]): T[] {

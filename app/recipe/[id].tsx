@@ -7,9 +7,15 @@ import { IngredientChip } from '@/components/ui/IngredientChip';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { TIER1_CATALOG, lookupIngredient } from '@/data/catalog';
+import { OFFLINE_TRANSITIONAL_CATALOG, lookupIngredient } from '@/data/catalog';
+import {
+  catalogRecipeCache,
+  selectCatalogCandidatePreview,
+  selectCatalogRecipeDetail,
+} from '@/lib/catalog';
 import { formatCuisine, formatDuration, formatEquipment } from '@/lib/format';
-import { recordDislike, useKitchenStore } from '@/store/kitchen';
+import { useCatalogRecipeDetail } from '@/lib/queries/catalog';
+import { recordDislike, toEnginePreferences, useKitchenStore } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
@@ -28,13 +34,36 @@ export default function RecipeScreen() {
 
   const pantry = useKitchenStore((state) => state.pantry);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
+  const tierId = useKitchenStore((state) => state.tierId);
+  const extras = useKitchenStore((state) => state.extras);
+  const allergens = useKitchenStore((state) => state.allergens);
+  const dietary = useKitchenStore((state) => state.dietary);
+  const preferences = useMemo(
+    () => toEnginePreferences({ tierId, extras, allergens, dietary }),
+    [tierId, extras, allergens, dietary]
+  );
 
-  const recipe = useMemo(() => TIER1_CATALOG.find((candidate) => candidate.id === id), [id]);
+  const offlineRecipe = useMemo(
+    () => OFFLINE_TRANSITIONAL_CATALOG.find((candidate) => candidate.id === id),
+    [id]
+  );
+  const hostedDetail = useCatalogRecipeDetail(id);
 
-  if (!recipe) {
+  const recipe = selectCatalogRecipeDetail({
+    hostedDetail: hostedDetail.data,
+    cachedDetail: catalogRecipeCache.getDetail(id),
+    offlineDetail: offlineRecipe,
+    preferences,
+  });
+  const preview = selectCatalogCandidatePreview(catalogRecipeCache.getCandidate(id), preferences);
+  const displayedRecipe = recipe ?? preview;
+
+  if (!displayedRecipe) {
     return (
       <Screen>
-        <Text variant="title">That recipe isn&apos;t here.</Text>
+        <Text variant="title" accessibilityRole="alert">
+          {hostedDetail.isPending ? 'Loading recipe details.' : 'Recipe details are unavailable.'}
+        </Text>
         <PrimaryButton
           label="Back to results"
           onPress={() => router.back()}
@@ -44,10 +73,11 @@ export default function RecipeScreen() {
     );
   }
 
+  const canCook = recipe !== null;
   const owned = new Set(pantry);
-  const missing = recipe.ingredients.filter((ingredient) => !owned.has(ingredient.id));
+  const missing = displayedRecipe.ingredients.filter((ingredient) => !owned.has(ingredient.id));
 
-  const steps = recipe.instructions
+  const steps = displayedRecipe.instructions
     .split(/\r?\n+/)
     .map((step) => step.trim())
     .filter((step) => step.length > 0);
@@ -57,8 +87,11 @@ export default function RecipeScreen() {
       footer={
         <PrimaryButton
           label="👨‍🍳 Start cooking"
-          onPress={() => router.push(`/cook/${recipe.id}`)}
-          accessibilityHint="Enters step-by-step cook mode"
+          onPress={() => router.push(`/cook/${displayedRecipe.id}`)}
+          accessibilityHint={
+            canCook ? 'Enters step-by-step cook mode' : 'Waits for complete recipe instructions'
+          }
+          disabled={!canCook}
         />
       }
     >
@@ -75,9 +108,9 @@ export default function RecipeScreen() {
         </Text>
       </Pressable>
 
-      {recipe.imageUrl ? (
+      {displayedRecipe.imageUrl ? (
         <Image
-          source={{ uri: recipe.imageUrl }}
+          source={{ uri: displayedRecipe.imageUrl }}
           style={styles.hero}
           accessibilityIgnoresInvertColors
           accessible={false}
@@ -85,10 +118,11 @@ export default function RecipeScreen() {
       ) : null}
 
       <View style={styles.intro}>
-        <Text variant="title">{recipe.title}</Text>
+        <Text variant="title">{displayedRecipe.title}</Text>
         <Text variant="caption" tone="muted">
-          {formatDuration(recipe.totalTimeMinutes)} · {formatEquipment(recipe.equipmentRequired)}
-          {recipe.cuisine ? ` · ${formatCuisine(recipe.cuisine)}` : ''}
+          {formatDuration(displayedRecipe.totalTimeMinutes)} ·{' '}
+          {formatEquipment(displayedRecipe.equipmentRequired)}
+          {displayedRecipe.cuisine ? ` · ${formatCuisine(displayedRecipe.cuisine)}` : ''}
         </Text>
       </View>
 
@@ -116,7 +150,7 @@ export default function RecipeScreen() {
 
       <View style={styles.group}>
         <Text variant="heading">Ingredients</Text>
-        {recipe.ingredients.map((ingredient) => (
+        {displayedRecipe.ingredients.map((ingredient) => (
           <View key={ingredient.id} style={styles.ingredientRow}>
             <Text variant="body" style={styles.ingredientName}>
               {lookupIngredient(ingredient.id)?.displayName ?? ingredient.id}
@@ -128,19 +162,31 @@ export default function RecipeScreen() {
         ))}
       </View>
 
-      <View style={styles.group}>
-        <Text variant="heading">Steps</Text>
-        {steps.map((step, index) => (
-          <View key={`${index}-${step.slice(0, 12)}`} style={styles.step}>
-            <Text variant="caption" tone="accent">
-              {index + 1}
+      {canCook ? (
+        <View style={styles.group}>
+          <Text variant="heading">Steps</Text>
+          {steps.map((step, index) => (
+            <View key={`${index}-${step.slice(0, 12)}`} style={styles.step}>
+              <Text variant="caption" tone="accent">
+                {index + 1}
+              </Text>
+              <Text variant="body" style={styles.stepBody}>
+                {step}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View accessible accessibilityRole="alert">
+          <Card variant="alt">
+            <Text variant="body">
+              {hostedDetail.isPending
+                ? 'Loading complete cooking steps.'
+                : 'Complete cooking steps are unavailable.'}
             </Text>
-            <Text variant="body" style={styles.stepBody}>
-              {step}
-            </Text>
-          </View>
-        ))}
-      </View>
+          </Card>
+        </View>
+      )}
 
       <Pressable
         accessible
@@ -148,7 +194,7 @@ export default function RecipeScreen() {
         accessibilityLabel="Not for me"
         accessibilityHint="Stops suggesting this recipe"
         onPress={() => {
-          recordDislike(recipe.id);
+          recordDislike(displayedRecipe.id);
           router.back();
         }}
         style={[styles.dislike, { borderColor: color.border }]}

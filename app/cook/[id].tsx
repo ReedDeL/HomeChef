@@ -6,8 +6,10 @@ import { Card } from '@/components/ui/Card';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { TIER1_CATALOG } from '@/data/catalog';
-import { useKitchenStore } from '@/store/kitchen';
+import { OFFLINE_TRANSITIONAL_CATALOG } from '@/data/catalog';
+import { catalogRecipeCache, selectCatalogRecipeDetail } from '@/lib/catalog';
+import { useCatalogRecipeDetail } from '@/lib/queries/catalog';
+import { toEnginePreferences, useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
@@ -21,8 +23,27 @@ export default function CookModeScreen() {
   const { color } = useTheme();
 
   const removePantryItem = useKitchenStore((state) => state.removePantryItem);
+  const tierId = useKitchenStore((state) => state.tierId);
+  const extras = useKitchenStore((state) => state.extras);
+  const allergens = useKitchenStore((state) => state.allergens);
+  const dietary = useKitchenStore((state) => state.dietary);
+  const preferences = useMemo(
+    () => toEnginePreferences({ tierId, extras, allergens, dietary }),
+    [tierId, extras, allergens, dietary]
+  );
 
-  const recipe = useMemo(() => TIER1_CATALOG.find((candidate) => candidate.id === id), [id]);
+  const offlineRecipe = useMemo(
+    () => OFFLINE_TRANSITIONAL_CATALOG.find((candidate) => candidate.id === id),
+    [id]
+  );
+  const hostedDetail = useCatalogRecipeDetail(id);
+
+  const recipe = selectCatalogRecipeDetail({
+    hostedDetail: hostedDetail.data,
+    cachedDetail: catalogRecipeCache.getDetail(id),
+    offlineDetail: offlineRecipe,
+    preferences,
+  });
 
   const steps = useMemo(() => {
     if (!recipe) return [];
@@ -94,7 +115,9 @@ export default function CookModeScreen() {
   if (!recipe || steps.length === 0) {
     return (
       <Screen>
-        <Text variant="title">Recipe not found.</Text>
+        <Text variant="title" accessibilityRole="alert">
+          {hostedDetail.isPending ? 'Loading recipe details.' : 'Recipe details are unavailable.'}
+        </Text>
         <PrimaryButton
           label="Back to home"
           onPress={() => router.replace('/')}

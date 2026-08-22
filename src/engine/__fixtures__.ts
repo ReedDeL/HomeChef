@@ -29,7 +29,6 @@ export function makeRecipe(overrides: Partial<Recipe> = {}): Recipe {
     dietaryTags: [],
     ingredients: [ingredient('egg'), ingredient('salt')],
     instructions: 'Cook it.',
-    source: 'tier1',
     ...overrides,
   };
 }

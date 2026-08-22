@@ -3,7 +3,7 @@
  *
  * Everything here is plain data. No Supabase row types, no React, no promises.
  * The data layer converts into these types (src/lib/adapters/) and the engine
- * never learns where a recipe came from — bundled Tier 1 or live Tier 2.
+ * never learns where a recipe came from — only validated plain catalog data.
  */
 
 /**
@@ -82,12 +82,6 @@ export interface Recipe {
   dietaryTags: DietaryTag[];
   ingredients: RecipeIngredient[];
   instructions: string;
-  /**
-   * Which tier supplied this recipe. The engine ignores it entirely; it exists
-   * so the persistence layer can enforce the Spoonacular field whitelist and
-   * the UI can render attribution.
-   */
-  source: 'tier1' | 'tier2';
 }
 
 export interface UserPreferences {
@@ -117,13 +111,10 @@ export interface ScoredRecipe {
  * Every one of these is stated out loud in the UI — silent filter changes are
  * how an app teaches a user not to trust it.
  *
- * `tier2_escalation` is the one exception: it adds options without removing
- * constraints, so there is nothing to disclose (docs/01_TECHNICAL_SPEC.md:480).
  */
 export type Relaxation =
   | { kind: 'time_widened'; from: Minutes; to: Minutes }
   | { kind: 'cuisine_dropped'; cuisine: string }
-  | { kind: 'tier2_escalation' }
   | { kind: 'bucket_promoted'; bucket: Bucket };
 
 export interface DecisionResult {

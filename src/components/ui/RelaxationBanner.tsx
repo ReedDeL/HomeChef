@@ -20,8 +20,6 @@ interface RelaxationBannerProps {
  * results the user did not ask for is teaching them not to trust the filter,
  * and the filter is the entire product. Undo is always offered alongside.
  *
- * `tier2_escalation` is filtered out deliberately: it adds options without
- * removing constraints, so there is nothing to disclose.
  */
 export function RelaxationBanner({
   relaxations,
@@ -30,8 +28,7 @@ export function RelaxationBanner({
 }: RelaxationBannerProps) {
   const { color } = useTheme();
 
-  const disclosed = relaxations.filter((relaxation) => relaxation.kind !== 'tier2_escalation');
-  if (disclosed.length === 0) return null;
+  if (relaxations.length === 0) return null;
 
   return (
     <View
@@ -40,7 +37,7 @@ export function RelaxationBanner({
       accessibilityRole="alert"
     >
       <View style={styles.copy}>
-        {disclosed.map((relaxation, index) => (
+        {relaxations.map((relaxation, index) => (
           <Text key={`${relaxation.kind}-${index}`} variant="body">
             {formatRelaxation(relaxation)}
           </Text>

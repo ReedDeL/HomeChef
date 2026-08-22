@@ -3,7 +3,7 @@
  * These join to `user_id` and are structurally unreachable by household
  * members -- roommates share a pantry, never a diet.
  */
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import type {
   FeedbackVerdict,
   MealFeedbackRow,
@@ -16,7 +16,7 @@ const PREFERENCES_COLUMNS = 'user_id, equipment, allergens, dietary, onboarding_
 const FEEDBACK_COLUMNS = 'user_id, recipe_id, verdict, made_on, created_at';
 
 export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('profiles')
     .select(PROFILE_COLUMNS)
     .eq('id', userId)
@@ -27,7 +27,7 @@ export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
 }
 
 export async function fetchPreferences(userId: string): Promise<UserPreferencesRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('user_preferences')
     .select(PREFERENCES_COLUMNS)
     .eq('user_id', userId)
@@ -45,22 +45,24 @@ export interface PreferencesUpdate {
 }
 
 export async function updatePreferences(userId: string, update: PreferencesUpdate): Promise<void> {
-  const { error } = await supabase.from('user_preferences').upsert(
-    {
-      user_id: userId,
-      ...(update.equipment !== undefined && { equipment: update.equipment }),
-      ...(update.allergens !== undefined && { allergens: update.allergens }),
-      ...(update.dietary !== undefined && { dietary: update.dietary }),
-      ...(update.onboardingDone !== undefined && { onboarding_done: update.onboardingDone }),
-    },
-    { onConflict: 'user_id' }
-  );
+  const { error } = await getSupabase()
+    .from('user_preferences')
+    .upsert(
+      {
+        user_id: userId,
+        ...(update.equipment !== undefined && { equipment: update.equipment }),
+        ...(update.allergens !== undefined && { allergens: update.allergens }),
+        ...(update.dietary !== undefined && { dietary: update.dietary }),
+        ...(update.onboardingDone !== undefined && { onboarding_done: update.onboardingDone }),
+      },
+      { onConflict: 'user_id' }
+    );
 
   if (error) throw error;
 }
 
 export async function fetchFeedback(userId: string): Promise<MealFeedbackRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('meal_feedback')
     .select(FEEDBACK_COLUMNS)
     .eq('user_id', userId);
@@ -78,7 +80,7 @@ export async function recordVerdict(
   recipeId: string,
   verdict: FeedbackVerdict
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('meal_feedback')
     .upsert({ user_id: userId, recipe_id: recipeId, verdict }, { onConflict: 'user_id,recipe_id' });
 

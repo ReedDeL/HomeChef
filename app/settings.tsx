@@ -8,6 +8,8 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { Text } from '@/components/ui/Text';
+import { isHttpsUrl, mergeAttributions, type CatalogAttribution } from '@/lib/catalog';
+import { useCatalogAttributions } from '@/lib/queries/catalog';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
@@ -44,6 +46,13 @@ const THEME_OPTIONS: readonly {
   },
 ];
 
+const TRANSITIONAL_ATTRIBUTION: CatalogAttribution = {
+  sourceId: 'transitional-catalog',
+  sourceVersion: 'legacy-bundle',
+  attribution: 'Transitional bundled catalog data from TheMealDB',
+  url: 'https://www.themealdb.com/',
+};
+
 /**
  * Settings Screen / Window.
  *
@@ -69,6 +78,8 @@ export default function SettingsScreen() {
 
   const reset = useKitchenStore((state) => state.reset);
   const [resetConfirming, setResetConfirming] = useState(false);
+  const hostedAttributions = useCatalogAttributions();
+  const attributions = mergeAttributions(hostedAttributions.data ?? [], [TRANSITIONAL_ATTRIBUTION]);
 
   const handleReset = () => {
     if (Platform.OS === 'web') {
@@ -93,10 +104,6 @@ export default function SettingsScreen() {
         ]
       );
     }
-  };
-
-  const openSpoonacular = () => {
-    Linking.openURL('https://spoonacular.com/food-api');
   };
 
   return (
@@ -229,18 +236,33 @@ export default function SettingsScreen() {
           <Text variant="caption" tone="muted">
             Photo-based meal decision engine. Version 0.1.0
           </Text>
-          <Pressable
-            accessible
-            accessibilityRole="link"
-            accessibilityLabel="Recipe data powered by spoonacular"
-            accessibilityHint="Opens the Spoonacular website in browser"
-            onPress={openSpoonacular}
-            style={styles.attributionLink}
-          >
-            <Text variant="caption" tone="accent">
-              Recipe data powered by Spoonacular ↗
-            </Text>
-          </Pressable>
+          {attributions.map((attribution) =>
+            attribution.url ? (
+              <Pressable
+                key={`${attribution.sourceId}-${attribution.sourceVersion}`}
+                accessible
+                accessibilityRole="link"
+                accessibilityLabel={`${attribution.attribution}, ${attribution.sourceVersion}`}
+                accessibilityHint="Opens this catalog source in your browser"
+                onPress={() => {
+                  if (isHttpsUrl(attribution.url)) void Linking.openURL(attribution.url);
+                }}
+                style={styles.attributionLink}
+              >
+                <Text variant="caption" tone="accent">
+                  {attribution.attribution} ↗
+                </Text>
+              </Pressable>
+            ) : (
+              <Text
+                key={`${attribution.sourceId}-${attribution.sourceVersion}`}
+                variant="caption"
+                tone="muted"
+              >
+                {attribution.attribution}
+              </Text>
+            )
+          )}
         </Card>
       </View>
 

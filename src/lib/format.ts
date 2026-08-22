@@ -34,9 +34,9 @@ export function formatDuration(minutes: Minutes): string {
 }
 
 /**
- * Cuisine values arrive from TheMealDB as a mix of adjectives and country
- * names — "british" alongside "france" and "netherlands". Title-casing is all
- * we can honestly do without a curated mapping.
+ * Transitional cuisine values mix adjectives and country names — "british"
+ * alongside "france" and "netherlands". Title-casing is all we can honestly
+ * do without a curated mapping.
  */
 export function formatCuisine(cuisine: string): string {
   return cuisine.replace(/\b\w/g, (character) => character.toUpperCase());
@@ -55,9 +55,5 @@ export function formatRelaxation(relaxation: Relaxation): string {
       return `Nothing ${formatCuisine(relaxation.cuisine)} fits. Showing everything else.`;
     case 'bucket_promoted':
       return "You're a couple of ingredients short on these.";
-    case 'tier2_escalation':
-      // Never rendered: escalation adds options without removing constraints,
-      // so there is nothing to disclose (spec §5.3).
-      return '';
   }
 }
