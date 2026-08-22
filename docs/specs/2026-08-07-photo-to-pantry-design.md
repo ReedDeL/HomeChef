@@ -8,21 +8,11 @@ what I have")
 
 ## Problem
 
-`docs/01_TECHNICAL_SPEC.md` §5.1 specifies photo → pantry as in-scope for the
-Aug 24 MVP. It does not exist. `src/components/BetaDashboard.tsx` — the only
-running surface today — is an explicit stopgap: it operates on an in-memory
-`Set<string>` of ingredient IDs and its own copy says "Photos, Supabase, and
-voice are not wired here yet."
-
-Nothing downstream of a photo exists either:
-
-- No `supabase/functions/` directory — no Edge Function of any kind.
-- No auth anywhere in the client. `src/lib/supabase.ts` throws **at import
-  time** if `EXPO_PUBLIC_SUPABASE_URL`/`..._ANON_KEY` are unset, which is
-  exactly why the beta harness works today — nothing imports it yet.
-- `enable_anonymous_sign_ins = false` in `supabase/config.toml`.
-- `expo-camera`, `expo-image-picker`, `expo-image-manipulator` are installed
-  and unused.
+`docs/01_TECHNICAL_SPEC.md` §5 defines photo → pantry for the Aug 24 MVP. The
+implemented surface is `app/scan.tsx`, with request handling in
+`src/lib/pantry-photo.ts` and `supabase/functions/analyze-pantry-photo/`.
+This design remains the authority for preserving its confirmation-before-write,
+secret-boundary, and pantry-drift safeguards when that path changes.
 
 `inventory` is already household-scoped with RLS (migration `0001`), and
 `private.handle_new_user()` provisions a household + profile + membership +
@@ -34,7 +24,8 @@ of after real auth ships.
 ## Goals
 
 1. A user can photograph 1–10 shots of a fridge/pantry and get back detected
-   ingredients with confidence scores, per §5.1.
+   ingredients with confidence scores, per the Technical Specification's
+   photo-to-pantry contract.
 2. Nothing is written to `inventory` until the user confirms it on-screen.
    Confirmed items upsert to Supabase — Supabase is the single source of
    truth; TanStack Query is a cache, never a second durable store.
@@ -57,16 +48,14 @@ of after real auth ships.
 - Hosted catalog ingestion — unrelated to this pipeline.
 - Voice, cook mode, shopping list — unrelated, explicitly out of scope per
   AGENTS.md.
-- A distilled on-device model (§2.4 "Phase 3 option") — cloud VLM only.
+- A distilled on-device model — cloud VLM only.
 
 ## Decisions
 
 ### 1. Detection is read-only; confirmation and the write are client-side
 
-The Edge Function detects and returns; it never writes to Postgres. This is a
-deliberate departure from the literal §5.1 sequence diagram (which shows the
-Edge Function upserting before the confirmation sheet renders) because the
-same section's prose is unambiguous: _"Never write low-confidence items
+The Edge Function detects and returns; it never writes to Postgres. The product
+rule is unambiguous: _"Never write low-confidence items
 silently... the confirmation sheet is what keeps a bad VLM read from
 poisoning the pantry."_ An Edge Function that already wrote the row before the
 user sees the sheet contradicts its own spec. Confirmation must happen before
@@ -77,7 +66,7 @@ Camera / picker (≤10 shots)
    ↓  compress 640×640, JPEG q≈0.7 client-side (expo-image-manipulator)
 Edge Function: analyze-pantry-photo
    ↓  origin allowlist → verify JWT → per-user quota → payload limits
-Gemini 3.6 Flash, structured output (schema in docs/01 §2.4)
+Gemini 3.6 Flash, structured output
    ↓  Zod validate → normalize free text to canonical ingredient IDs
 Response: { items: DetectedItem[], unmatched: string[] }
    ↓
@@ -156,13 +145,13 @@ No layer alone is sufficient — CORS alone is a no-op against `curl`, since
 `Origin` is just a header the caller controls. The combination is: you need a
 token our project issued (JWT), and if you're a browser you need to be
 running on our origin (CORS), and either way you're rate-limited per-user
-(quota). This matches `docs/06_API_KEYS_AND_ENV.md` §0's rule precisely — the
+(quota). This matches the rule in `docs/06_API_KEYS_AND_ENV.md` precisely — the
 Edge Function is the only thing that ever calls Google, and it now also
 gatekeeps who may ask it to.
 
 ### 6. Payload limits, checked before Gemini is called
 
-- Max 10 images per request (matches §5.1's "1–10 images").
+- Max 10 images per request.
 - Max 1.5 MB per image after client-side compression (640×640 target leaves
   generous headroom over this; a request over the cap is a client bug or
   abuse, not a real capture).
@@ -172,16 +161,14 @@ gatekeeps who may ask it to.
 
 ### 7. Structured output and normalization
 
-The Zod schema mirrors the OpenAPI schema in §2.4 exactly (`name`,
-`quantity`, `unit` enum, `confidence`), validated on the Edge Function before
-anything is normalized, per §2.4's explicit instruction that "the schema
-guarantee is strong but it is not a substitute for a boundary check."
+The Zod schema mirrors the request schema exactly (`name`, `quantity`, `unit`
+enum, `confidence`) and validates it on the Edge Function before anything is
+normalized. Structured output is not a substitute for a boundary check.
 
 Normalization (`_shared/normalize.ts`, pure, unit-tested, no Deno globals) is
 where free-text names become canonical ingredient IDs — exact match first,
-then fuzzy match against the bundled vocabulary, then unmatched. §5.1's own
-example (scallion / green onion / spring onion must collapse to one ID) is
-the acceptance test for this function. Anything left unmatched is returned
+then fuzzy match against the bundled vocabulary, then unmatched. The scallion /
+green onion / spring onion case must collapse to one ID. Anything left unmatched is returned
 in a separate `unmatched` array and shown to the user distinctly on the
 confirmation sheet rather than silently dropped or silently invented as a new
 ID — inventing one would create exactly the permanent vocabulary duplicate
@@ -189,7 +176,8 @@ ID — inventing one would create exactly the permanent vocabulary duplicate
 careful to avoid on the catalog side.
 
 Items with `confidence < 0.7` are flagged "Not sure about this one" on the
-sheet per §5.1/§4 UIUX spec, never silently written — true regardless of the
+confirmation sheet, as required by the UI/UX Specification's pantry-capture
+screen. They are never silently written — true regardless of the
 feature flag, since even flag-off session state shouldn't misrepresent
 confidence to the user.
 
@@ -220,15 +208,12 @@ importing something that blows up the whole bundle.
 
 ### 10. Google Interactions API — verify before writing
 
-§2.4 specifies Google's **Interactions API** (GA, recommended over the older
-endpoint) as the call surface, with the exact request/response shape for
-structured output. That wire format is not something to guess at from
-memory — a plausible-but-wrong request shape is a silent 400 at demo time,
-not a compile error. Before writing `_shared/gemini.ts`, the implementer
-verifies the endpoint path, auth header, and `responseSchema` field names
-against Google's current documentation. `_shared/gemini.ts` is the _only_
-file where the wire format appears, specifically so a correction later stays
-contained to one file.
+The Gemini request wire format is not something to guess at from memory — a
+plausible-but-wrong request shape is a silent 400 at demo time, not a compile
+error. Before changing the Gemini adapter, verify the endpoint path, auth
+header, and structured-output field names against Google's current
+documentation. Keep that wire format isolated so a correction later stays
+contained.
 
 ## Architecture
 
@@ -279,10 +264,9 @@ provenance.
 - Gemini call fails or times out → Edge Function returns a typed error the
   client renders as "Couldn't read that photo, try again or add manually" —
   never a raw stack trace, matching the existing `503`-on-missing-key pattern
-  in `docs/06_API_KEYS_AND_ENV.md` §3.
+  in `docs/06_API_KEYS_AND_ENV.md`.
 - Quota exhausted → 429 with a clear client message; manual add remains fully
-  functional (per §2.4's accepted tradeoff: "manual pantry entry is a
-  complete fallback").
+  functional; manual pantry entry is a complete fallback.
 - Zod validation fails on Gemini's response → treated the same as a Gemini
   failure, logged server-side with no key/payload echoed into the log line
   (`docs/06_API_KEYS_AND_ENV.md`'s "never echo a key into an error response

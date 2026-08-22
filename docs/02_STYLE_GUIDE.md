@@ -1,7 +1,7 @@
 # HomeChef — Shared Style Guide
 
 **Company:** Application42 · **Product:** HomeChef
-**Version:** 1.0 · **Date:** August 3, 2026
+**Project development version:** 0.1.0 · **Style policy version:** 1.0 · **Updated:** August 22, 2026
 **Applies to:** every line of code, every commit, every pull request.
 
 ---
@@ -12,7 +12,7 @@ Two people writing in two personal styles produces a codebase that reads like an
 
 **The governing principle:** _most style questions should be answered by a tool, not by a person._ Formatters and linters are configured once, run automatically, and are never debated in a pull request. Human review is reserved for things tools cannot check — naming, structure, and whether the code is correct.
 
-**Language split** (resolved in Technical Spec §2.6):
+**Language split** (resolved in Technical Spec §2, Architecture):
 
 | Language       | Owns                                                                    | Standard |
 | -------------- | ----------------------------------------------------------------------- | -------- |
@@ -273,7 +273,7 @@ export function IngredientChip({ ingredient, onRemove }: IngredientChipProps) {
 - `async`/`await` only. No raw `.then()` chains.
 - Never swallow an error. Either handle it or let it propagate.
 - Every user-visible async operation has a loading state and an error state. "It just spins forever" is a bug, not an edge case.
-- Edge Functions: CORS preflight first, CORS headers on error responses (Technical Spec §2.2).
+- Edge Functions: CORS preflight first, CORS headers on error responses (Technical Spec §6).
 
 ### 2.7 Imports
 

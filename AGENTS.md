@@ -1,7 +1,8 @@
 # HomeChef
 
 Photo-based meal decision engine. Application42.
-Launch: Aug 24, 2026. Full specs in `docs/`.
+Launch: Aug 24, 2026. Current development version: 0.1.0; the first launch
+release is 1.0.0. Full specs in `docs/`.
 
 ## What this is
 

@@ -2,7 +2,7 @@
 
 **Company:** Application42
 **Product:** HomeChef
-**Version:** 1.2 · **Updated:** August 22, 2026
+**Development version:** 0.1.0 · **First release:** 1.0.0 · **Updated:** August 22, 2026
 
 ## 1. Product constraints
 
@@ -21,8 +21,9 @@ out of scope.
 
 - Expo Router and React Native render the app; TanStack Query owns server state
   and Zustand owns client-only state.
-- Supabase provides Auth, Postgres, RLS, Storage, Edge Functions, protected
-  catalog releases, and authenticated catalog RPCs.
+- Supabase currently provides Auth, Postgres, RLS, Storage, and Edge Functions.
+  Protected catalog releases and authenticated catalog RPCs are target
+  architecture until roadmap Tasks 2 and 3 land.
 - `src/engine/` is pure and synchronous. It accepts `Recipe[]`, has no React,
   I/O, network, Supabase, or `src/lib/` dependency, and is the final
   hard-constraint check.
@@ -32,23 +33,26 @@ out of scope.
 
 ## 3. Recipe catalog
 
-HomeChef uses a rights-first, hosted-plus-offline catalog. Approved,
+The target catalog is rights-first and hosted-plus-offline. Approved,
 checksum-pinned bulk archives enter a source-neutral Python build pipeline.
 The pipeline validates source rights and provenance, normalizes recipes and
 ingredients, quarantines invalid records, deterministically deduplicates, and
 builds a curated offline catalog. Python is build-time tooling, never a service.
 
-An operator loads an inactive Supabase release and atomically activates it.
+After roadmap Tasks 2 and 3, an operator will load an inactive Supabase release
+and atomically activate it.
 Catalog tables include releases, sources, ingredients, recipes, and ordered
 recipe ingredients. Every table enables RLS in its creation migration. Clients
-cannot write catalog tables; authenticated RPCs expose bounded candidates,
-detail, and active attribution. Candidate requests clamp to 100 and prefilter
-hard constraints.
+cannot write catalog tables; authenticated RPCs will expose bounded candidates,
+detail, and active attribution. Candidate requests will clamp to 100 and
+prefilter hard constraints.
 
-The client renders offline candidates immediately, merges hosted candidates by
-stable HomeChef ID when available, and silently retains offline candidates on
-failure. No recipe-provider API, key, endpoint, quota, live fallback, or tier
-semantic is part of the product.
+After roadmap Task 4, the client will render offline candidates immediately,
+merge hosted candidates by stable HomeChef ID when available, and silently
+retain offline candidates on failure. Until then, the current app reads only
+the transitional bundled catalog; it has no protected catalog release, catalog
+RPC, or hosted-candidate merge. No recipe-provider API, key, endpoint, quota,
+live fallback, or tier semantic is part of the target product.
 
 ### Transitional artifact
 
@@ -67,16 +71,17 @@ hardcoded. Transitional attribution remains through the approved cutover.
 
 ## 4. Decision engine
 
-The engine receives plain recipes after hosted/offline merging. It filters hard
-constraints first, ranks compatible recipes against the pantry, assigns buckets,
-and caps results at 3-4 per bucket. Unknown equipment, allergen, or dietary
-status excludes a recipe rather than admitting it.
+The engine receives plain recipes. In the target path it receives them after
+hosted/offline merging; today it receives the transitional bundled catalog. It
+filters hard constraints first, ranks compatible recipes against the pantry,
+assigns buckets, and caps results at 3-4 per bucket. Unknown equipment,
+allergen, or dietary status excludes a recipe rather than admitting it.
 
 When the primary bucket is thin, the fixed recovery path expands time, drops
 cuisine, promotes a compatible missing-ingredient bucket, then widens missing
 ingredients. Every soft relaxation is visible. The engine never relaxes hard
-constraints and the app never shows an empty results screen. A hosted failure
-is a normal offline-fallback path, not an error surface.
+constraints and the app never shows an empty results screen. In the target path,
+a hosted failure is a normal offline-fallback path, not an error surface.
 
 ## 5. Photo-to-pantry
 
