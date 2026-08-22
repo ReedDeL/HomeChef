@@ -54,7 +54,7 @@ of after real auth ships.
 - Manual pantry entry UI beyond what's needed to wire the confirmation sheet
   to the same upsert path. (`AddInventoryItem`/`upsertInventoryItem` already
   exist in `src/lib/queries/inventory.ts` and are reused, not rebuilt.)
-- Spoonacular / Tier 2 — unrelated to this pipeline.
+- Hosted catalog ingestion — unrelated to this pipeline.
 - Voice, cook mode, shopping list — unrelated, explicitly out of scope per
   AGENTS.md.
 - A distilled on-device model (§2.4 "Phase 3 option") — cloud VLM only.
@@ -66,9 +66,9 @@ of after real auth ships.
 The Edge Function detects and returns; it never writes to Postgres. This is a
 deliberate departure from the literal §5.1 sequence diagram (which shows the
 Edge Function upserting before the confirmation sheet renders) because the
-same section's prose is unambiguous: *"Never write low-confidence items
+same section's prose is unambiguous: _"Never write low-confidence items
 silently... the confirmation sheet is what keeps a bad VLM read from
-poisoning the pantry."* An Edge Function that already wrote the row before the
+poisoning the pantry."_ An Edge Function that already wrote the row before the
 user sees the sheet contradicts its own spec. Confirmation must happen before
 any write, which means the write can't happen inside the detection call.
 
@@ -109,7 +109,7 @@ project.
 session exists (`src/lib/auth/session.ts`). This is the minimum that
 satisfies three separate requirements at once:
 
-- The Edge Function's JWT check needs *some* project-issued token to verify.
+- The Edge Function's JWT check needs _some_ project-issued token to verify.
 - RLS on `inventory` requires `to authenticated` — anonymous Supabase sessions
   are `authenticated`, just with `is_anonymous: true` in the JWT, so the
   existing `inventory_member_insert`/`_update` policies need no change.
@@ -145,12 +145,12 @@ all.
 
 ### 5. Caller verification — four layers
 
-| Layer | Mechanism | Stops |
-|---|---|---|
-| Key location | `Deno.env.get("GEMINI_API_KEY")`, Supabase secret, never `EXPO_PUBLIC_*` | Key extraction from the app bundle or web build |
-| `verify_jwt` | Set for `analyze-pantry-photo` (Supabase per-function config) | Callers with no project-issued token at all |
-| `supabase.auth.getUser()` inside the function, built from the caller's `Authorization` header | Forged/expired tokens; yields the real `sub` used for the quota check |
-| Origin allowlist | Exact string match against an `ALLOWED_ORIGINS` secret (comma-separated); `Vary: Origin`; **never** `Access-Control-Allow-Origin: *`; native apps send no `Origin` header, which is allowed through but still has to clear the JWT check above | Other websites calling from a browser context |
+| Layer                                                                                         | Mechanism                                                                                                                                                                                                                                      | Stops                                           |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Key location                                                                                  | `Deno.env.get("GEMINI_API_KEY")`, Supabase secret, never `EXPO_PUBLIC_*`                                                                                                                                                                       | Key extraction from the app bundle or web build |
+| `verify_jwt`                                                                                  | Set for `analyze-pantry-photo` (Supabase per-function config)                                                                                                                                                                                  | Callers with no project-issued token at all     |
+| `supabase.auth.getUser()` inside the function, built from the caller's `Authorization` header | Forged/expired tokens; yields the real `sub` used for the quota check                                                                                                                                                                          |
+| Origin allowlist                                                                              | Exact string match against an `ALLOWED_ORIGINS` secret (comma-separated); `Vary: Origin`; **never** `Access-Control-Allow-Origin: *`; native apps send no `Origin` header, which is allowed through but still has to clear the JWT check above | Other websites calling from a browser context   |
 
 No layer alone is sufficient — CORS alone is a no-op against `curl`, since
 `Origin` is just a header the caller controls. The combination is: you need a
@@ -212,7 +212,7 @@ to import it. Left as-is, the first `npm run web:beta` without a `.env` white-
 screens instead of showing a disabled photo button.
 
 Fix: export `isSupabaseConfigured: boolean`, and defer client construction
-behind a lazy getter that throws on first *use*, not on import. The existing
+behind a lazy getter that throws on first _use_, not on import. The existing
 loud-failure behavior for real usage is preserved unchanged; only the module
 load moment changes. `PhotoCapture` checks `isSupabaseConfigured` and renders
 a disabled button with a reason ("Supabase not configured") instead of
@@ -226,7 +226,7 @@ structured output. That wire format is not something to guess at from
 memory — a plausible-but-wrong request shape is a silent 400 at demo time,
 not a compile error. Before writing `_shared/gemini.ts`, the implementer
 verifies the endpoint path, auth header, and `responseSchema` field names
-against Google's current documentation. `_shared/gemini.ts` is the *only*
+against Google's current documentation. `_shared/gemini.ts` is the _only_
 file where the wire format appears, specifically so a correction later stays
 contained to one file.
 
@@ -326,13 +326,13 @@ not surfaced to the user), and a >10-image request (expect 400).
 
 ## Risks
 
-| Risk | Mitigation |
-|---|---|
-| Anonymous sign-in used to reset per-user quota | Supabase's `anonymous_users` per-IP rate limit + Origin allowlist bound it; real auth closes it properly later (documented, not solved here) |
-| Google Interactions API shape misremembered | Verified against live docs before writing `gemini.ts`; wire format isolated to one file (Decision 10) |
-| Vocabulary drift between `src/data/` and the Edge Function's copy | `sync-vocabulary.mjs` + byte-identical test in CI |
-| Flag-off path looks "done" but silently never persists | Confirmation sheet shows an explicit "not saved yet" banner when the flag is off, so this is visible, not silent |
-| `src/lib/supabase.ts` laziness fix regresses the loud-failure guarantee | Test asserts `isSupabaseConfigured === false` still surfaces a clear reason at the point of use |
+| Risk                                                                    | Mitigation                                                                                                                                   |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anonymous sign-in used to reset per-user quota                          | Supabase's `anonymous_users` per-IP rate limit + Origin allowlist bound it; real auth closes it properly later (documented, not solved here) |
+| Google Interactions API shape misremembered                             | Verified against live docs before writing `gemini.ts`; wire format isolated to one file (Decision 10)                                        |
+| Vocabulary drift between `src/data/` and the Edge Function's copy       | `sync-vocabulary.mjs` + byte-identical test in CI                                                                                            |
+| Flag-off path looks "done" but silently never persists                  | Confirmation sheet shows an explicit "not saved yet" banner when the flag is off, so this is visible, not silent                             |
+| `src/lib/supabase.ts` laziness fix regresses the loud-failure guarantee | Test asserts `isSupabaseConfigured === false` still surfaces a clear reason at the point of use                                              |
 
 ## Open items
 

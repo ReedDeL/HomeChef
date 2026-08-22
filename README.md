@@ -2,320 +2,76 @@
 
 **Stop scrolling. Start cooking.**
 
-HomeChef turns a photo of your kitchen into a short, confident answer to
-"what can I make right now?" — instead of another endless scroll through
-recipes you can't cook, don't have the equipment for, or simply don't have
-time for tonight.
-
-Point your camera at your pantry, tell us how much time you have, and
-HomeChef hands you 3–4 meals you can actually make — not a hundred
-options to sort through yourself. Every suggestion respects your
-equipment, your allergies, and your dietary needs, no exceptions.
-
-**Launching August 24, 2026.**
-
-### Why people will love it
-
-- **A decision, not a search engine.** We do the filtering so you don't
-  have to — a handful of great answers beats an infinite scroll.
-- **Built around your actual kitchen.** No stovetop? No blender? HomeChef
-  already knows, and it never suggests a dish you can't cook.
-- **Safety you can trust.** Allergens and dietary needs are treated as
-  hard limits, never a "close enough."
-- **Made for real life.** Fifteen minutes before practice or a lazy Sunday
-  afternoon — tell HomeChef how much time you have and get answers sized
-  to fit.
-- **Private by default.** Your pantry and preferences are yours alone,
-  even when you share a kitchen with roommates.
-
----
+HomeChef turns a pantry photo and kitchen constraints into 3-4 meals that fit
+the user's time, equipment tier, allergens, dietary needs, and pantry. It is a
+decision engine, not a recipe browser.
 
 ## Developer documentation
 
-Everything below this line is technical documentation for the engineering
-team and contributors. Full specs live in [`docs/`](docs/); architecture
-rules live in [`AGENTS.md`](AGENTS.md).
+Architecture rules live in [AGENTS.md](AGENTS.md). Start with the
+[documentation index](docs/README.md) and the
+[owned catalog design](docs/specs/2026-08-22-owned-recipe-catalog-design.md).
 
----
+## Catalog status
 
-## Status: Milestone 1 complete
+HomeChef is replacing retired recipe-provider integration with a rights-first,
+hosted-plus-offline catalog. Approved, checksum-pinned bulk archives will build
+protected hosted releases and a curated offline fallback. The app will render
+offline results immediately, merge bounded hosted candidates when available, and
+retain offline results when the hosted catalog is unavailable.
 
-| Milestone                                            | State                                                                         |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **1 — DB-to-Engine binding**                         | ✅ Done                                                                       |
-| 2 — Decision engine hardening + equipment enrichment | ⏳ Engine built and tested; LLM enrichment + 30-recipe spot-check outstanding |
-| 3 — App shell & photo pipeline                       | ⏳ Screens, cook mode, and scan built; Edge Function unverified against live Gemini |
-| 4 — Tier 2 (Spoonacular)                             | ⬜ Not started                                                                |
-
-The browser beta harness is gone. `app/` now holds the real screens from
-`docs/04_UIUX_SPEC.md` — onboarding, the time-first home screen, the four
-result buckets, recipe detail, cook mode, and the pantry — and the same code
-runs on iOS, Android, and the web. On the web it is a responsive workspace:
-one column on a phone, a centred multi-column layout on a desktop, driven by
-`src/components/ui/responsive-layout.ts`.
-
-What exists:
-
-- `app/` — the screens, as expo-router routes. `(onboarding)/` runs once,
-  `(tabs)/` is the app, `recipe/[id]` is the detail view.
-- `src/components/ui/` — the component set from the UI/UX spec. `IngredientChip`
-  is deliberately the only way to render an ingredient anywhere in the app.
-- `src/store/kitchen.ts` — client state (equipment, allergens, diet, pantry),
-  persisted locally. **Not** wired to Supabase yet; see Known gaps.
-- `src/lib/ingredients/` — free-text ingredient names → canonical ids. Pure, no
-  React or Supabase imports, and kept in step with `tools/catalog/normalize.py`
-  by a parity test.
-- `supabase/functions/analyze-pantry-photo/` — photo → ingredient candidates via
-  `gemini-3.6-flash`, structured output validated with Zod. Returns candidates;
-  writes nothing.
-- `src/engine/` — the decision engine. Pure, synchronous, 136 tests.
-- `src/lib/adapters/` — the only code that knows both Postgres and the engine.
-- `src/lib/queries/` + `src/hooks/` — Supabase data access and TanStack Query hooks.
-- `supabase/migrations/` — 6 tables, RLS on every one. **Applied to the live
-  project**, not just committed.
-- `supabase/tests/rls_verification.sql` — 19 assertions run as a real
-  `authenticated` session. Two households, three accounts, one roommate.
-- `src/types/supabase-generated.ts` — generated from the live schema.
-- `tools/catalog/` — Python ETL. 128 tests, mypy strict.
-- `tools/catalog/seed/` — 20 hand-curated microwave recipes, merged into the
-  catalog at build time. Hand-written data cannot live in `src/data/`, which a
-  rebuild overwrites wholesale.
-- `src/data/` — **812 recipes, 897 ingredients**, generated and committed.
-  736 are servable; 76 are `unclassified` and excluded until enrichment runs.
-
----
+The committed `src/data/*.json` bundle is transitional, provider-derived, and
+non-rebuildable from the retired API. It is not already removed. Its attribution
+remains until an approved replacement passes parity. The current artifact has
+812 recipes, 897 ingredients, and 76 `unclassified` recipes that are excluded
+from results.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env      # then fill it in — see below
+cp .env.example .env
 ```
 
-### 1. Supabase project (required)
-
-You need to do this by hand; it cannot be scripted from here.
-
-1. Create a project at [supabase.com](https://supabase.com).
-2. Copy **Project URL** and the **anon / publishable** key from
-   Project Settings → API into `.env`:
-
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-   ```
-
-3. Apply the schema:
-
-   ```bash
-   npx supabase link --project-ref <your-ref>
-   npx supabase db push
-   ```
-
-4. Regenerate the row types so they match your live database:
-
-   ```bash
-   npx supabase gen types typescript --linked > src/types/supabase-generated.ts
-   ```
-
-   That file is generated — never edit it. `src/types/database.ts` derives the
-   row aliases from it and adds back the two unions (`FeedbackVerdict`,
-   `InventorySource`) that a CHECK constraint enforces but the generator can
-   only see as `string`.
-
-5. Verify RLS actually holds, with two accounts in two households plus a
-   roommate sharing one:
-
-   ```bash
-   psql "$DATABASE_URL" -f supabase/tests/rls_verification.sql
-   ```
-
-The whole script is one transaction ending in `ROLLBACK`, so it writes
-nothing and is safe to run against a live project. CI runs the same script
-against a local Supabase stack on every push and pull request. If you want
-to re-run it manually against a live project, keep using the same command.
-It is the only check that runs as a real `authenticated` session, and it
-already caught one total-outage bug that reading the migration did not (see
-`0002_grant_membership_helper.sql`).
-
-**Only those two variables may ever be public.** The anon key is safe to ship —
-RLS is what protects the data, not the secrecy of that key.
-
-### 2. Third-party API keys (required at Milestone 3)
-
-These live **only** in Supabase secrets and are read **only** inside Edge
-Functions. They must never appear in `.env`, the client bundle, or git.
-
-```bash
-npx supabase secrets set GEMINI_API_KEY=...        # photo → pantry
-npx supabase secrets set SPOONACULAR_API_KEY=...   # Tier 2, Milestone 4
-```
-
-See [`docs/06_API_KEYS_AND_ENV.md`](docs/06_API_KEYS_AND_ENV.md).
-
-### 3. Python tooling (only if rebuilding the catalog)
-
-The catalog is already generated and committed, so most work needs none of this.
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-```
-
-> On a machine without `python3-venv`, install into a local target instead:
-> `pip3 install --target .pydeps -e ".[dev]"` and prefix commands with
-> `PYTHONPATH=.pydeps:.`. `.pydeps/` is gitignored.
-
----
+Set only `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the
+client environment. Gemini configuration stays in Supabase secrets and is used
+only by photo-to-pantry. See [API keys and environment](docs/06_API_KEYS_AND_ENV.md).
 
 ## Commands
 
 ```bash
-npm test              # Vitest — engine, adapters, catalog contract
-npm run typecheck     # tsc --noEmit
-npm run lint          # eslint
-npm run format        # prettier --write
-npm run web:beta      # static Expo web export, served at localhost:8081
+npm test
+npm run typecheck
+npm run lint
+npm run format:check
 
-docker build -t homechef-beta .
-docker run --rm -p 8081:8081 homechef-beta
-
-pytest tools/                    # catalog pipeline tests
-ruff check tools/                # lint
-mypy --strict tools/catalog      # types
-
-python -m tools.catalog          # rebuild src/data/*.json from TheMealDB
-python -m tools.catalog --limit 20   # quick sample run
+pytest tools/
+ruff check tools/
+mypy --strict tools/catalog
 ```
 
-### Photo → pantry
+Catalog tooling is build-time only. Do not run source downloads, release loads,
+or activation against a remote target without explicit authorization.
 
-The Edge Function must be deployed before the scan screen works:
+## Architecture
 
-```bash
-npx supabase functions deploy analyze-pantry-photo
+```text
+offline catalog -------------------------> client candidates --+
+                                                              |
+active hosted catalog -- authenticated RPCs -> bounded merge -+-> pure engine
+                                                                     |
+                                                              3-4 answers/bucket
 ```
 
-`GEMINI_API_KEY` is already set on the project. The key is read only inside the
-function and never reaches the client — see `docs/06_API_KEYS_AND_ENV.md`.
+`src/engine/` stays pure: it receives `Recipe[]` and does not know whether a
+candidate came from hosted or offline data. Equipment, allergens, and dietary
+restrictions are never relaxed; unknown status excludes.
 
-**This has never been called against live Gemini.** Smoke-test it once after
-deploying, because the request shape is the one part unit tests cannot cover:
+## Known transition gates
 
-```bash
-# A 1x1 JPEG is enough to prove the request shape and schema are accepted.
-curl -s -X POST "$EXPO_PUBLIC_SUPABASE_URL/functions/v1/analyze-pantry-photo" \
-  -H "Authorization: Bearer $EXPO_PUBLIC_SUPABASE_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"images":["/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="]}'
-```
-
-A `200` with `{"items":[...]}` (an empty array is fine for a blank image) means
-the schema and model string are accepted. A `502` means the Gemini call was
-rejected — check the function logs, which carry the upstream error.
-
-### Android Docker testing
-
-The Android test container uses Expo prebuild in a temporary directory, so it
-does not leave generated `android/` files in the checkout. It first runs the
-unit and TypeScript checks, then compiles a debug APK against Android API 36.
-
-```bash
-docker compose -f compose.android.yml run --rm --build android-build
-```
-
-The compiled APK is saved as `build/android-test/homechef-debug.apk`. For a
-real launch check, Docker must be able to access KVM. On WSL, enable Docker
-Desktop's WSL integration first, then run:
-
-```bash
-test -e /dev/kvm
-docker compose -f compose.android.yml --profile emulator run --rm --build android-emulator
-```
-
-That headless smoke test boots an API 36 emulator, installs the debug APK,
-launches it, verifies that its process remains running, and writes
-`build/android-test/homechef-emulator.png`. If `/dev/kvm` is unavailable, use
-the build command above; it still validates the native Android compilation.
-
----
-
-## Architecture in one diagram
-
-```
-  Supabase Postgres          src/lib/ (I/O)           src/engine/ (PURE)
-  ─────────────────          ──────────────           ──────────────────
-  inventory ────────┐
-  user_preferences ─┼──▶ TanStack Query ──▶ adapters ──┐
-  meal_feedback ────┘      (src/hooks/)     (src/lib/   │
-                                             adapters/) ├──▶ decide(...)
-  src/data/recipes.json ──▶ static import ──────────────┤         │
-  (Tier 1, 812, bundled)                                │         ▼
-                                                        │   ScoredRecipe[]
-  Spoonacular Edge Fn ────▶ fetch (Tier 2, ≤20) ────────┘   (4 buckets)
-```
-
-**`src/engine/` is pure.** No React, no I/O, no imports from `src/lib/`. It takes
-a `Recipe[]` and cannot tell which tier supplied it. That is what makes the whole
-suite run in ~2 seconds with no device, network, or API quota — and it is
-enforced by ESLint plus `src/engine/purity.test.ts`, not by convention.
-
----
-
-## Known gaps
-
-> Each gap is stated once here and explained where it is enforced. Where a
-> bullet names a file, that file is the reference — do not restate its
-> reasoning in this list.
-
-- **Singular and plural spellings are separate ids, and recipes use both.**
-  Eleven pairs affected (`egg`/`eggs`, `carrot`/`carrots`, …).
-  `src/lib/ingredients/resolve.ts` collapses ten on the pantry side so the
-  photo pipeline cannot worsen it; the real fix is collapsing plurals during
-  catalog normalization and regenerating. Until then recipe coverage is
-  overstated. Reasoning: `src/lib/ingredients/normalize.ts` and
-  `resolve.test.ts`.
-- **Two synonyms point at ids the catalog never mints.** `capsicum` and
-  `bell pepper` rewrite to `bell_pepper`, and `beef mince` to `ground_beef`;
-  neither exists in `ingredients.json`. The resolver degrades to a flagged
-  partial match rather than dead-ending, but the synonym table needs
-  retargeting in `tools/catalog/normalize.py`.
-- **The photo pipeline has not been run against live Gemini.** The Edge
-  Function typechecks under Deno and its response contract is unit-tested, but
-  it has never been deployed or called, so the request shape is unverified
-  against the real API. See "Photo → pantry" below for the smoke test.
-
-- **The app does not talk to Supabase yet.** Constraints and the pantry live in
-  local storage on the device. The data layer is built and tested
-  (`src/lib/queries/`, `src/hooks/`), but nothing produces a `userId`, so every
-  one of those hooks is inert. Federated Google sign-in is the unblocking step
-  and is in flight — Technical Spec §2.2.1,
-  `docs/specs/2026-08-12-google-oauth-android-web-design.md`. The signup
-  trigger in `0001` already creates the household, profile, membership, and
-  preferences row.
-- **Allergen coverage is thin.** Only the allergen groups that exist in
-  `src/data/ingredients.json` are offered, so the list is eight items and
-  sesame is absent entirely. That is deliberate: an allergen the vocabulary
-  cannot detect would tell the user they are protected when they are not. The
-  groups themselves are sparse — `dairy` is on 8 ingredients out of 897 — so
-  allergen filtering should not be considered trustworthy until the vocabulary
-  is enriched.
-
-- **76 of 812 recipes are `unclassified` and shown to nobody.** The keyword
-  pass could not classify them, and unknown excludes rather than admits, so a
-  full-kitchen user sees 736. That number climbs back as the LLM enrichment
-  pass and its **mandatory 30-recipe human spot-check** (Technical Spec §5.2
-  step 6) work the backlog. Reasoning: `src/engine/filter-hard.ts` and
-  `docs/specs/2026-08-06-microwave-seed-catalog-design.md`.
-- **The microwave wedge rests on 20 hand-written recipes.** TheMealDB supplies
-  exactly two microwave-only recipes and both are 240-minute fudge, which the
-  relaxation ladder tops out below — so a microwave-only user got _zero_ results
-  once the `none` fallback stopped propping the number up. `tools/catalog/seed/`
-  fills that gap and is load-bearing, not decorative. It is a stopgap sized for
-  an honest go/no-go, not a finished catalog.
-- **`dietaryTags` is empty for every recipe, deliberately.** Dietary is a hard
-  constraint, so a wrong tag ships a violation to the user. Absent beats wrong.
-  A verified pass must populate it before dietary filtering is meaningful.
-- **The catalog is 812 recipes, not the ~300 the spec assumed** — 792 from
-  TheMealDB plus 20 seed. TheMealDB grew. Client-side ranking is still well
-  under 10 ms, so no architecture changes.
+- Replacement parity and rights approval are required before removing the
+  transitional bundle or its attribution.
+- The photo-to-pantry Edge Function should receive a synthetic-image smoke test
+  after deployment; never use a real pantry photo for infrastructure checks.
+- Catalog tables and release RPCs require RLS and targeted verification before
+  client integration.
