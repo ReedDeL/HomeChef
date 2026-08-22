@@ -25,7 +25,7 @@ import { useTheme } from '@/theme/useTheme';
 type Phase = 'capture' | 'analyzing' | 'review';
 
 /**
- * Photo → pantry, from the user's side (Technical Spec §5.1, UI/UX Spec §3.3).
+ * Photo → pantry, from the user's side, following the photo-to-pantry contract.
  *
  * The screen is built around one assumption: the model will get some of this
  * wrong. So the scan never writes anything on its own. It proposes, the user
@@ -100,8 +100,8 @@ export default function ScanScreen() {
       setCandidates(await analyzePantryPhotos(uris));
       setPhase('review');
     } catch (caught) {
-      // Manual entry is a complete fallback (§2.4), so a failure here is a
-      // detour rather than a dead end — and it says so.
+      // Manual entry is a complete fallback, so a failure here is a detour
+      // rather than a dead end — and it says so.
       setError(
         caught instanceof PantryPhotoError
           ? caught.message

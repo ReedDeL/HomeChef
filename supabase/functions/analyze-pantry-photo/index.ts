@@ -3,7 +3,7 @@ import { z } from 'https://esm.sh/zod@4.1.11';
 import { errorResponse, jsonResponse, preflight } from '../_shared/cors.ts';
 
 /**
- * Photo → pantry candidates (Technical Spec §5.1).
+ * Photo → pantry candidates, according to the photo-to-pantry contract.
  *
  * The function does vision and validation only. It deliberately does not write
  * to `inventory`: every detected item goes back to the client for confirmation
@@ -16,7 +16,7 @@ import { errorResponse, jsonResponse, preflight } from '../_shared/cors.ts';
  */
 
 /**
- * Stable pinned model (§2.4).
+ * Stable pinned model for the photo-to-pantry Edge Function.
  *
  * NOT `gemini-flash-latest`: the alias hot-swaps on release with two weeks'
  * notice, which would let the prompt and schema start behaving differently
@@ -31,15 +31,16 @@ const MAX_IMAGES = 10;
 
 /**
  * Roughly 1.5 MB of base64 per image. The client resizes to 640×640 at ~0.7
- * JPEG quality (§5.1), which lands two orders of magnitude below this — the
+ * JPEG quality used by the client, which lands two orders of magnitude below
+ * this — the
  * cap exists to reject an uncompressed upload, not to trim a legitimate one.
  */
 const MAX_IMAGE_CHARS = 2_000_000;
 
 /**
- * The response contract from §2.4. Types are the uppercase proto enum names
- * the Gemini REST API actually accepts; the spec prints them lowercase, which
- * protobuf's JSON enum parsing rejects.
+ * The response contract for detected pantry items. Types are the uppercase
+ * proto enum names the Gemini REST API actually accepts; protobuf's JSON enum
+ * parsing rejects lowercase enum values.
  */
 const INGREDIENT_SCHEMA = {
   type: 'ARRAY',

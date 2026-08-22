@@ -15,15 +15,15 @@ import { isTrustedMatch, resolveIngredient, type MatchKind } from '@/lib/ingredi
 export const MAX_PHOTOS = 10;
 
 /**
- * §2.4: below this the model is not trusted without a human looking. It does
- * not gate what is *shown* — everything is shown — it gates what arrives
- * pre-approved.
+ * Below this confidence, the model is not trusted without a human looking. It
+ * does not gate what is *shown* — everything is shown — it gates what arrives
+ * pre-approved for the pantry.
  */
 export const CONFIDENCE_THRESHOLD = 0.7;
 
 export type DetectedUnit = 'grams' | 'milliliters' | 'pieces' | 'cups' | 'unknown';
 
-/** The Edge Function's response shape, mirroring the schema in §2.4. */
+/** The Edge Function's response shape for detected pantry items. */
 export interface DetectedItem {
   name: string;
   quantity: number;

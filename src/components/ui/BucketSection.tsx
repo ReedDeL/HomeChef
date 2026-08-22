@@ -7,7 +7,7 @@ import type { Bucket, ScoredRecipe } from '@/engine/types';
 import { space } from '@/theme/tokens';
 
 /**
- * Truncation is the product (spec §5.1). A "show more" link inside the top
+ * Truncation is the product. A "show more" link inside the top
  * buckets would rebuild the paralysis this app exists to remove, so the cap is
  * enforced here — at the only place buckets are rendered — rather than trusted
  * to each caller.
@@ -18,7 +18,7 @@ interface BucketMeta {
   title: string;
   marker: string;
   tone: 'ready' | 'near' | 'far';
-  /** The bottom two exist for completeness, not for browsing (spec §5.1). */
+  /** The bottom two exist for completeness, not for browsing. */
   collapsedByDefault: boolean;
 }
 
