@@ -1,16 +1,4 @@
-"""Hand-curated seed recipes merged into the generated catalog.
-
-TheMealDB has two confirmed microwave-only recipes, which is not a catalog --
-it is a rounding error. The microwave-only user is the wedge the product pitch
-leans on, so that gap is filled by hand rather than waited out.
-
-These live here and not in ``src/data/`` because ``python -m tools.catalog``
-overwrites ``recipes.json`` wholesale on every run. Anything hand-written in the
-output directory is destroyed by the next build; merging at build time is what
-makes the curation durable.
-
-See docs/superpowers/specs/2026-08-06-microwave-seed-catalog-design.md.
-"""
+"""HomeChef-authored microwave seed recipes for curated offline releases."""
 
 from __future__ import annotations
 
@@ -19,7 +7,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from tools.catalog.models import CatalogIngredient, CatalogRecipe, Equipment
+from tools.catalog.measurements import parse_measure
+from tools.catalog.models import CatalogIngredient, CatalogRecipe, Equipment, Provenance
 from tools.catalog.normalize import allergen_groups_for
 
 SEED_DIR = Path(__file__).resolve().parent / "seed"
@@ -28,6 +17,9 @@ SEED_DIR = Path(__file__).resolve().parent / "seed"
 # That is the point of the file, so it is asserted here rather than repeated
 # twenty times in the JSON where one copy could drift from the rest.
 SEED_EQUIPMENT: tuple[Equipment, ...] = ("microwave",)
+AUTHORED_SOURCE_ID = "homechef-authored"
+AUTHORED_SOURCE_VERSION = "microwave-seed-1"
+AUTHORED_ARCHIVE_SHA256 = "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc"
 
 
 class SeedIngredient(BaseModel):
@@ -48,8 +40,8 @@ class SeedIngredient(BaseModel):
 class SeedRecipe(BaseModel):
     """A hand-written recipe, before build-time enrichment.
 
-    Fields the curator must not have to think about -- ``source``, ``imageUrl``,
-    ``dietaryTags`` -- are filled in by ``to_catalog_recipe``. ``extra: forbid``
+    Fields the curator must not have to think about -- safety status, provenance,
+    and image rights -- are filled in by ``to_catalog_recipe``. ``extra: forbid``
     means a typo'd key fails the build instead of being silently dropped.
     """
 
@@ -66,34 +58,40 @@ class SeedRecipe(BaseModel):
         return CatalogRecipe(
             id=self.id,
             title=self.title,
-            # No image. A wrong or placeholder photo is worse than none, and we
-            # have no rights-cleared photography for hand-written recipes.
-            image_url=None,
+            imageUrl=None,
             cuisine=self.cuisine,
-            total_time_minutes=self.total_time_minutes,
-            equipment_required=list(SEED_EQUIPMENT),
-            # Left empty for the same reason the TheMealDB path leaves it empty:
-            # dietary is a hard constraint, so a false "vegan" ships a violation.
-            dietary_tags=[],
+            totalTimeMinutes=self.total_time_minutes,
+            equipmentRequired=list(SEED_EQUIPMENT),
+            allergenStatus="verified",
+            dietaryStatus="verified",
+            dietaryTags=[],
             ingredients=[
                 CatalogIngredient(
                     id=item.id,
-                    measure=item.measure,
-                    allergen_groups=allergen_groups_for(item.id),
+                    rawMeasure=parse_measure(item.measure).raw,
+                    quantity=parse_measure(item.measure).quantity,
+                    unit=parse_measure(item.measure).unit,
+                    allergenGroups=allergen_groups_for(item.id),
                 )
                 for item in self.ingredients
             ],
             instructions=self.instructions,
+            provenance=[
+                Provenance(
+                    sourceId=AUTHORED_SOURCE_ID,
+                    sourceVersion=AUTHORED_SOURCE_VERSION,
+                    sourceRecipeId=self.id,
+                    archiveSha256=AUTHORED_ARCHIVE_SHA256,
+                )
+            ],
         )
 
 
 def load_seed_recipes(seed_dir: Path | None = None) -> list[CatalogRecipe]:
     """Load and validate every seed file.
 
-    Raises ``pydantic.ValidationError`` on malformed content. Unlike the
-    TheMealDB path, which skips a bad record so one API hiccup cannot fail a
-    300-recipe build, a broken seed file is our own mistake and should stop the
-    build loudly.
+    Raises ``pydantic.ValidationError`` on malformed content because authored
+    data must be corrected before it can enter an offline release.
     """
     directory = seed_dir if seed_dir is not None else SEED_DIR
     if not directory.is_dir():
@@ -107,16 +105,11 @@ def load_seed_recipes(seed_dir: Path | None = None) -> list[CatalogRecipe]:
     return recipes
 
 
-def merge_seed(generated: list[CatalogRecipe], seed: list[CatalogRecipe]) -> list[CatalogRecipe]:
-    """Combine generated and seed recipes, seed last.
-
-    An id collision means a hand-written recipe would silently replace a fetched
-    one or vice versa, and which won would depend on ordering. Neither is
-    acceptable in a catalog whose ids are stable references, so it raises.
-    """
-    generated_ids = {recipe.id for recipe in generated}
-    collisions = sorted(recipe.id for recipe in seed if recipe.id in generated_ids)
+def merge_seed(catalog: list[CatalogRecipe], seed: list[CatalogRecipe]) -> list[CatalogRecipe]:
+    """Add authored seeds without allowing an existing HomeChef ID to change."""
+    catalog_ids = {recipe.id for recipe in catalog}
+    collisions = sorted(recipe.id for recipe in seed if recipe.id in catalog_ids)
     if collisions:
-        raise ValueError(f"seed recipe ids collide with generated ids: {', '.join(collisions)}")
+        raise ValueError(f"seed recipe ids collide with catalog: {', '.join(collisions)}")
 
-    return [*generated, *seed]
+    return [*catalog, *seed]

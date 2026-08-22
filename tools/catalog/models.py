@@ -1,9 +1,4 @@
-"""Typed boundaries for the catalog pipeline.
-
-TheMealDB returns everything as strings, including nulls as ``""`` or ``None``
-inconsistently. Parsing at the boundary means the rest of the pipeline works
-with real types instead of defensively re-checking every field.
-"""
+"""Strict source-neutral models for the HomeChef catalog pipeline."""
 
 from __future__ import annotations
 
@@ -11,9 +6,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-# The closed enumeration from docs/01_TECHNICAL_SPEC.md:534. Closed is what
-# makes the engine's equipment filter a set operation rather than a
-# string-matching problem, so nothing may emit a value outside this list.
 Equipment = Literal[
     "microwave",
     "stove",
@@ -24,12 +16,8 @@ Equipment = Literal[
     "rice_cooker",
     "toaster_oven",
     "none",
-    # Distinct from "none". "none" is a verified claim that a recipe needs no
-    # equipment; "unclassified" means tagging failed and we do not know. Writing
-    # them the same way is what served stove recipes to microwave-only users.
     "unclassified",
 ]
-
 EQUIPMENT_VALUES: frozenset[str] = frozenset(
     {
         "microwave",
@@ -44,7 +32,6 @@ EQUIPMENT_VALUES: frozenset[str] = frozenset(
         "unclassified",
     }
 )
-
 DietaryTag = Literal[
     "vegetarian",
     "vegan",
@@ -55,38 +42,11 @@ DietaryTag = Literal[
     "pescatarian",
     "keto",
 ]
-
-# TheMealDB unrolls ingredients across numbered columns rather than nesting them.
-MEALDB_INGREDIENT_SLOTS = 20
-
-
-class MealDbMeal(BaseModel):
-    """One meal exactly as TheMealDB returns it.
-
-    Extra keys are tolerated because the API adds columns without warning; a
-    missing *required* key is an error, because it means the shape changed.
-    """
-
-    model_config = {"extra": "allow", "populate_by_name": True}
-
-    id: str = Field(alias="idMeal")
-    name: str = Field(alias="strMeal")
-    category: str | None = Field(default=None, alias="strCategory")
-    area: str | None = Field(default=None, alias="strArea")
-    instructions: str = Field(alias="strInstructions")
-    image_url: str | None = Field(default=None, alias="strMealThumb")
-
-    @field_validator("category", "area", "image_url", mode="before")
-    @classmethod
-    def _blank_to_none(cls, value: object) -> object:
-        """TheMealDB uses "" and "null" where it means null."""
-        if isinstance(value, str) and value.strip().lower() in {"", "null"}:
-            return None
-        return value
+SafetyStatus = Literal["verified", "unknown"]
 
 
 class ParsedMeasure(BaseModel):
-    """A measurement split into parts, with the original always preserved."""
+    """A source measure retains display text even when structured parsing fails."""
 
     quantity: float | None = None
     unit: str | None = None
@@ -97,50 +57,117 @@ class ParsedMeasure(BaseModel):
         return self.quantity is not None
 
 
-class CatalogIngredient(BaseModel):
-    """One ingredient reference inside a recipe.
+class SourceIngredient(BaseModel):
+    """One source archive ingredient; extra keys are a contract violation."""
 
-    The alias is not cosmetic. Without it this serialises as ``allergen_groups``
-    while the TypeScript adapter reads ``allergenGroups``, so every ingredient
-    arrives with an empty group list and the allergen filter silently matches
-    nothing — 267 dairy recipes were being served to users who declared a dairy
-    allergy. A missing alias here is a safety incident, not a style slip.
-    """
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    name: str
+    measure: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def require_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("ingredient name must not be blank")
+        return value.strip()
+
+
+class SourceRecipe(BaseModel):
+    """The single neutral JSONL record format accepted by this pipeline."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    source_recipe_id: str = Field(alias="sourceRecipeId")
+    title: str
+    instructions: str
+    ingredients: list[SourceIngredient]
+    cuisine: str | None = None
+    total_time_minutes: Annotated[int, Field(gt=0)] = Field(alias="totalTimeMinutes")
+    image_url: str | None = Field(default=None, alias="imageUrl")
+    equipment: list[Equipment]
+    allergen_status: SafetyStatus = Field(alias="allergenStatus")
+    dietary_status: SafetyStatus = Field(alias="dietaryStatus")
+    dietary_tags: list[DietaryTag] = Field(default_factory=list, alias="dietaryTags")
+
+    @field_validator("source_recipe_id", "title", "instructions")
+    @classmethod
+    def require_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+    @field_validator("cuisine", "image_url", mode="before")
+    @classmethod
+    def blank_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+
+class CatalogIngredient(BaseModel):
+    """Normalized ingredient with raw and parsed measure forms."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
 
     id: str
-    measure: str
-    allergen_groups: list[str] = Field(default_factory=list, serialization_alias="allergenGroups")
+    raw_measure: str = Field(alias="rawMeasure", serialization_alias="rawMeasure")
+    quantity: float | None = None
+    unit: str | None = None
+    allergen_groups: list[str] = Field(
+        default_factory=list, alias="allergenGroups", serialization_alias="allergenGroups"
+    )
+
+    @property
+    def measure(self) -> str:
+        """Compatibility accessor for handwritten seed validation."""
+        return self.raw_measure
+
+
+class Provenance(BaseModel):
+    """A source row retained after recipes from different archives coalesce."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    source_id: str = Field(alias="sourceId", serialization_alias="sourceId")
+    source_version: str = Field(alias="sourceVersion", serialization_alias="sourceVersion")
+    source_recipe_id: str = Field(alias="sourceRecipeId", serialization_alias="sourceRecipeId")
+    archive_sha256: str = Field(alias="archiveSha256", serialization_alias="archiveSha256")
 
 
 class CatalogRecipe(BaseModel):
-    """The shape emitted to ``src/data/recipes.json``.
+    """Canonical HomeChef recipe emitted in a candidate release."""
 
-    Field names are camelCase because this file is consumed directly by the
-    TypeScript engine, whose ``Recipe`` type this must satisfy exactly.
-    """
-
-    model_config = {"populate_by_name": True}
+    model_config = {"extra": "forbid", "populate_by_name": True}
 
     id: str
     title: str
-    image_url: str | None = Field(serialization_alias="imageUrl")
+    image_url: str | None = Field(alias="imageUrl", serialization_alias="imageUrl")
     cuisine: str | None
-    total_time_minutes: Annotated[int, Field(gt=0)] = Field(serialization_alias="totalTimeMinutes")
-    equipment_required: list[Equipment] = Field(serialization_alias="equipmentRequired")
-    dietary_tags: list[DietaryTag] = Field(serialization_alias="dietaryTags")
+    total_time_minutes: Annotated[int, Field(gt=0)] = Field(
+        alias="totalTimeMinutes", serialization_alias="totalTimeMinutes"
+    )
+    equipment_required: list[Equipment] = Field(
+        alias="equipmentRequired", serialization_alias="equipmentRequired"
+    )
+    allergen_status: SafetyStatus = Field(
+        alias="allergenStatus", serialization_alias="allergenStatus"
+    )
+    dietary_status: SafetyStatus = Field(alias="dietaryStatus", serialization_alias="dietaryStatus")
+    dietary_tags: list[DietaryTag] = Field(alias="dietaryTags", serialization_alias="dietaryTags")
     ingredients: list[CatalogIngredient]
     instructions: str
-    source: Literal["tier1"] = "tier1"
+    provenance: list[Provenance]
 
 
 class VocabularyEntry(BaseModel):
-    """One row of ``src/data/ingredients.json`` — the canonical vocabulary.
+    """A stable ingredient vocabulary entry built from canonical recipes."""
 
-    This list is the shared language between the vision pipeline, the pantry,
-    and the decision engine, so an error here propagates everywhere.
-    """
+    model_config = {"extra": "forbid", "populate_by_name": True}
 
     id: str
-    display_name: str = Field(serialization_alias="displayName")
-    allergen_groups: list[str] = Field(default_factory=list, serialization_alias="allergenGroups")
-    is_staple: bool = Field(default=False, serialization_alias="isStaple")
+    display_name: str = Field(alias="displayName", serialization_alias="displayName")
+    allergen_groups: list[str] = Field(
+        default_factory=list, alias="allergenGroups", serialization_alias="allergenGroups"
+    )
+    is_staple: bool = Field(default=False, alias="isStaple", serialization_alias="isStaple")

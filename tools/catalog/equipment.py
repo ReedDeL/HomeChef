@@ -1,16 +1,4 @@
-"""Equipment tagging.
-
-TheMealDB carries no equipment metadata, and equipment-aware filtering is the
-product wedge no competitor addresses. Getting this wrong -- labelling an
-oven recipe ``microwave`` -- is precisely the trust-destroying failure the
-wedge exists to prevent.
-
-This module holds the deterministic keyword pass and, critically, the guarantee
-that whatever produces tags, the output is always inside the closed enum. The
-LLM enrichment pass (Technical Spec 5.2 step 4) calls ``coerce_equipment`` on
-its output, so a hallucinated appliance becomes ``unclassified`` rather than a
-value the TypeScript engine has no case for.
-"""
+"""Equipment classification helpers with an explicit unknown outcome."""
 
 from __future__ import annotations
 
@@ -94,9 +82,8 @@ def coerce_equipment(values: object) -> list[Equipment]:
 def tag_from_text(*texts: str | None) -> list[Equipment]:
     """Deterministic keyword pass over recipe text.
 
-    A first approximation only. Milestone 2 replaces the primary path with the
-    LLM enrichment and its mandatory 30-recipe human spot-check; this remains
-    the fallback when that pass returns nothing usable.
+    This is advisory classification only. A release pipeline must quarantine
+    ``unclassified`` instead of treating it as a verified no-equipment claim.
     """
     haystack = " ".join(t.lower() for t in texts if t)
     found: list[Equipment] = []

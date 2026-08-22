@@ -5,7 +5,6 @@ description = "Build-time tooling for HomeChef. Not a runtime service."
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9",
-    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
@@ -13,7 +12,6 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.3",
     "ruff>=0.6",
-    "types-requests>=2.32",
 ]
 
 [build-system]
