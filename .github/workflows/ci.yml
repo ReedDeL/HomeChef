@@ -30,8 +30,12 @@ jobs:
         run: npx supabase start --yes
       - name: Reset local database
         run: npx supabase db reset --local --no-seed --yes
+      - name: Verify catalog activation serialization
+        run: bash supabase/tests/catalog_activation_concurrency.sh
       - name: Verify RLS policies
         run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/rls_verification.sql
+      - name: Verify protected catalog
+        run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/catalog_verification.sql
 
   python:
     runs-on: ubuntu-latest
@@ -40,7 +44,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ruff mypy pytest pydantic requests types-requests
+      - run: pip install ruff mypy pytest pydantic
       - run: ruff format --check tools/
       - run: ruff check tools/
       - run: mypy --strict tools/catalog

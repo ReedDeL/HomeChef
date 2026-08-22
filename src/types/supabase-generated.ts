@@ -14,6 +14,276 @@ export type Database = {
   }
   public: {
     Tables: {
+      catalog_ingredients: {
+        Row: {
+          allergen_groups: string[]
+          allergen_status: string
+          created_at: string
+          display_name: string
+          ingredient_id: string
+          is_staple: boolean
+          release_id: string
+        }
+        Insert: {
+          allergen_groups?: string[]
+          allergen_status: string
+          created_at?: string
+          display_name: string
+          ingredient_id: string
+          is_staple?: boolean
+          release_id: string
+        }
+        Update: {
+          allergen_groups?: string[]
+          allergen_status?: string
+          created_at?: string
+          display_name?: string
+          ingredient_id?: string
+          is_staple?: boolean
+          release_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_ingredients_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_recipe_ingredients: {
+        Row: {
+          ingredient_id: string
+          position: number
+          quantity: number | null
+          raw_measure: string
+          recipe_id: string
+          release_id: string
+          unit: string | null
+        }
+        Insert: {
+          ingredient_id: string
+          position: number
+          quantity?: number | null
+          raw_measure: string
+          recipe_id: string
+          release_id: string
+          unit?: string | null
+        }
+        Update: {
+          ingredient_id?: string
+          position?: number
+          quantity?: number | null
+          raw_measure?: string
+          recipe_id?: string
+          release_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_recipe_ingredients_release_id_ingredient_id_fkey"
+            columns: ["release_id", "ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_ingredients"
+            referencedColumns: ["release_id", "ingredient_id"]
+          },
+          {
+            foreignKeyName: "catalog_recipe_ingredients_release_id_recipe_id_fkey"
+            columns: ["release_id", "recipe_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_recipes"
+            referencedColumns: ["release_id", "recipe_id"]
+          },
+        ]
+      }
+      catalog_recipe_sources: {
+        Row: {
+          archive_sha256: string
+          recipe_id: string
+          release_id: string
+          source_id: string
+          source_recipe_id: string
+          source_version: string
+        }
+        Insert: {
+          archive_sha256: string
+          recipe_id: string
+          release_id: string
+          source_id: string
+          source_recipe_id: string
+          source_version: string
+        }
+        Update: {
+          archive_sha256?: string
+          recipe_id?: string
+          release_id?: string
+          source_id?: string
+          source_recipe_id?: string
+          source_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_recipe_sources_release_id_recipe_id_fkey"
+            columns: ["release_id", "recipe_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_recipes"
+            referencedColumns: ["release_id", "recipe_id"]
+          },
+          {
+            foreignKeyName: "catalog_recipe_sources_release_id_source_id_source_version_archive_sha256_fkey"
+            columns: ["release_id", "source_id", "source_version", "archive_sha256"]
+            isOneToOne: false
+            referencedRelation: "catalog_release_sources"
+            referencedColumns: ["release_id", "source_id", "source_version", "archive_sha256"]
+          },
+        ]
+      }
+      catalog_recipes: {
+        Row: {
+          allergen_status: string
+          created_at: string
+          cuisine: string | null
+          dietary_status: string
+          dietary_tags: string[]
+          equipment_required: string[]
+          equipment_status: string
+          image_url: string | null
+          instructions: string
+          is_offline: boolean
+          recipe_id: string
+          release_id: string
+          title: string
+          total_time_minutes: number
+        }
+        Insert: {
+          allergen_status: string
+          created_at?: string
+          cuisine?: string | null
+          dietary_status: string
+          dietary_tags?: string[]
+          equipment_required: string[]
+          equipment_status: string
+          image_url?: string | null
+          instructions: string
+          is_offline?: boolean
+          recipe_id: string
+          release_id: string
+          title: string
+          total_time_minutes: number
+        }
+        Update: {
+          allergen_status?: string
+          created_at?: string
+          cuisine?: string | null
+          dietary_status?: string
+          dietary_tags?: string[]
+          equipment_required?: string[]
+          equipment_status?: string
+          image_url?: string | null
+          instructions?: string
+          is_offline?: boolean
+          recipe_id?: string
+          release_id?: string
+          title?: string
+          total_time_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_recipes_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_release_sources: {
+        Row: {
+          archive_sha256: string
+          archive_url: string
+          attribution: string
+          created_at: string
+          license_name: string
+          license_url: string
+          release_id: string
+          rights_status: string
+          source_id: string
+          source_version: string
+        }
+        Insert: {
+          archive_sha256: string
+          archive_url: string
+          attribution: string
+          created_at?: string
+          license_name: string
+          license_url: string
+          release_id: string
+          rights_status: string
+          source_id: string
+          source_version: string
+        }
+        Update: {
+          archive_sha256?: string
+          archive_url?: string
+          attribution?: string
+          created_at?: string
+          license_name?: string
+          license_url?: string
+          release_id?: string
+          rights_status?: string
+          source_id?: string
+          source_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_release_sources_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_releases: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          id: string
+          ingredient_count: number
+          is_active: boolean
+          offline_ready: boolean
+          offline_recipe_count: number
+          recipe_count: number
+          retired_at: string | null
+          source_count: number
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          id: string
+          ingredient_count?: number
+          is_active?: boolean
+          offline_ready?: boolean
+          offline_recipe_count?: number
+          recipe_count?: number
+          retired_at?: string | null
+          source_count?: number
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          ingredient_count?: number
+          is_active?: boolean
+          offline_ready?: boolean
+          offline_recipe_count?: number
+          recipe_count?: number
+          retired_at?: string | null
+          source_count?: number
+        }
+        Relationships: []
+      }
       household_members: {
         Row: {
           household_id: string
@@ -214,7 +484,64 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      catalog_attributions: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          archive_sha256: string
+          archive_url: string
+          attribution: string
+          license_name: string
+          license_url: string
+          source_id: string
+          source_version: string
+        }[]
+      }
+      catalog_candidates: {
+        Args: {
+          p_allergens?: string[]
+          p_cuisine?: string
+          p_dietary_restrictions?: string[]
+          p_excluded_recipe_ids?: string[]
+          p_limit?: number
+          p_owned_equipment?: string[]
+          p_pantry_ingredient_ids?: string[]
+          p_requested_minutes?: number
+        }
+        Returns: {
+          allergen_status: string
+          cuisine: string | null
+          dietary_status: string
+          dietary_tags: string[]
+          equipment_required: string[]
+          equipment_status: string
+          image_url: string | null
+          ingredients: Json
+          pantry_match_count: number
+          recipe_id: string
+          title: string
+          total_time_minutes: number
+        }[]
+      }
+      catalog_recipe_detail: {
+        Args: {
+          p_recipe_id: string
+        }
+        Returns: {
+          allergen_status: string
+          cuisine: string | null
+          dietary_status: string
+          dietary_tags: string[]
+          equipment_required: string[]
+          equipment_status: string
+          image_url: string | null
+          ingredients: Json
+          instructions: string
+          provenance: Json
+          recipe_id: string
+          title: string
+          total_time_minutes: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
