@@ -127,10 +127,6 @@ values
    'bbbbbbbb-0000-4000-8000-000000000001', 'rice', array['bundled-0002'],
    array['2026-08-24']::date[]);
 
-insert into public.meal_satiety (user_id, recipe_id, level)
-values ('aaaaaaaa-0000-4000-8000-000000000001', 'tier1-0001', 'satisfied'),
-       ('bbbbbbbb-0000-4000-8000-000000000001', 'tier1-0002', 'too_full');
-
 -- An allergen is the highest-stakes private field in the schema. If a roommate
 -- can read this row, the privacy model has failed.
 update public.user_preferences
@@ -552,7 +548,7 @@ begin
     '2026-08-31', 'draft', array[]::text[], creation_entries, '[]'::jsonb
   );
   results := results || format('92|Transactional plan creation returns an id|true|%s',
-                               created_plan_id is not null);
+                               case when created_plan_id is not null then 'true' else 'false' end);
   select count(*) into n
     from public.weekly_meal_plan_entries
    where plan_id = created_plan_id and user_id = user_a;
