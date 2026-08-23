@@ -1,6 +1,6 @@
 # HomeChef
 
-**Stop scrolling. Start cooking.**
+
 
 HomeChef is a photo-based meal decision engine for the moment when you are
 hungry, short on time, and tired of recipe sites asking you to choose from
