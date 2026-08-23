@@ -41,6 +41,12 @@ describe('meal journey SQL safety guards', () => {
     );
     expect(verification).toContain("has_schema_privilege('authenticated', 'private', 'USAGE')");
     expect(verification).toContain('acl.grantee = 0');
+    expect(verification).toMatch(
+      /role_row\.rolname = 'authenticated'[\s\S]*acl\.privilege_type = 'USAGE'/
+    );
+    expect(verification).toContain('acl.grantee <> namespace_row.nspowner');
+    expect(verification).toContain("allowed_role.rolname in ('authenticated', 'service_role')");
+    expect(verification).toContain('acl.grantee <> p.proowner');
   });
 
   it('proves exact index shape instead of accepting prefixes', () => {

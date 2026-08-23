@@ -152,22 +152,54 @@ select format('%s has no direct PUBLIC table privilege', table_name),
   from _journey_tables expected;
 
 insert into _journey_schema_results values
-  ('private schema usage is authenticated-only',
-    has_schema_privilege('authenticated', 'private', 'USAGE')
-    and not has_schema_privilege('anon', 'private', 'USAGE')
-    and not exists (
-      select 1
-        from pg_namespace namespace_row
-        cross join lateral aclexplode(
-          coalesce(
-            namespace_row.nspacl,
-            acldefault('n', namespace_row.nspowner)
-          )
-        ) acl
-       where namespace_row.nspname = 'private'
-         and acl.grantee = 0
-         and acl.privilege_type = 'USAGE'
-    ));
+  ('private schema usage has the exact direct allowlist', exists (
+    select 1
+      from pg_namespace namespace_row
+     where namespace_row.nspname = 'private'
+       and has_schema_privilege('authenticated', 'private', 'USAGE')
+       and not has_schema_privilege('anon', 'private', 'USAGE')
+       and (
+         select count(*) = 1
+           from aclexplode(
+             coalesce(
+               namespace_row.nspacl,
+               acldefault('n', namespace_row.nspowner)
+             )
+           ) acl
+           join pg_roles role_row on role_row.oid = acl.grantee
+          where role_row.rolname = 'authenticated'
+            and acl.privilege_type = 'USAGE'
+       )
+       and not exists (
+         select 1
+           from aclexplode(
+             coalesce(
+               namespace_row.nspacl,
+               acldefault('n', namespace_row.nspowner)
+             )
+           ) acl
+           left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where acl.privilege_type = 'USAGE'
+            and (acl.grantee = 0 or grantee_role.rolname = 'anon')
+       )
+       and not exists (
+         select 1
+           from aclexplode(
+             coalesce(
+               namespace_row.nspacl,
+               acldefault('n', namespace_row.nspowner)
+             )
+           ) acl
+          where acl.privilege_type = 'USAGE'
+            and acl.grantee <> namespace_row.nspowner
+            and not exists (
+              select 1
+                from pg_roles allowed_role
+               where allowed_role.oid = acl.grantee
+                 and allowed_role.rolname in ('authenticated', 'service_role')
+            )
+       )
+  ));
 
 create temp table _expected_policies (
   table_name text,
@@ -325,8 +357,23 @@ insert into _journey_schema_results values
            from aclexplode(
              coalesce(p.proacl, acldefault('f', p.proowner))
            ) acl
-          where acl.grantee = 0
-            and acl.privilege_type = 'EXECUTE'
+           left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where acl.privilege_type = 'EXECUTE'
+            and (acl.grantee = 0 or grantee_role.rolname = 'anon')
+       )
+       and not exists (
+         select 1
+           from aclexplode(
+             coalesce(p.proacl, acldefault('f', p.proowner))
+           ) acl
+          where acl.privilege_type = 'EXECUTE'
+            and acl.grantee <> p.proowner
+            and not exists (
+              select 1
+                from pg_roles allowed_role
+               where allowed_role.oid = acl.grantee
+                 and allowed_role.rolname = 'authenticated'
+            )
        )
   ));
 
