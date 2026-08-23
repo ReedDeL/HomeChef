@@ -145,38 +145,6 @@ export type Database = {
           },
         ]
       }
-      meal_satiety: {
-        Row: {
-          id: string
-          level: string
-          recipe_id: string
-          recorded_at: string
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          level: string
-          recipe_id: string
-          recorded_at?: string
-          user_id: string
-        }
-        Update: {
-          id?: string
-          level?: string
-          recipe_id?: string
-          recorded_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meal_satiety_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           created_at: string

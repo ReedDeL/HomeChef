@@ -52,6 +52,7 @@ export function MealSatietyCheckIn({
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel="How full do you feel after this meal?"
+        accessibilityHint="Selects your fullness level"
         style={styles.options}
       >
         {SATIETY_LEVELS.map((level) => {

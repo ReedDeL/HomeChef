@@ -138,7 +138,7 @@ export default function CookModeScreen() {
       const { data, error } = await supabase.auth.getUser();
       if (error) throw error;
       if (!data.user) throw new Error('Sign in is required to save a hunger stat.');
-      await recordMealSatiety(data.user.id, recipe.id, level);
+      await recordMealSatiety({ recipeId: recipe.id, level });
     },
     onSuccess: finishCompletion,
   });

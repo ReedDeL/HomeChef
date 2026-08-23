@@ -3,7 +3,6 @@
  * These join to `user_id` and are structurally unreachable by household
  * members -- roommates share a pantry, never a diet.
  */
-import { toMealSatietyInsert } from '@/lib/meal-satiety';
 import { supabase } from '@/lib/supabase';
 import {
   bodyProfileSchema,
@@ -31,7 +30,6 @@ import {
 } from '@/lib/meal-journey-persistence';
 import type {
   FeedbackVerdict,
-  MealSatietyLevel,
   MealFeedbackRow,
   ProfileRow,
   UserPreferencesRow,
@@ -197,15 +195,7 @@ export async function fetchMealSatiety(userId: string): Promise<MealSatietyRecor
   );
 }
 
-export async function recordMealSatiety(
-  userIdOrInput: string | MealSatietyInput,
-  recipeId?: string,
-  level?: MealSatietyLevel
-): Promise<void> {
-  const input: MealSatietyInput =
-    typeof userIdOrInput === 'string'
-      ? { userId: userIdOrInput, recipeId: recipeId!, level: level! }
-      : userIdOrInput;
+export async function recordMealSatiety(input: MealSatietyInput): Promise<void> {
   const { error } = await supabase
     .from('meal_satiety')
     .insert(mealSatietyPersistence.toInsert(input));
