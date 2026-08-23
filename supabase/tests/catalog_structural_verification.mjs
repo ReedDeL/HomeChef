@@ -4,7 +4,7 @@ import { stdout } from 'node:process';
 
 const root = resolve(import.meta.dirname, '..', '..');
 const migration = readFileSync(
-  resolve(root, 'supabase/migrations/0005_protected_catalog.sql'),
+  resolve(root, 'supabase/migrations/0006_protected_catalog.sql'),
   'utf8'
 );
 const generatedTypes = readFileSync(resolve(root, 'src/types/supabase-generated.ts'), 'utf8');

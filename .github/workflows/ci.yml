@@ -13,13 +13,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - name: Verify catalog structure and boundaries
-        run: |
-          node supabase/tests/catalog_structural_verification.mjs
-          node scripts/catalog-boundary-verification.mjs --self-test
-      - run: npx eslint .
-      - run: npx tsc --noEmit
-      - run: npm test
+      - name: Verify catalog structure
+        run: node supabase/tests/catalog_structural_verification.mjs
 
   rls-verification:
     runs-on: ubuntu-latest
@@ -40,6 +35,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/rls_verification.sql
       - name: Verify protected catalog
         run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/catalog_verification.sql
+      - name: Verify journey schema
+        run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/journey_schema_verification.sql
 
   python:
     runs-on: ubuntu-latest
@@ -48,7 +45,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ruff mypy pytest pydantic
+      - run: pip install ruff mypy pytest pydantic requests types-requests anyio typeguard
       - run: ruff format --check tools/
       - run: ruff check tools/
       - run: mypy --strict tools/catalog

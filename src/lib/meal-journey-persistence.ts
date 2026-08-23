@@ -120,9 +120,7 @@ function parseWeeklyPlan(plan: WeeklyMealPlan): WeeklyMealPlan {
 
 function assertBundledRecipeIds(plan: WeeklyMealPlan, catalog: readonly Recipe[]): void {
   const bundledIds = new Set(
-    catalog
-      .filter((recipe) => recipe.source === 'bundled')
-      .map((recipe) => recipe.id)
+    catalog.filter((recipe) => recipe.source === 'bundled').map((recipe) => recipe.id)
   );
   for (const entry of plan.entries) {
     if (entry.kind === 'recipe' && !bundledIds.has(entry.recipeId)) {
