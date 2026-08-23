@@ -89,6 +89,25 @@ Every new Supabase table has RLS enabled in the migration that creates it. Perso
 key to the parent `(plan_id, user_id)`, so a child cannot be moved to another owner. Grants
 are explicit and limited to required commands.
 
+Policy and grant verbs are frozen per table:
+
+| Table | Authenticated client verbs |
+|---|---|
+| `body_profiles` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| `taste_signals` | `SELECT`, `INSERT` only |
+| `meal_satiety` | `SELECT`, `INSERT` only |
+| `onboarding_progress` | `SELECT`, `INSERT`, `UPDATE` |
+| `weekly_meal_plans` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| `weekly_meal_plan_entries` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| `plan_linked_grocery_needs` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| `meal_reminder_preferences` | `SELECT`, `INSERT`, `UPDATE` |
+
+Each allowed verb has its own operation-specific policy. `UPDATE` policies use both `using`
+and `with check`; `INSERT` policies use `with check`; `SELECT` and `DELETE` use `using`.
+There are no authenticated `UPDATE` or `DELETE` policies or grants on append-only
+`taste_signals` or `meal_satiety`. Parent/account cascades are database behavior and do not
+make those records client-mutable.
+
 ### 4.2 Session-only and borrowed data
 
 - The continuous-onboarding `shownThisSession` flag exists only in the root client session.
@@ -120,12 +139,19 @@ type ActivityLevel =
 type CalculationSex = 'female' | 'male';
 type NutritionConfidence = 'high' | 'medium' | 'low' | 'unavailable';
 type TasteSignalKind = 'photo_selected';
+type MealSatietyLevel = 'still_hungry' | 'satisfied' | 'too_full';
+type ContinuousOnboardingPromptKind =
+  | 'safety'
+  | 'week_preference'
+  | 'photo_taste'
+  | 'body_profile'
+  | 'reminder';
 type WeeklyEntryKind = 'recipe' | 'day_of_decision';
 type WeeklyPlanStatus = 'draft' | 'confirmed';
 type ReminderLeadMinutes = 0 | 10 | 15 | 30 | 60;
 ```
 
-### 5.1 Body and taste contracts
+### 5.1 Body, taste, and satiety contracts
 
 ```ts
 interface BodyProfile {
@@ -146,6 +172,17 @@ interface TasteSignal {
   recordedAt: string; // ISO timestamp
 }
 
+interface MealSatietyInput {
+  recipeId: string;
+  level: MealSatietyLevel;
+}
+
+interface MealSatietyRecord extends MealSatietyInput {
+  id: string; // UUID
+  userId: string; // authenticated user UUID
+  recordedAt: string; // server-generated ISO timestamp
+}
+
 interface PortionGuidance {
   servings: number; // quarter increment, 0.75..1.5
   label: string; // "Start with … serving(s)"
@@ -155,6 +192,8 @@ interface PortionGuidance {
 
 A skipped photo-selection prompt creates no `TasteSignal`. Not selecting a recipe is neutral,
 not evidence of dislike. Existing explicit meal feedback remains a separate contract.
+`MealSatietyInput` is an insert payload; the database adds `id`, `userId`, and `recordedAt`
+to produce `MealSatietyRecord`. Taste and satiety records are append-only after insertion.
 
 ### 5.2 Weekly contracts
 
@@ -163,6 +202,7 @@ interface RecipeWeeklyEntry {
   kind: 'recipe';
   date: string; // ISO local calendar date
   recipeId: string; // bundled catalog ID only
+  plannedMealTime: string; // RFC 3339 timestamp with a numeric UTC offset
   statedRelaxations: readonly ('time' | 'cuisine')[];
   portionGuidance: PortionGuidance | null;
 }
@@ -195,7 +235,47 @@ The runtime schema, generated JSON Schema, TypeScript types, Supabase mapper, Ex
 presentation, and shared fixture must agree on these domains. SQL may normalize fields into
 parent and child tables, but it may not weaken the bounds or ownership.
 
-### 5.3 Spoonacular persistence contract
+`plannedMealTime` is the one scheduling representation. It must parse as an ISO 8601/RFC 3339
+timestamp containing an explicit numeric UTC offset, and its local calendar date must equal
+the entry's `date`. Drafts retain it so confirmation can schedule without inventing a time.
+
+### 5.3 Continuous-onboarding and reminder contracts
+
+```ts
+interface ContinuousOnboardingProgress {
+  safetyCompleted: boolean;
+  weekPreferenceCompleted: boolean;
+  photoTasteCompleted: boolean;
+  bodyProfileCompleted: boolean;
+  reminderCompleted: boolean;
+  updatedAt: string; // server-generated ISO timestamp
+}
+
+interface ContinuousOnboardingPromptState {
+  shownThisSession: boolean;
+  activePrompt: ContinuousOnboardingPromptKind | null;
+}
+
+interface MealReminderPreferences {
+  enabled: boolean;
+  leadMinutes: ReminderLeadMinutes;
+  updatedAt: string; // server-generated ISO timestamp
+}
+```
+
+`ContinuousOnboardingProgress` is one mutable current-state row per `userId`; ordinary
+answers may change only the selected completion field from `false` to `true`, and an upsert
+refreshes `updatedAt`. `ContinuousOnboardingPromptState` is session-only and is discarded on
+app-process restart. Before prompt selection both fields are `false`/`null`; while the selected
+prompt is visible they are `true`/the selected kind; after answer or skip they are
+`true`/`null`. Once `shownThisSession` is `true`, no second prompt may be selected.
+
+`MealReminderPreferences` is one mutable current-state row per `userId`. Insert or update is
+allowed; `leadMinutes` is always one of the five frozen presets. The client may mirror it
+locally after hydration, but Supabase is the durable owner. Neither current-state interface
+contains `userId`; the authenticated persistence boundary supplies it and RLS enforces it.
+
+### 5.4 Spoonacular persistence contract
 
 ```ts
 interface PersistableSpoonacularRecipe {
@@ -246,9 +326,13 @@ after the user invokes `Use this plan`.
 For each date in ascending order:
 
 1. Eliminate every recipe that fails equipment, allergen, or dietary constraints.
-2. Consider exact cuisine and time, widening time through `15`, `30`, `60`, and `120`
-   minutes as necessary.
-3. If still necessary, drop cuisine and repeat the same time tiers.
+2. Require `selectedLimit` to be an integer from 1 through 120 minutes. Build candidate time
+   tiers as `[selectedLimit, ...standardTiers]`, where
+   `standardTiers` contains only values from `[15, 30, 60, 120]` that are strictly greater
+   than `selectedLimit`. Preserve ascending order and never duplicate `selectedLimit`.
+3. Try exact cuisine at each candidate tier in order. If still necessary, drop cuisine and
+   repeat those same candidate tiers. A tier above `selectedLimit` is a stated `time`
+   relaxation; dropping cuisine is a stated `cuisine` relaxation.
 4. Rank remaining candidates lexicographically by pantry readiness, existing recipe score,
    selected-photo preference, preference for a recipe not yet used in this plan, and stable
    recipe ID.
@@ -257,11 +341,14 @@ For each date in ascending order:
 6. Accept it only when that union contains at most 12 unique ingredients. Otherwise continue
    to another eligible candidate; if none fits the cap, emit `day_of_decision` with reason
    `grocery_need_cap`.
-7. If no hard-safe candidate exists, emit `day_of_decision` with reason `no_safe_recipe`.
+7. If no hard-safe recipe fits any permitted candidate tier, emit `day_of_decision` with
+   reason `no_safe_recipe`. This includes a hard-safe recipe whose duration exceeds both the
+   selected limit and the greatest permitted tier of 120 minutes.
 
 The photo taste signal is a positive tie-breaker only. It cannot overcome readiness, existing
 recipe score, a hard constraint, or the grocery-needs cap. Rotation is preferred before
-repetition, and recipe ID makes identical inputs produce identical output.
+repetition, and recipe ID makes identical inputs produce identical output. Building or
+exhausting the time ladder never changes equipment, allergen, or dietary constraints.
 
 ### 7.3 Plan-linked grocery needs
 
@@ -289,9 +376,12 @@ For `high` or `medium` confidence, energy-based guidance is eligible only when t
 least 18, is not pregnant, and is not breastfeeding. The calculation is:
 
 ```text
-resting estimate = 10*kg + 6.25*cm - 5*age + sex offset
-daily estimate = resting estimate * activity factor + goal adjustment
-meal estimate = daily estimate / 3
+restingKcal = 10*kg + 6.25*cm - 5*age + sexOffset
+targetDailyKcal = restingKcal * activityFactor + goalAdjustment
+targetMealKcal = targetDailyKcal / 3
+energyBasedServings = targetMealKcal / recipe.energyKcalPerServing
+adjustedServings = energyBasedServings + satietyAdjustment
+guidanceServings = clamp(roundToNearestQuarter(adjustedServings), 0.75, 1.5)
 ```
 
 | Input | Frozen value |
@@ -307,11 +397,21 @@ meal estimate = daily estimate / 3
 | Maintain adjustment | `0` kcal/day |
 | Gain adjustment | `200` kcal/day |
 
+`recipe.energyKcalPerServing` must be a finite positive number. `recipe.baseServings` is used
+only by build-time enrichment to convert whole-recipe energy into
+`energyKcalPerServing = wholeRecipeEnergyKcal / baseServings`; it is not a multiplier or
+divisor in the runtime portion calculation. Once per-serving energy exists, changing
+`baseServings` alone cannot change guidance.
+
 When energy calculation is ineligible, use goal baselines `0.9`, `1.0`, and `1.1` servings
 for lose, maintain, and gain respectively. An absent or invalid current profile has no usable
 goal and therefore uses the maintain baseline of `1.0`. Apply the most recent satiety
 adjustment: `still_hungry=+0.25`, `satisfied=0`, `too_full=-0.25`. Round to the nearest
 quarter serving and clamp to `0.75..1.5` servings.
+
+If nutrition confidence is `low` or `unavailable`, or `energyKcalPerServing` is missing,
+non-finite, or non-positive, return no portion guidance. Do not substitute `baseServings` for
+missing per-serving energy.
 
 Presentation is the simple label `Start with … serving(s)` followed by
 `Estimate only—adjust to your hunger.` It never displays calories, macros, weight trends,
@@ -348,12 +448,13 @@ Reminder lead presets are exactly:
 For each eligible entry:
 
 ```text
-reminder time = planned meal time - max(recipe duration, selected lead)
+reminder time = entry.plannedMealTime - max(recipe duration, selected lead)
 ```
 
 This means the reminder is never later than the time cooking must begin. Invalid or elapsed
-times do not schedule. Times use the device's current timezone and are recalculated after a
-timezone change.
+times do not schedule. The scheduler parses the concrete entry's offset-bearing RFC 3339
+`plannedMealTime`; it does not reconstruct dinner time from `date`. Times use the device's
+current timezone for display and are recalculated after a timezone change.
 
 Confirmation persists the confirmed plan before attempting best-effort notification sync.
 Permission denial or a scheduling failure never reverses confirmation or blocks the plan.
@@ -404,6 +505,9 @@ or the named platform review:
 
 - Runtime schemas reject out-of-domain body fields, invalid enum values, weekly plans without
   exactly seven entries, and plans with more than 12 needs.
+- Runtime schemas cover satiety input/records, continuous-onboarding progress and session
+  prompt state, reminder preferences, and an offset-bearing `plannedMealTime` on every
+  concrete weekly entry.
 - JSON Schema regeneration is stable, and the checked-in fixture parses through the runtime
   schema.
 - The visible now decision preserves bucket order, removes empty buckets, and exposes at most
@@ -414,11 +518,13 @@ or the named platform review:
 ### Pure policies
 
 - Portion tests cover every activity level and goal, eligibility, pregnancy, breastfeeding,
-  absent profiles, satiety adjustment, quarter rounding, clamps, and nutrition suppression.
+  absent profiles, the exact target-meal-kcal-to-servings division, `baseServings`
+  independence, satiety adjustment, quarter rounding, clamps, and nutrition suppression.
 - Continuous-onboarding tests prove priority, one prompt per session, neutral skip behavior,
   and single-prompt completion.
 - Weekly planner tests prove seven stable entries, hard-constraint decoys, stated time/cuisine
-  relaxations, positive taste as tie-breaker only, rotation, bundled-only durability, both
+  relaxations, off-tier selected limits, strictly greater standard tiers, over-120-minute
+  fallback, positive taste as tie-breaker only, rotation, bundled-only durability, both
   fallback reasons, the 12-need cap, and low-confidence recipe retention.
 - `src/engine/` purity tests continue to forbid React, `src/lib/`, I/O, clock, and randomness.
 
@@ -427,6 +533,8 @@ or the named platform review:
 - RLS tests prove user A, user A2, user B, and anonymous isolation for every personal table.
 - Schema tests prove no `household_id` on weekly tables, composite child ownership, required
   indexes, explicit grants, and cascades from plans to entries and needs.
+- RLS tests prove append-only taste and satiety rows have only `SELECT`/`INSERT` policies and
+  grants, while each mutable table has only the operation-specific verbs it requires.
 - Persistence mappers admit bundled recipes to plans and prevent borrowed recipe content from
   crossing a write boundary.
 - Body-profile deletion leaves no history, and a plan replacement leaves no stale needs.

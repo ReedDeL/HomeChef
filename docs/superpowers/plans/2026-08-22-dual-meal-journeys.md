@@ -15,14 +15,17 @@
 - Equipment, allergen, and dietary constraints are never relaxed. Time and cuisine are the only visibly relaxable inputs.
 - `src/engine/` stays pure: no React, no `src/lib/`, no I/O, no clock, no randomness.
 - A weekly proposal contains exactly seven dated entries and uses a labeled `day_of_decision` entry when no safe concrete entry fits.
+- Every concrete weekly entry carries one offset-bearing RFC 3339 `plannedMealTime`; reminder scheduling never reconstructs it from the date.
 - Grocery needs are capped at 12 unique canonical ingredients, belong only to one weekly plan, and cascade away with that plan. They are not a reusable shopping list.
 - Only bundled catalog recipes may be stored in a weekly plan. Spoonacular persistence is restricted by code to `id`, `title`, and `imageUrl`.
 - Body profiles, taste signals, satiety records, onboarding progress, weekly plans, entries, grocery needs, and reminder preferences are personal `user_id` data. Roommates and anonymous sessions cannot read them.
 - Keep only one current body profile per user. No weight history, trends, calorie dashboard, macro tracking, or medical advice.
 - Energy-based portion guidance is eligible only at age 18 or older when not pregnant or breastfeeding and when recipe nutrition confidence is `high` or `medium`.
 - Nutrition estimates use Mifflin–St Jeor, fixed activity factors, bounded goal adjustments, quarter-serving rounding, and the simple label `Start with … serving(s)`. The UI never displays calories.
+- Energy-based servings equal target meal kcal divided by `recipe.energyKcalPerServing`; `baseServings` is build-time normalization metadata and is not used again at runtime.
 - USDA credentials use `USDA_FDC_API_KEY` only in build-time tooling. Low-confidence or missing nutrition suppresses guidance without suppressing the recipe.
 - Continuous onboarding shows at most one skippable prompt per app session. Skipping defers the same prompt to a future session and never records a negative taste signal.
+- Taste and satiety records are append-only and receive only authenticated `SELECT`/`INSERT` policies and grants.
 - Local reminder permission denial or scheduling failure never blocks weekly-plan confirmation. Replacing a confirmed plan cancels stale identifiers before scheduling valid replacements.
 - No hardcoded colors or spacing; use `src/theme/tokens.ts`. Every interactive element includes accessibility role, label, hint, and state where applicable.
 - No new runtime service, general shopping list, barcode scanning, voice feature, roommate sharing UI, or persistent Spoonacular ingredient/instruction data.
@@ -90,11 +93,11 @@ git commit -m "Freeze dual journey design"
 
 **Interfaces:**
 - Consumes: existing `Recipe`, `DecisionResult`, `Relaxation`, and hard filters.
-- Produces: `MealJourney`, `BodyGoal`, `ActivityLevel`, `CalculationSex`, `BodyProfile`, `TasteSignal`, `PortionGuidance`, `WeeklyMealPlan`, `PlanLinkedGroceryNeed`, `ContinuousOnboardingProgress`, `toVisibleDecision()`, and `toPersistableSpoonacularRecipe()`.
+- Produces: `MealJourney`, `BodyGoal`, `ActivityLevel`, `CalculationSex`, `BodyProfile`, `TasteSignal`, `MealSatietyInput`, `MealSatietyRecord`, `PortionGuidance`, `WeeklyMealPlan`, `PlanLinkedGroceryNeed`, `ContinuousOnboardingProgress`, `ContinuousOnboardingPromptState`, `MealReminderPreferences`, `toVisibleDecision()`, and `toPersistableSpoonacularRecipe()`.
 
 - [ ] **Step 1: Write failing runtime-schema tests**
 
-Assert closed values, reject underage/invalid body fields, accept an ineligible pregnant or breastfeeding adult profile for safe fallback, accept exactly seven weekly entries, reject more than 12 needs, and parse `shared/fixtures/dual-meal-journeys.json`.
+Assert closed values, reject underage/invalid body fields, accept an ineligible pregnant or breastfeeding adult profile for safe fallback, parse satiety input/record fields, parse durable onboarding progress and session prompt state separately, accept only the five reminder leads, require an offset-bearing RFC 3339 `plannedMealTime` on concrete weekly entries, accept exactly seven weekly entries, reject more than 12 needs, and parse `shared/fixtures/dual-meal-journeys.json`.
 
 - [ ] **Step 2: Verify schema tests fail**
 
@@ -113,11 +116,54 @@ type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_activ
 type CalculationSex = 'female' | 'male';
 type NutritionConfidence = 'high' | 'medium' | 'low' | 'unavailable';
 type TasteSignalKind = 'photo_selected';
+type MealSatietyLevel = 'still_hungry' | 'satisfied' | 'too_full';
+type ContinuousOnboardingPromptKind = 'safety' | 'week_preference' | 'photo_taste' | 'body_profile' | 'reminder';
 type WeeklyEntryKind = 'recipe' | 'day_of_decision';
 type WeeklyPlanStatus = 'draft' | 'confirmed';
+type ReminderLeadMinutes = 0 | 10 | 15 | 30 | 60;
+
+interface MealSatietyInput {
+  recipeId: string;
+  level: MealSatietyLevel;
+}
+
+interface MealSatietyRecord extends MealSatietyInput {
+  id: string;
+  userId: string;
+  recordedAt: string;
+}
+
+interface ContinuousOnboardingProgress {
+  safetyCompleted: boolean;
+  weekPreferenceCompleted: boolean;
+  photoTasteCompleted: boolean;
+  bodyProfileCompleted: boolean;
+  reminderCompleted: boolean;
+  updatedAt: string;
+}
+
+interface ContinuousOnboardingPromptState {
+  shownThisSession: boolean;
+  activePrompt: ContinuousOnboardingPromptKind | null;
+}
+
+interface MealReminderPreferences {
+  enabled: boolean;
+  leadMinutes: ReminderLeadMinutes;
+  updatedAt: string;
+}
+
+interface RecipeWeeklyEntry {
+  kind: 'recipe';
+  date: string;
+  recipeId: string;
+  plannedMealTime: string;
+  statedRelaxations: readonly ('time' | 'cuisine')[];
+  portionGuidance: PortionGuidance | null;
+}
 ```
 
-`BodyProfile` requires age `18..120`, height `120..230` cm, weight `35..300` kg, calculation sex, activity, goal, and pregnancy/breastfeeding flags. `TasteSignal` records only a selected recipe ID, journey, and ISO timestamp. `WeeklyMealPlan` has one ISO week start, seven entries, status, grocery needs, and stated relaxations. Generate the checked-in JSON Schema with Zod 4's JSON-schema conversion and assert regeneration is stable.
+`BodyProfile` requires age `18..120`, height `120..230` cm, weight `35..300` kg, calculation sex, activity, goal, and pregnancy/breastfeeding flags. `TasteSignal` records only a selected recipe ID, journey, and ISO timestamp. `MealSatietyInput` contains only recipe ID and level; its append-only record adds UUID `id`, authenticated `userId`, and server-generated ISO `recordedAt`. Onboarding progress is a mutable, durable one-row record; prompt state is session-only with the `false/null` → `true/kind` → `true/null` lifecycle. Reminder preferences are one mutable durable row, with `updatedAt` server-generated for both durable current-state contracts. `plannedMealTime` must be RFC 3339 with a numeric UTC offset and its local date must equal `date`. `WeeklyMealPlan` has one ISO week start, seven entries, status, grocery needs, and stated relaxations. Generate the checked-in JSON Schema with Zod 4's JSON-schema conversion and assert regeneration is stable.
 
 - [ ] **Step 4: Write failing result-cap and equipment tests**
 
@@ -178,7 +224,7 @@ git commit -m "Add meal journey contracts"
 
 - [ ] **Step 1: Write failing portion tests**
 
-Cover eligible lose/maintain/gain profiles, each activity level, age 17, pregnancy, breastfeeding, missing profile, `low`/`unavailable` nutrition, quarter-serving rounding, lower/upper clamps, and satiety fallback. Assert output contains no calorie or macro field.
+Cover eligible lose/maintain/gain profiles, each activity level, age 17, pregnancy, breastfeeding, missing profile, `low`/`unavailable` nutrition, missing/non-positive/non-finite per-serving energy, target-meal-kcal conversion, independence from `baseServings`, quarter-serving rounding, lower/upper clamps, and satiety fallback. Assert output contains no calorie or macro field.
 
 - [ ] **Step 2: Verify portion tests fail**
 
@@ -186,11 +232,11 @@ Run: `npm test -- src/engine/portion-guidance.test.ts`
 
 - [ ] **Step 3: Implement exact portion policy**
 
-Use Mifflin–St Jeor `10*kg + 6.25*cm - 5*age + sexOffset`, with offsets `female=-161`, `male=5`; activity factors `1.2`, `1.375`, `1.55`, `1.725`, `1.9`; goal adjustments `lose=-250`, `maintain=0`, `gain=200` kcal/day; three meals/day; satiety adjustment `still_hungry=+0.25`, `satisfied=0`, `too_full=-0.25` servings. Round to the nearest `0.25` and clamp to `0.75..1.5` servings. When energy calculation is ineligible, use goal baselines `0.9`, `1.0`, `1.1` plus satiety, rounded/clamped the same way. Return `null` for `low` or `unavailable` recipe nutrition.
+Use Mifflin–St Jeor `restingKcal = 10*kg + 6.25*cm - 5*age + sexOffset`, with offsets `female=-161`, `male=5`; activity factors `1.2`, `1.375`, `1.55`, `1.725`, `1.9`; goal adjustments `lose=-250`, `maintain=0`, `gain=200` kcal/day; `targetMealKcal = (restingKcal * activityFactor + goalAdjustment) / 3`; and `energyBasedServings = targetMealKcal / recipe.energyKcalPerServing`. Then add satiety `still_hungry=+0.25`, `satisfied=0`, or `too_full=-0.25` servings, round to the nearest `0.25`, and clamp to `0.75..1.5`. `baseServings` is used only during build-time whole-recipe-to-per-serving energy normalization and never enters this runtime formula. When energy calculation is ineligible, use goal baselines `0.9`, `1.0`, `1.1` plus satiety, rounded/clamped the same way; an absent or invalid profile uses maintain `1.0`. Return `null` for `low`/`unavailable` confidence or missing, non-finite, or non-positive per-serving energy.
 
 - [ ] **Step 4: Write failing prompt-priority tests**
 
-Assert priority is safety, week-critical preference when journey is `week`, photo taste, body profile, reminder; only one prompt when `shownThisSession` is true; skip leaves durable progress unchanged; answer marks only that prompt complete.
+Assert priority is safety, week-critical preference when journey is `week`, photo taste, body profile, reminder; `false/null` selects at most one prompt and becomes `true/kind`; `shownThisSession=true` never selects a second prompt; answer or skip produces `true/null`; skip leaves durable progress unchanged; and answer marks only that prompt complete.
 
 - [ ] **Step 5: Verify prompt tests fail, implement, and verify green**
 
@@ -235,7 +281,7 @@ Union each concrete entry's missing canonical ingredient IDs; merge recipe IDs a
 
 - [ ] **Step 4: Write failing planner tests**
 
-Cover exactly seven entries, stable output, bundled-only recipe entries, hard-constraint decoys, time/cuisine relaxations stated per entry, positive taste as a tie-breaker only, rotation before repetition, capped needs, no-safe-candidate fallback, low-confidence nutrition retaining the meal but omitting portion guidance, and a fixture snapshot matching `shared/fixtures/dual-meal-journeys.json`.
+Cover exactly seven entries, stable output, offset-bearing `plannedMealTime`, bundled-only recipe entries, hard-constraint decoys, selected-limit bounds of integer `1..120`, an off-tier selected limit, no duplicate time tier, only standard tiers strictly above the selected limit, a hard-safe recipe over 120 minutes falling back to `no_safe_recipe`, time/cuisine relaxations stated per entry, positive taste as a tie-breaker only, rotation before repetition, capped needs, no-safe-candidate fallback, low-confidence nutrition retaining the meal but omitting portion guidance, and a fixture snapshot matching `shared/fixtures/dual-meal-journeys.json`.
 
 - [ ] **Step 5: Verify planner tests fail**
 
@@ -243,7 +289,7 @@ Run: `npm test -- src/engine/plan-week.test.ts`
 
 - [ ] **Step 6: Implement deterministic planning**
 
-For each of seven dates: hard-filter; try exact time/cuisine; widen through `15, 30, 60, 120`; then drop cuisine with the same time tiers; score by readiness, existing recipe score, selected-photo boost, unused recipe preference, then recipe ID. Accept a concrete entry only if its unique missing ingredients keep the plan at or below 12; otherwise emit `day_of_decision` with reason `grocery_need_cap`. When no hard-safe candidate exists, emit reason `no_safe_recipe`. Never admit `source: 'tier2'`.
+For each of seven dates: hard-filter without ever changing equipment, allergen, or dietary constraints. Require integer `selectedLimit` in `1..120`, then build candidate time tiers as `[selectedLimit, ...[15, 30, 60, 120].filter(tier => tier > selectedLimit)]`; try exact cuisine at each tier, then drop cuisine and retry the same tiers. A greater tier states `time`; dropping cuisine states `cuisine`. Score by readiness, existing recipe score, selected-photo boost, unused recipe preference, then recipe ID. Accept a concrete entry only if its unique missing ingredients keep the plan at or below 12; otherwise emit `day_of_decision` with reason `grocery_need_cap`. If no hard-safe recipe fits any permitted tier—including a hard-safe recipe over 120 minutes—emit reason `no_safe_recipe`. Build each concrete entry's offset-bearing RFC 3339 `plannedMealTime` from the supplied date and daily meal-time preference. Never admit `source: 'tier2'`.
 
 - [ ] **Step 7: Verify and commit**
 
@@ -281,11 +327,11 @@ Do not invent a filename or modify existing migrations.
 
 - [ ] **Step 2: Write failing RLS and structure assertions**
 
-Extend A/A2/B/anon coverage before the schema. Add structural assertions for RLS enabled, personal `user_id` ownership, explicit grants, composite child ownership FKs, indexes, and absence of `household_id` on weekly tables.
+Extend A/A2/B/anon coverage before the schema. Add structural assertions for RLS enabled, personal `user_id` ownership, explicit per-table grants, composite child ownership FKs, indexes, absence of `household_id` on weekly tables, and absence of authenticated `UPDATE`/`DELETE` policies and grants on append-only taste and satiety tables.
 
 - [ ] **Step 3: Implement the schema**
 
-Create `body_profiles` with `user_id` primary key; `taste_signals` and `meal_satiety` append-only; one-row `onboarding_progress`; `weekly_meal_plans`; `weekly_meal_plan_entries`; `plan_linked_grocery_needs`; and one-row `meal_reminder_preferences`. Child plan tables carry `user_id` and reference `(plan_id, user_id)` on the parent. Enable RLS in the same migration, use separate SELECT/INSERT/UPDATE/DELETE policies with `(select auth.uid())`, and grant only required commands to `authenticated`. Update legacy `inventory.source='shopping_list'` rows to `manual`, then recreate its CHECK without `shopping_list`.
+Create `body_profiles` with `user_id` primary key; `taste_signals` and `meal_satiety` append-only; one-row `onboarding_progress`; `weekly_meal_plans`; `weekly_meal_plan_entries`; `plan_linked_grocery_needs`; and one-row `meal_reminder_preferences`. Child plan tables carry `user_id` and reference `(plan_id, user_id)` on the parent. Enable RLS in the same migration and create only these operation-specific authenticated policies and grants: `body_profiles` gets SELECT/INSERT/UPDATE/DELETE; `taste_signals` and `meal_satiety` get SELECT/INSERT only; `onboarding_progress` gets SELECT/INSERT/UPDATE; each weekly plan/entry/need table gets SELECT/INSERT/UPDATE/DELETE; and `meal_reminder_preferences` gets SELECT/INSERT/UPDATE. Every predicate uses `(select auth.uid())`; UPDATE has both `using` and `with check`, INSERT has `with check`, and SELECT/DELETE have `using`. Account and parent cascades remain database behavior, not append-only client DELETE permission. Update legacy `inventory.source='shopping_list'` rows to `manual`, then recreate its CHECK without `shopping_list`.
 
 - [ ] **Step 4: Verify RLS locally**
 
@@ -303,7 +349,7 @@ Expected: every assertion reports `PASS` and both commands exit zero.
 
 - [ ] **Step 5: Write failing persistence-mapper tests**
 
-Assert only contract fields reach inserts, body delete removes the current profile, plan replacement deletes stale child rows in one operation boundary, only bundled recipe IDs enter durable entries, and Spoonacular extra content cannot cross the mapper.
+Assert only contract fields reach inserts, satiety input cannot carry generated ownership/record fields, append-only mappers expose no update/delete operation, body delete removes the current profile, plan replacement deletes stale child rows in one operation boundary, only bundled recipe IDs enter durable entries, reminder/onboarding mappers accept only their mutable current-state fields, and Spoonacular extra content cannot cross the mapper.
 
 - [ ] **Step 6: Implement queries and regenerate types**
 
@@ -417,7 +463,7 @@ Run: `npm test -- src/lib/weekly-plan-coordinator.test.ts`
 
 - [ ] **Step 3: Port the approved notification foundation**
 
-Transplant the focused implementation from `ef895b7` without overwriting current PostHog, photo-auth, layout, settings, or dependency changes. Preserve reminder presets `0 | 10 | 15 | 30 | 60` and `plannedMealTime - max(totalTimeMinutes, leadMinutes)`. Ensure disabled sync cancels saved identifiers. Web remains a no-op.
+Transplant the focused implementation from `ef895b7` without overwriting current PostHog, photo-auth, layout, settings, or dependency changes. Preserve reminder presets `0 | 10 | 15 | 30 | 60` and `plannedMealTime - max(totalTimeMinutes, leadMinutes)`. Parse the concrete entry's offset-bearing RFC 3339 `plannedMealTime` at the notification boundary; never reconstruct meal time from `date`. Ensure disabled sync cancels saved identifiers. Web remains a no-op.
 
 - [ ] **Step 4: Extend store behavior test-first**
 
@@ -478,7 +524,7 @@ Start from saved pantry count; offer `Refresh pantry with photos` as optional dr
 
 - [ ] **Step 5: Build the weekly flow in `app/week.tsx`**
 
-Collect one time limit, dinner-time preset, optional cuisine, and diner count; generate one seven-entry proposal; show all dated entries; show `What this plan needs` with at most 12 canonical needs; then `Use this plan`. Confirmation calls Task 7 and succeeds even when reminders do not. `day_of_decision` entries say `Decide that day` and never schedule.
+Collect one time limit, dinner-time preset, optional cuisine, and diner count; combine each supplied date and dinner-time preset into the concrete entry's offset-bearing RFC 3339 `plannedMealTime`; generate one seven-entry proposal; show all dated entries; show `What this plan needs` with at most 12 canonical needs; then `Use this plan`. Confirmation calls Task 7 and succeeds even when reminders do not. `day_of_decision` entries say `Decide that day` and never schedule.
 
 - [ ] **Step 6: Add continuous onboarding presentation**
 
