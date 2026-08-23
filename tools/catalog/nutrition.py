@@ -173,8 +173,8 @@ def serialize_usda_cache(cache: UsdaCache) -> str:
 
 def enrich_recipe(recipe: CatalogRecipe, cache: UsdaCache) -> CatalogRecipe:
     """Add safe per-serving energy without ever processing borrowed data."""
-    if recipe.source not in {"tier1", "bundled"}:
-        raise ValueError("USDA enrichment accepts owned Tier 1 recipes only")
+    if recipe.source != "bundled":
+        raise ValueError("USDA enrichment accepts bundled catalog recipes only")
 
     exact = {food.ingredient_id: food for food in cache.foods}
     aliases = {alias: food for food in cache.foods for alias in food.aliases}

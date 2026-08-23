@@ -223,7 +223,7 @@ function createRecipeEntry(
 
 function isHardSafeBundledRecipe(recipe: Recipe, preferences: UserPreferences): boolean {
   return (
-    (recipe.source === 'bundled' || (recipe.source as string) === 'tier1') &&
+    recipe.source === 'bundled' &&
     recipe.ingredients.length > 0 &&
     !preferences.dislikedRecipeIds.has(recipe.id) &&
     isEquipmentSatisfied(recipe.equipmentRequired, preferences.equipment) &&

@@ -168,9 +168,9 @@ def test_missing_base_servings_suppresses_energy_but_retains_match_provenance(
 
 def test_rejects_borrowed_spoonacular_shaped_recipe_before_processing(cache: UsdaCache) -> None:
     borrowed = make_recipe(CatalogIngredient(id="flour", measure="100 g"))
-    borrowed = borrowed.model_copy(update={"source": "tier2"})
+    borrowed = borrowed.model_copy(update={"source": "spoonacular"})
 
-    with pytest.raises(ValueError, match="Tier 1"):
+    with pytest.raises(ValueError, match="bundled catalog"):
         enrich_recipe(borrowed, cache)
 
 

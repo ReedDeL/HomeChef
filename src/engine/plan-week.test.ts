@@ -74,19 +74,19 @@ describe('buildCandidateTimeTiers', () => {
 
 describe('planWeek input and output contract', () => {
   it('returns one stable bundled-only draft with seven dated meal times', () => {
-    const tier1Recipes = Array.from({ length: 7 }, (_, index) =>
+    const bundledRecipes = Array.from({ length: 7 }, (_, index) =>
       makeRecipe({
         id: `recipe-${index + 1}`,
         ingredients: [ingredient('rice')],
         source: 'bundled',
       })
     );
-    const tier2 = makeRecipe({
+    const spoonacular = makeRecipe({
       id: 'recipe-0',
       ingredients: [ingredient('rice')],
       source: 'spoonacular',
     });
-    const input = makePlanInput({ recipes: [tier2, ...tier1Recipes] });
+    const input = makePlanInput({ recipes: [spoonacular, ...bundledRecipes] });
 
     const first = planWeek(input);
     const second = planWeek({ ...input, recipes: [...input.recipes].reverse() });
@@ -95,7 +95,7 @@ describe('planWeek input and output contract', () => {
     expect(first.status).toBe('draft');
     expect(first.weekStart).toBe(DATES[0]);
     expect(first.entries).toHaveLength(7);
-    expect(concreteRecipeIds(first)).toEqual(tier1Recipes.map((recipe) => recipe.id));
+    expect(concreteRecipeIds(first)).toEqual(bundledRecipes.map((recipe) => recipe.id));
     expect(first.entries).toEqual(
       DATES.map((date, index) => ({
         kind: 'recipe',
