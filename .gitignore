@@ -66,6 +66,14 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# Personal documentation scratch space. Team decisions, plans, and specs belong
+# in their respective committed folders under docs/.
+docs/local/
+
+# Superpowers brainstorm scratch output. Anything worth keeping graduates to
+# docs/specs/ as a design document.
+.superpowers/
+
 # Local Python dependency target (python3-venv unavailable on this machine)
 .pydeps/
 

@@ -97,8 +97,8 @@ describe('bundled ingredient vocabulary', () => {
 });
 
 /**
- * The microwave-only user is the wedge (docs/superpowers/specs/
- * 2026-08-06-microwave-seed-catalog-design.md). TheMealDB supplies exactly two
+ * The microwave-only user is the wedge
+ * (docs/specs/2026-08-06-microwave-seed-catalog-design.md). TheMealDB supplies exactly two
  * microwave-only recipes and both are 240-minute fudge, which the time ladder
  * cannot reach — so without the hand-curated seed this user sees nothing at all.
  */
