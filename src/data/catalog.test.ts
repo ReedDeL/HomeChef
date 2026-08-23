@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import recipesJson from '@/data/recipes.json';
 import { INGREDIENT_VOCABULARY, BUNDLED_CATALOG, lookupIngredient } from '@/data/catalog';
 import { decideWithRelaxation } from '@/engine/relax';
 import { EQUIPMENT } from '@/engine/types';
@@ -58,7 +59,7 @@ describe('bundled catalog', () => {
         expect(Object.hasOwn(raw, key)).toBe(true);
       }
     }
-    for (const recipe of TIER1_CATALOG) {
+    for (const recipe of BUNDLED_CATALOG) {
       if (recipe.nutritionConfidence === 'low' || recipe.nutritionConfidence === 'unavailable') {
         expect(recipe.energyKcalPerServing).toBeNull();
       }

@@ -210,7 +210,6 @@ class CatalogRecipe(BaseModel):
     )
     ingredients: list[CatalogIngredient]
     instructions: str
-<<<<<<< HEAD
     base_servings: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = Field(
         default=None,
         validation_alias=AliasChoices("base_servings", "baseServings"),

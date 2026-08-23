@@ -53,9 +53,7 @@ def test_refresh_mealdb_is_the_only_flag_that_calls_mealdb(
     monkeypatch.setattr(catalog_cli, "fetch_all_meals", fetch)
     monkeypatch.setattr(catalog_cli, "refresh_usda_cache", fail_network)
 
-    result = catalog_cli.main(
-        ["--refresh-mealdb", "--limit", "1", "--output-dir", str(tmp_path)]
-    )
+    result = catalog_cli.main(["--refresh-mealdb", "--limit", "1", "--output-dir", str(tmp_path)])
 
     assert result == 0
     assert calls == [1]
@@ -100,9 +98,7 @@ def test_usda_cache_flag_enriches_offline_without_refresh(
     monkeypatch.setattr(catalog_cli, "fetch_all_meals", fail_network)
     monkeypatch.setattr(catalog_cli, "refresh_usda_cache", fail_network)
 
-    result = catalog_cli.main(
-        ["--usda-cache", str(fixture), "--output-dir", str(tmp_path)]
-    )
+    result = catalog_cli.main(["--usda-cache", str(fixture), "--output-dir", str(tmp_path)])
 
     assert result == 0
     recipes = json.loads((tmp_path / "recipes.json").read_text(encoding="utf-8"))

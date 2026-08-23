@@ -142,7 +142,7 @@ describe('weekly plan persistence', () => {
   it('constructs exact parent and complete child replacement rows', () => {
     const plan = makePlan();
     const bundledCatalog = [
-      makeRecipe({ id: 'bundled-1', source: 'tier1', instructions: 'owned instructions' }),
+      makeRecipe({ id: 'bundled-1', source: 'bundled', instructions: 'owned instructions' }),
     ];
 
     expect(weeklyPlanPersistence.toCreation(USER_ID, plan, bundledCatalog)).toMatchObject({
@@ -201,7 +201,7 @@ describe('weekly plan persistence', () => {
       weeklyPlanPersistence.toReplacement(USER_ID, PLAN_ID, makePlan('borrowed-1'), [
         makeRecipe({
           id: 'borrowed-1',
-          source: 'tier2',
+          source: 'spoonacular',
           title: 'Borrowed title',
           imageUrl: 'https://example.test/borrowed.jpg',
           instructions: 'Borrowed instructions',
@@ -225,8 +225,8 @@ describe('weekly plan persistence', () => {
 
     expect(() =>
       weeklyPlanPersistence.toReplacement(USER_ID, PLAN_ID, borrowedNeedPlan, [
-        makeRecipe({ id: 'bundled-1', source: 'tier1' }),
-        makeRecipe({ id: 'borrowed-need', source: 'tier2' }),
+        makeRecipe({ id: 'bundled-1', source: 'bundled' }),
+        makeRecipe({ id: 'borrowed-need', source: 'spoonacular' }),
       ])
     ).toThrow('bundled catalog');
   });
@@ -246,8 +246,8 @@ describe('weekly plan persistence', () => {
 
     expect(() =>
       weeklyPlanPersistence.toReplacement(USER_ID, PLAN_ID, unrelatedBundledNeedPlan, [
-        makeRecipe({ id: 'bundled-1', source: 'tier1' }),
-        makeRecipe({ id: 'bundled-unused', source: 'tier1' }),
+        makeRecipe({ id: 'bundled-1', source: 'bundled' }),
+        makeRecipe({ id: 'bundled-unused', source: 'bundled' }),
       ])
     ).toThrow('concrete recipe entry');
   });

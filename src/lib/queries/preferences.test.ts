@@ -53,7 +53,7 @@ describe('createWeeklyMealPlan', () => {
     const plan = makePlan();
 
     await expect(
-      createWeeklyMealPlan(USER_ID, plan, [makeRecipe({ id: 'bundled-1', source: 'tier1' })])
+      createWeeklyMealPlan(USER_ID, plan, [makeRecipe({ id: 'bundled-1', source: 'bundled' })])
     ).resolves.toBe(PLAN_ID);
     expect(from).not.toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledOnce();

@@ -78,13 +78,13 @@ describe('planWeek input and output contract', () => {
       makeRecipe({
         id: `recipe-${index + 1}`,
         ingredients: [ingredient('rice')],
-        source: 'tier1',
+        source: 'bundled',
       })
     );
     const tier2 = makeRecipe({
       id: 'recipe-0',
       ingredients: [ingredient('rice')],
-      source: 'tier2',
+      source: 'spoonacular',
     });
     const input = makePlanInput({ recipes: [tier2, ...tier1Recipes] });
 
@@ -171,7 +171,7 @@ describe('planWeek safety and relaxation', () => {
         id: 'live',
         dietaryTags: ['vegan'],
         ingredients: [ingredient('rice')],
-        source: 'tier2',
+        source: 'spoonacular',
       }),
       safe,
     ];
