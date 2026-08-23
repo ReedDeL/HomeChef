@@ -47,6 +47,16 @@ export interface PortionGuidanceInput {
   satietyLevel: MealSatietyLevel | null;
 }
 
+/**
+ * Goal usability is independent from full-profile energy eligibility. This
+ * boundary stays explicit because quarter rounding masks all three baselines
+ * in the final presentation for the current satiety adjustments.
+ */
+export function getGoalBasedServingBaseline(profile: BodyProfile | null): number {
+  const goal: unknown = profile?.goal;
+  return isBodyGoal(goal) ? GOAL_BASELINES[goal] : GOAL_BASELINES.maintain;
+}
+
 export function getPortionGuidance(input: PortionGuidanceInput): PortionGuidance | null {
   const { energyKcalPerServing, nutritionConfidence } = input.recipe;
   if (
@@ -63,7 +73,7 @@ export function getPortionGuidance(input: PortionGuidanceInput): PortionGuidance
   const startingServings =
     validProfile !== null && !validProfile.pregnant && !validProfile.breastfeeding
       ? calculateEnergyBasedServings(validProfile, energyKcalPerServing)
-      : GOAL_BASELINES[validProfile?.goal ?? 'maintain'];
+      : getGoalBasedServingBaseline(profile);
   const satietyAdjustment =
     input.satietyLevel === null ? 0 : SATIETY_ADJUSTMENTS[input.satietyLevel];
   const servings = clamp(roundToNearestQuarter(startingServings + satietyAdjustment), 0.75, 1.5);
@@ -85,6 +95,10 @@ function calculateEnergyBasedServings(profile: BodyProfile, energyKcalPerServing
     restingKcal * ACTIVITY_FACTORS[profile.activityLevel] + GOAL_ADJUSTMENTS[profile.goal];
   const targetMealKcal = targetDailyKcal / 3;
   return targetMealKcal / energyKcalPerServing;
+}
+
+function isBodyGoal(value: unknown): value is BodyGoal {
+  return value === 'lose' || value === 'maintain' || value === 'gain';
 }
 
 function isValidBodyProfile(profile: BodyProfile | null): profile is BodyProfile {

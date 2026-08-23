@@ -15,9 +15,10 @@ session.
   rounding, and the `0.75..1.5` clamp.
 - Kept `baseServings` out of the runtime calculation. It remains recipe metadata for build-time
   whole-recipe normalization only.
-- Defensively treats underage or otherwise invalid profiles as energy-ineligible with the maintain
-  fallback. Valid pregnant and breastfeeding profiles retain their goal fallback without using the
-  energy calculation.
+- Defensively treats underage or otherwise invalid profiles as energy-ineligible while retaining
+  any independently usable goal for fallback. Only an absent or unusable goal uses maintain. Valid
+  pregnant and breastfeeding profiles retain their goal fallback without using the energy
+  calculation.
 - Returns only `servings`, `label`, and the frozen disclaimer; it exposes no calorie, macro, trend,
   or medical fields. Low/unavailable nutrition or unusable energy returns `null` and does not affect
   recipe eligibility.
@@ -150,8 +151,9 @@ full check above.
 
 - Rechecked every Section 8 constant and formula against the governing design.
 - Confirmed low/unavailable confidence and invalid energy suppress only portion guidance.
-- Confirmed age 17, missing, and non-finite profiles use the maintain fallback; valid pregnancy and
-  breastfeeding profiles never use energy-based guidance.
+- Confirmed age 17 and non-finite profiles remain energy-ineligible while retaining a usable goal;
+  missing profiles or unusable goals use maintain. Valid pregnancy and breastfeeding profiles
+  never use energy-based guidance.
 - Confirmed `baseServings` cannot influence runtime guidance and all output is quarter-rounded and
   clamped.
 - Confirmed prompt selection is deterministic, week preference is never selected on the now
@@ -167,3 +169,64 @@ full check above.
 
 None. The TypeScript narrowing issue found by the first full check is resolved and covered by the
 fresh successful check.
+
+---
+
+## Fix Round 1
+
+### Review finding
+
+Full-profile validity incorrectly controlled both energy eligibility and fallback goal selection.
+An invalid age, height, or weight therefore discarded an otherwise valid `lose` or `gain` goal and
+selected maintain. The final visible serving happened to mask this defect because the frozen
+`0.9`, `1.0`, and `1.1` baselines all round to `1.0` with the current quarter-serving and satiety
+rules.
+
+### TDD evidence
+
+The regression tests introduce the focused pure `getGoalBasedServingBaseline()` policy boundary.
+Before implementation:
+
+```text
+npm test -- src/engine/portion-guidance.test.ts
+Test Files  1 failed (1)
+Tests       5 failed | 31 passed (36)
+TypeError: getGoalBasedServingBaseline is not a function
+```
+
+The five RED cases covered invalid age with `lose`, invalid height with `gain`, invalid weight with
+`maintain`, an absent profile, and an unusable goal.
+
+### Implementation
+
+- Added `getGoalBasedServingBaseline(profile)`, which validates only `profile.goal` and returns the
+  exact `0.9`, `1.0`, or `1.1` baseline for a usable goal.
+- Changed only the fallback branch in `getPortionGuidance()` to use the independent helper.
+- Kept the complete age/body/sex/activity/goal/boolean validation unchanged for energy eligibility.
+- Added a why-comment explaining why the baseline boundary is explicit despite identical current
+  visible rounding.
+
+### GREEN evidence
+
+```text
+npm test -- src/engine/portion-guidance.test.ts
+Test Files  1 passed (1)
+Tests       36 passed (36)
+
+npm test -- src/engine/portion-guidance.test.ts \
+  src/engine/onboarding-prompt.test.ts src/engine/purity.test.ts
+Test Files  3 passed (3)
+Tests       118 passed (118)
+
+npm run check
+eslint .                         PASS
+tsc --noEmit                    PASS
+Test Files  22 passed (22)
+Tests       438 passed (438)
+prettier --check .              All matched files use Prettier code style!
+Exit code 0
+```
+
+### Concerns
+
+None. No contract, energy-eligibility, onboarding, persistence, or UI behavior changed.

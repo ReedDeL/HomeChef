@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { BodyProfile } from '@/contracts/meal-journeys';
 import { makeBodyProfile, makeRecipe } from '@/engine/__fixtures__';
-import { getPortionGuidance } from '@/engine/portion-guidance';
+import { getGoalBasedServingBaseline, getPortionGuidance } from '@/engine/portion-guidance';
 
 const nutritionReadyRecipe = makeRecipe({
   baseServings: 4,
@@ -14,6 +15,26 @@ const eligibleProfile = makeBodyProfile({
   weightKilograms: 60,
   calculationSex: 'female',
   activityLevel: 'sedentary',
+});
+
+describe('getGoalBasedServingBaseline', () => {
+  it.each([
+    ['lose', makeBodyProfile({ ageYears: 17, goal: 'lose' }), 0.9],
+    ['gain', makeBodyProfile({ heightCentimeters: Number.NaN, goal: 'gain' }), 1.1],
+    ['maintain', makeBodyProfile({ weightKilograms: 0, goal: 'maintain' }), 1],
+  ] as const)(
+    'retains the valid %s goal when another profile field is invalid',
+    (_goal, bodyProfile, baseline) => {
+      expect(getGoalBasedServingBaseline(bodyProfile)).toBe(baseline);
+    }
+  );
+
+  it.each([
+    ['an absent profile', null],
+    ['an unusable goal', { ...makeBodyProfile(), goal: 'unsupported' } as unknown as BodyProfile],
+  ])('uses maintain for %s', (_case, bodyProfile) => {
+    expect(getGoalBasedServingBaseline(bodyProfile)).toBe(1);
+  });
 });
 
 describe('getPortionGuidance', () => {
@@ -141,7 +162,7 @@ describe('getPortionGuidance', () => {
     );
   });
 
-  it('uses the maintain fallback for a non-finite body profile', () => {
+  it('keeps a non-finite body profile energy-ineligible', () => {
     expect(
       getPortionGuidance({
         recipe: { ...nutritionReadyRecipe, energyKcalPerServing: 100 },
