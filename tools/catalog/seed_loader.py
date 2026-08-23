@@ -9,7 +9,7 @@ overwrites ``recipes.json`` wholesale on every run. Anything hand-written in the
 output directory is destroyed by the next build; merging at build time is what
 makes the curation durable.
 
-See docs/superpowers/specs/2026-08-06-microwave-seed-catalog-design.md.
+See docs/specs/2026-08-06-microwave-seed-catalog-design.md.
 """
 
 from __future__ import annotations
@@ -84,6 +84,8 @@ class SeedRecipe(BaseModel):
                 for item in self.ingredients
             ],
             instructions=self.instructions,
+            # Each curated entry describes one complete single-meal preparation.
+            base_servings=1,
         )
 
 

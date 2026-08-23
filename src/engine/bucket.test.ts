@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BUCKET_CAP, bucketFor } from '@/engine/bucket';
+import { PER_BUCKET_RESULT_CAP, bucketFor } from '@/engine/bucket';
 
 // Bucketing is by COUNT of missing ingredients, not match percentage
-// (docs/01_TECHNICAL_SPEC.md:450). Every boundary is pinned explicitly.
+// (Technical Spec §4.1). Every boundary is pinned explicitly.
 describe('bucketFor', () => {
   it('0 missing -> ready', () => {
     expect(bucketFor(0)).toBe('ready');
@@ -31,9 +31,9 @@ describe('bucketFor', () => {
   });
 });
 
-describe('BUCKET_CAP', () => {
-  // Truncation is the product (docs/01_TECHNICAL_SPEC.md:452).
+describe('PER_BUCKET_RESULT_CAP', () => {
+  // Truncation is the product (Technical Spec §4.1, B4).
   it('is 4', () => {
-    expect(BUCKET_CAP).toBe(4);
+    expect(PER_BUCKET_RESULT_CAP).toBe(4);
   });
 });

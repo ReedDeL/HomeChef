@@ -4,9 +4,8 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * "src/engine/ has no imports from src/lib/ or React. It is a pure function
- * over plain data. This is the one architectural rule worth defending in code
- * review" (docs/01_TECHNICAL_SPEC.md:675).
+ * The engine is pure: no React, no imports from src/lib/, no I/O
+ * (Technical Spec §4.1; AGENTS.md architecture rules).
  *
  * Code review is a human process that gets skipped at 2am on August 23, so the
  * rule is also asserted here and enforced by ESLint in CI.
@@ -26,9 +25,15 @@ const sourceFiles = readdirSync(ENGINE_DIR).filter(
   (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.startsWith('__')
 );
 
+const DETERMINISTIC_POLICY_FILES = ['onboarding-prompt.ts', 'portion-guidance.ts'];
+
 describe('src/engine/ purity', () => {
   it('has source files to check', () => {
     expect(sourceFiles.length).toBeGreaterThan(0);
+  });
+
+  it('covers the portion and continuous-onboarding policies', () => {
+    expect(sourceFiles).toEqual(expect.arrayContaining(DETERMINISTIC_POLICY_FILES));
   });
 
   for (const file of sourceFiles) {
@@ -46,6 +51,8 @@ describe('src/engine/ purity', () => {
       it('performs no I/O and reads no ambient state', () => {
         expect(contents).not.toMatch(/\bfetch\s*\(/);
         expect(contents).not.toMatch(/Math\.random/);
+        expect(contents).not.toMatch(/performance\.now/);
+        expect(contents).not.toMatch(/crypto\.(?:getRandomValues|randomUUID)/);
         expect(contents).not.toMatch(/Date\.now|new Date\(/);
         expect(contents).not.toMatch(/process\.env/);
       });

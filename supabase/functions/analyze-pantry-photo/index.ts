@@ -1,3 +1,4 @@
+import { createClient, type User } from 'https://esm.sh/@supabase/supabase-js@2.110.8';
 import { z } from 'https://esm.sh/zod@4.1.11';
 
 import { errorResponse, jsonResponse, preflight } from '../_shared/cors.ts';
@@ -13,6 +14,13 @@ import { errorResponse, jsonResponse, preflight } from '../_shared/cors.ts';
  *
  * Normalization to canonical ids happens on the client, against the same
  * bundled vocabulary the engine matches against. See NORMALIZATION below.
+ *
+ * Every caller must present a valid user session (401 otherwise) and spend one
+ * unit of their daily budget (429 once spent) BEFORE any Gemini traffic — an
+ * unauthenticated or over-budget request costs nothing but a database round
+ * trip. Without both gates, the public anon key alone would be enough to
+ * invoke this function in a loop and drain the Gemini quota: a cost attack
+ * with no data at stake.
  */
 
 /**
@@ -24,7 +32,14 @@ import { errorResponse, jsonResponse, preflight } from '../_shared/cors.ts';
  */
 const MODEL = 'gemini-3.6-flash';
 
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+/** Interactions API (GA June 2026) — §2.4 directs new builds here, not generateContent. */
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+
+/**
+ * Pins the wire revision the request was written against, so a future default
+ * revision cannot silently change response shapes mid-launch.
+ */
+const API_REVISION = '2026-05-20';
 
 /** One fridge, one freezer, a couple of shelves. More is a client bug. */
 const MAX_IMAGES = 10;
@@ -37,19 +52,36 @@ const MAX_IMAGES = 10;
 const MAX_IMAGE_CHARS = 2_000_000;
 
 /**
- * The response contract from §2.4. Types are the uppercase proto enum names
- * the Gemini REST API actually accepts; the spec prints them lowercase, which
- * protobuf's JSON enum parsing rejects.
+ * A real 10-photo scan is ~1.5 MB of base64 in total; six times that still
+ * leaves no honest request behind while bounding worst-case upstream cost per
+ * call even when every individual image passes its own cap.
+ */
+const MAX_TOTAL_IMAGE_CHARS = 6_000_000;
+
+/**
+ * Scans per user per UTC day. A household photographs their fridge a few
+ * times a day at most; twenty is generous headroom above real usage and far
+ * below what an automated loop would burn. Raised via migration only if
+ * launch telemetry shows honest users hitting it — never loosened here
+ * silently, since the budget is the last line of defense for the quota.
+ */
+const DAILY_SCAN_LIMIT = 20;
+
+/**
+ * The response contract from §2.4, as a plain JSON Schema for the Interactions
+ * API's `response_format.schema`. Standard lowercase types: the old
+ * generateContent `responseSchema` needed UPPERCASE proto enum names, but this
+ * surface takes regular JSON Schema and every vendor example is lowercase.
  */
 const INGREDIENT_SCHEMA = {
-  type: 'ARRAY',
+  type: 'array',
   items: {
-    type: 'OBJECT',
+    type: 'object',
     properties: {
-      name: { type: 'STRING', description: 'Generic ingredient type, never a brand' },
-      quantity: { type: 'NUMBER' },
-      unit: { type: 'STRING', enum: ['grams', 'milliliters', 'pieces', 'cups', 'unknown'] },
-      confidence: { type: 'NUMBER', description: '0.0 to 1.0' },
+      name: { type: 'string', description: 'Generic ingredient type, never a brand' },
+      quantity: { type: 'number' },
+      unit: { type: 'string', enum: ['grams', 'milliliters', 'pieces', 'cups', 'unknown'] },
+      confidence: { type: 'number', description: '0.0 to 1.0' },
     },
     required: ['name', 'quantity', 'unit', 'confidence'],
   },
@@ -69,10 +101,18 @@ const DetectedItem = z.object({
 
 const DetectedItems = z.array(DetectedItem).max(100);
 
-const RequestBody = z.object({
-  images: z.array(z.string().min(1).max(MAX_IMAGE_CHARS)).min(1).max(MAX_IMAGES),
-  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']).default('image/jpeg'),
-});
+const RequestBody = z
+  .object({
+    images: z.array(z.string().min(1).max(MAX_IMAGE_CHARS)).min(1).max(MAX_IMAGES),
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']).default('image/jpeg'),
+  })
+  .refine(
+    (body) =>
+      body.images.reduce((total, image) => total + image.length, 0) <= MAX_TOTAL_IMAGE_CHARS,
+    {
+      message: 'Total image payload exceeds the per-request limit.',
+    }
+  );
 
 const PROMPT = `You are cataloguing the contents of someone's kitchen from photographs.
 
@@ -103,15 +143,51 @@ Deno.serve(async (request: Request): Promise<Response> => {
   if (preflightResponse) return preflightResponse;
 
   if (request.method !== 'POST') {
-    return errorResponse('Method not allowed', 405);
+    return errorResponse(request, 'Method not allowed', 405);
   }
 
   const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!apiKey || !supabaseUrl || !serviceRoleKey) {
     // Loud in the logs, vague to the caller: the client must never learn
     // whether a key exists, and the operator needs to know immediately.
-    console.error('GEMINI_API_KEY is not configured for this project.');
-    return errorResponse('Photo recognition is unavailable.', 503);
+    console.error(
+      'Edge Function secrets missing:',
+      ['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
+        .filter((name) => !Deno.env.get(name))
+        .join(', ')
+    );
+    return errorResponse(request, 'Photo recognition is unavailable.', 503);
+  }
+
+  const authorization = request.headers.get('Authorization');
+  if (!authorization) {
+    return errorResponse(request, 'Sign in to scan your pantry.', 401);
+  }
+
+  /**
+   * Service-role client carrying the CALLER's bearer token. Two jobs, both
+   * server-verified rather than decoded-and-trusted:
+   *  - auth.getUser() has Auth verify the JWT signature and return the user;
+   *  - rpc() forwards the same header, so PostgREST sets request.jwt.claims
+   *    and claim_pantry_scan's auth.uid() resolves to this caller — the
+   *    service role key never becomes the identity being billed a scan.
+   */
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    global: { headers: { Authorization: authorization } },
+  });
+
+  let user: User;
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser();
+    if (error || !data.user) {
+      return errorResponse(request, 'Sign in to scan your pantry.', 401);
+    }
+    user = data.user;
+  } catch (error) {
+    console.error('Auth verification failed', error);
+    return errorResponse(request, 'Photo recognition is unavailable.', 503);
   }
 
   let payload: z.infer<typeof RequestBody>;
@@ -119,50 +195,76 @@ Deno.serve(async (request: Request): Promise<Response> => {
     payload = RequestBody.parse(await request.json());
   } catch (error) {
     console.warn('Rejected malformed request', error);
-    return errorResponse('Send 1 to 10 base64-encoded images.', 400);
+    return errorResponse(request, 'Send 1 to 10 base64-encoded images.', 400);
+  }
+
+  const { data: granted, error: claimError } = await supabaseAdmin.rpc('claim_pantry_scan', {
+    p_daily_limit: DAILY_SCAN_LIMIT,
+  });
+  if (claimError) {
+    // Budget check failing is an outage, not a denial: fail closed anyway.
+    // Spending Gemini quota we cannot account for is how the attack from the
+    // header comment gets back in through the side door.
+    console.error(`Budget claim failed for ${user.id}`, claimError);
+    return errorResponse(request, 'Photo recognition is unavailable.', 503);
+  }
+  if (!granted) {
+    return errorResponse(request, 'Daily photo limit reached. Try again tomorrow.', 429, {
+      'Retry-After': String(secondsUntilUtcMidnight()),
+    });
   }
 
   let geminiResponse: Response;
   try {
-    geminiResponse = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
+    geminiResponse = await fetch(GEMINI_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Key in a header rather than the query string: URLs end up in logs.
+        'x-goog-api-key': apiKey,
+        'Api-Revision': API_REVISION,
+      },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: PROMPT },
-              ...payload.images.map((data) => ({
-                inline_data: { mime_type: payload.mimeType, data },
-              })),
-            ],
-          },
+        model: MODEL,
+        input: [
+          { type: 'text', text: PROMPT },
+          ...payload.images.map((data) => ({
+            type: 'image' as const,
+            data,
+            mime_type: payload.mimeType,
+          })),
         ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: INGREDIENT_SCHEMA,
+        response_format: {
+          type: 'text',
+          mime_type: 'application/json',
+          schema: INGREDIENT_SCHEMA,
+        },
+        generation_config: {
           // Cataloguing is a perception task, not a creative one.
           temperature: 0,
         },
+        // Stored interactions would keep fridge photos on Google's servers
+        // past this request, breaking the §6 photo-retention posture:
+        // images are processed and discarded, never retained.
+        store: false,
       }),
     });
   } catch (error) {
     console.error('Gemini request failed', error);
-    return errorResponse('Could not reach photo recognition.', 502);
+    return errorResponse(request, 'Could not reach photo recognition.', 502);
   }
 
   if (!geminiResponse.ok) {
     // The upstream body can carry key material or quota detail; log it, never
     // forward it.
     console.error(`Gemini returned ${geminiResponse.status}`, await geminiResponse.text());
-    return errorResponse('Photo recognition failed.', 502);
+    return errorResponse(request, 'Photo recognition failed.', 502);
   }
 
   const text = extractText(await geminiResponse.json());
   if (text === null) {
     console.error('Gemini response carried no text part.');
-    return errorResponse('Photo recognition returned nothing usable.', 502);
+    return errorResponse(request, 'Photo recognition returned nothing usable.', 502);
   }
 
   let items: z.infer<typeof DetectedItems>;
@@ -170,29 +272,50 @@ Deno.serve(async (request: Request): Promise<Response> => {
     items = DetectedItems.parse(JSON.parse(text));
   } catch (error) {
     console.error('Gemini output failed validation', error, text.slice(0, 500));
-    return errorResponse('Photo recognition returned an unexpected shape.', 502);
+    return errorResponse(request, 'Photo recognition returned an unexpected shape.', 502);
   }
 
-  return jsonResponse({ items });
+  return jsonResponse(request, { items });
 });
 
+/** Whole seconds until the next UTC midnight — when the daily budget resets. */
+function secondsUntilUtcMidnight(): number {
+  const now = new Date();
+  const nextMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((nextMidnight - now.getTime()) / 1000));
+}
+
 /**
- * Pulls the JSON string out of the candidate envelope. `unknown` in, narrowed
- * by hand — the envelope is a third-party contract and shape-checking it is
- * cheaper than debugging a destructuring crash in a deployed function.
+ * Pulls the JSON string out of the Interaction resource. The answer lives in
+ * the final `model_output` step's text blocks; earlier steps can carry
+ * thoughts or tool calls, so filter by step type rather than taking steps[0].
+ * `unknown` in, narrowed by hand — the envelope is a third-party contract and
+ * shape-checking it is cheaper than debugging a destructuring crash in a
+ * deployed function.
  */
 function extractText(body: unknown): string | null {
   if (typeof body !== 'object' || body === null) return null;
 
-  const candidates = (body as { candidates?: unknown }).candidates;
-  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  const steps = (body as { steps?: unknown }).steps;
+  if (!Array.isArray(steps)) return null;
 
-  const parts = (candidates[0] as { content?: { parts?: unknown } })?.content?.parts;
-  if (!Array.isArray(parts)) return null;
+  for (const step of steps) {
+    const record = step as { type?: unknown; content?: unknown };
+    if (record.type !== 'model_output') continue;
 
-  for (const part of parts) {
-    const value = (part as { text?: unknown }).text;
-    if (typeof value === 'string' && value.trim().length > 0) return value;
+    const content = record.content;
+    if (!Array.isArray(content)) continue;
+
+    for (const block of content) {
+      const value = block as { type?: unknown; text?: unknown };
+      if (
+        value?.type === 'text' &&
+        typeof value.text === 'string' &&
+        value.text.trim().length > 0
+      ) {
+        return value.text;
+      }
+    }
   }
 
   return null;

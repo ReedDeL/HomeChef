@@ -374,4 +374,3 @@ git commit -m "feat: track settings changes"
 - [ ] **Step 5: Report evidence**
 
 Report exact pass counts and exit codes for lint, typecheck, tests, and format checks. State whether an Expo development build was available; do not claim delivery to PostHog without a configured project key and runtime event verification.
-

@@ -79,6 +79,14 @@ docs/local/
 
 # Personal Claude Code config and hook state (bills the individual's account,
 # writes to their own Notion connector — not shared team config)
+CLAUDE.md
+.claude.md
+.claude.local.md
+.claude/
 .claude/settings.local.json
 .claude/.notion-sync-state
 .claude/.notion-sync.log
+
+# Discord status updater state
+.discord-sync-state
+.agents/.discord-sync-state

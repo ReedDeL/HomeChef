@@ -4,7 +4,7 @@
  * Column lists are explicit everywhere -- never `select *`. A generated column
  * or a new field should not silently widen what the client pulls over the wire,
  * and an explicit list is what makes the Spoonacular field whitelist greppable
- * when Tier 2 lands.
+ * when Spoonacular support lands.
  */
 import { supabase } from '@/lib/supabase';
 import type { InventoryRow, InventorySource } from '@/types/database';

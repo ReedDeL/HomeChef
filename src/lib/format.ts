@@ -45,7 +45,7 @@ export function formatCuisine(cuisine: string): string {
 /**
  * Relaxation copy is written for the banner, which is a sentence to the user
  * and not a debug label: it says what was given up, in the words they chose it
- * with (spec §5.3).
+ * with (Technical Spec §4.3).
  */
 export function formatRelaxation(relaxation: Relaxation): string {
   switch (relaxation.kind) {
@@ -55,9 +55,9 @@ export function formatRelaxation(relaxation: Relaxation): string {
       return `Nothing ${formatCuisine(relaxation.cuisine)} fits. Showing everything else.`;
     case 'bucket_promoted':
       return "You're a couple of ingredients short on these.";
-    case 'tier2_escalation':
+    case 'spoonacular_expansion':
       // Never rendered: escalation adds options without removing constraints,
-      // so there is nothing to disclose (spec §5.3).
+      // so there is nothing to disclose (Technical Spec §4.3).
       return '';
   }
 }

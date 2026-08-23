@@ -6,7 +6,11 @@ without touching the API or spending a request.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
+
+from pydantic import TypeAdapter
 
 from tools.catalog.equipment import tag_from_text
 from tools.catalog.measurements import parse_measure
@@ -31,6 +35,14 @@ _DURATION = re.compile(r"(\d+)\s*(hour|hr|minute|min)", re.IGNORECASE)
 # for, which is the failure the time-first product promise cannot afford.
 _DEFAULT_MINUTES = 30
 _MAX_MINUTES = 6 * 60
+
+_CATALOG_ADAPTER = TypeAdapter(list[CatalogRecipe])
+
+
+def load_catalog_recipes(path: Path) -> list[CatalogRecipe]:
+    """Load the committed catalog as the default network-free build input."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return _CATALOG_ADAPTER.validate_python(payload)
 
 
 def extract_ingredients(raw: dict[str, object]) -> list[CatalogIngredient]:
