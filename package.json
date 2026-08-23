@@ -10,7 +10,7 @@
     "android:test:build": "bash scripts/android-test.sh build",
     "android:test:emulator": "bash scripts/android-test.sh emulator",
     "ios": "expo run:ios",
-    "web": "BROWSER=none expo start --web",
+    "web": "BROWSER=none expo start --web --clear",
     "web:build": "rm -rf dist && expo export --platform web",
     "web:serve": "node scripts/serve-web.mjs",
     "web:beta": "npm run web:build && npm run web:serve",
