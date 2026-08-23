@@ -1,47 +1,68 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  createRouteChangeGuard,
+  ANALYTICS_EVENTS,
+  identifyAuthenticatedUser,
   isAnalyticsConfigured,
-  normalizeRoute,
+  isApprovedAnalyticsEvent,
+  resetAnalyticsIdentity,
   setAnalyticsClient,
+  trackConstraintRelaxed,
   trackCookModeCompleted,
   trackCookModeStarted,
   trackOnboardingCompleted,
-  trackPageView,
-  trackPantryItemAdded,
-  trackPantryItemRemoved,
-  trackPantryScanCompleted,
-  trackPantryScanFailed,
-  trackPantryScanStarted,
-  trackRecipeDisliked,
-  trackRecipeFeedbackSubmitted,
-  trackRecipeViewed,
-  trackSettingsUpdated,
+  trackPantryFilterSubmitted,
+  trackRecipeOpened,
+  trackRecommendationsShown,
+  trackVisionScanFailed,
+  trackVisionScanSucceeded,
+  type AnalyticsClient,
+  type AnalyticsEventName,
 } from './analytics';
 
-const events: Array<{ name: string; properties?: Record<string, unknown> }> = [];
+const events: Array<{ name: AnalyticsEventName; properties?: Record<string, unknown> }> = [];
+const identify = vi.fn<(userId: string) => void>();
+const reset = vi.fn<() => void>();
+
+const recordingClient: AnalyticsClient = {
+  capture: (name, properties) => events.push({ name, properties }),
+  identify,
+  reset,
+};
 
 afterEach(() => {
   events.length = 0;
+  identify.mockClear();
+  reset.mockClear();
   setAnalyticsClient(null);
 });
 
 describe('analytics helpers', () => {
-  it('captures a typed recipe view event', () => {
-    setAnalyticsClient({ capture: (name, properties) => events.push({ name, properties }) });
-
-    trackRecipeViewed({ recipe_id: 'meal-1', source: 'results' });
-
-    expect(events).toEqual([
-      { name: 'recipe_viewed', properties: { recipe_id: 'meal-1', source: 'results' } },
+  it('defines exactly the approved product events', () => {
+    expect(Object.values(ANALYTICS_EVENTS)).toEqual([
+      'onboarding_completed',
+      'pantry_filter_submitted',
+      'recommendations_shown',
+      'recipe_opened',
+      'cook_mode_started',
+      'cook_mode_completed',
+      'constraint_relaxed',
+      'vision_scan_succeeded',
+      'vision_scan_failed',
     ]);
+
+    expect(isApprovedAnalyticsEvent('recipe_opened')).toBe(true);
+    expect(isApprovedAnalyticsEvent('page_view')).toBe(false);
   });
 
   it('does nothing when no client is configured', () => {
-    trackPageView('/');
+    trackOnboardingCompleted();
+    identifyAuthenticatedUser('user-1');
+    resetAnalyticsIdentity();
 
     expect(events).toEqual([]);
+    expect(identify).not.toHaveBeenCalled();
+    expect(reset).not.toHaveBeenCalled();
   });
 
   it('requires a non-empty API key before enabling the SDK', () => {
@@ -50,71 +71,61 @@ describe('analytics helpers', () => {
     expect(isAnalyticsConfigured('phc_test_key')).toBe(true);
   });
 
-  it('normalizes grouped and dynamic routes', () => {
-    expect(normalizeRoute(['(tabs)'])).toBe('/');
-    expect(normalizeRoute(['(onboarding)', 'equipment'])).toBe('/onboarding/equipment');
-    expect(normalizeRoute(['recipe', 'meal-1'])).toBe('/recipe/:id');
-    expect(normalizeRoute(['cook', 'meal-1'])).toBe('/cook/:id');
-  });
-
-  it('only reports a route when it changes', () => {
-    const guard = createRouteChangeGuard();
-
-    expect(guard('/')).toBe(true);
-    expect(guard('/')).toBe(false);
-    expect(guard('/recipe/:id')).toBe(true);
-  });
-
-  it('forwards page-view and settings properties unchanged', () => {
-    setAnalyticsClient({ capture: (name, properties) => events.push({ name, properties }) });
-
-    trackPageView('/settings');
-    trackSettingsUpdated({ setting: 'theme', value: 'dark' });
-
-    expect(events).toEqual([
-      { name: 'page_view', properties: { route: '/settings' } },
-      { name: 'settings_updated', properties: { setting: 'theme', value: 'dark' } },
-    ]);
-  });
-
   it.each([
-    [
-      'onboarding_completed',
-      () =>
-        trackOnboardingCompleted({
-          pantry_count: 4,
-          equipment_tier: 'full',
-          allergen_count: 1,
-          dietary_restriction_count: 0,
-        }),
-    ],
-    ['pantry_scan_started', () => trackPantryScanStarted({ source: 'camera' })],
-    [
-      'pantry_scan_completed',
-      () => trackPantryScanCompleted({ photo_count: 1, candidate_count: 3, accepted_count: 2 }),
-    ],
-    [
-      'pantry_scan_failed',
-      () => trackPantryScanFailed({ photo_count: 1, failure_stage: 'analyze' }),
-    ],
-    ['pantry_item_added', () => trackPantryItemAdded({ source: 'pantry', item_count: 1 })],
-    ['pantry_item_removed', () => trackPantryItemRemoved({ source: 'pantry', item_count: 1 })],
-    ['recipe_disliked', () => trackRecipeDisliked({ recipe_id: 'meal-1' })],
+    ['onboarding_completed', () => trackOnboardingCompleted()],
+    ['pantry_filter_submitted', () => trackPantryFilterSubmitted({ time_limit_minutes: 30 })],
+    ['recommendations_shown', () => trackRecommendationsShown({ recommendation_count: 4 })],
+    ['recipe_opened', () => trackRecipeOpened({ recipe_id: 'meal-1' })],
     ['cook_mode_started', () => trackCookModeStarted({ recipe_id: 'meal-1', step_count: 4 })],
+    ['cook_mode_completed', () => trackCookModeCompleted({ recipe_id: 'meal-1' })],
+    ['constraint_relaxed', () => trackConstraintRelaxed({ constraint: 'time_widened' })],
     [
-      'cook_mode_completed',
-      () => trackCookModeCompleted({ recipe_id: 'meal-1', liked: true, removed_ingredients: 3 }),
+      'vision_scan_succeeded',
+      () => trackVisionScanSucceeded({ photo_count: 1, candidate_count: 3, accepted_count: 2 }),
     ],
     [
-      'recipe_feedback_submitted',
-      () => trackRecipeFeedbackSubmitted({ recipe_id: 'meal-1', liked: true }),
+      'vision_scan_failed',
+      () => trackVisionScanFailed({ photo_count: 1, failure_stage: 'analyze' }),
     ],
-  ])('captures %s with its fixed event name', (expectedName, track) => {
-    setAnalyticsClient({ capture: (name, properties) => events.push({ name, properties }) });
+  ] satisfies ReadonlyArray<[AnalyticsEventName, () => void]>)(
+    'captures %s with its fixed event name',
+    (expectedName, track) => {
+      setAnalyticsClient(recordingClient);
 
-    track();
+      track();
 
-    expect(events).toHaveLength(1);
-    expect(events[0]?.name).toBe(expectedName);
+      expect(events).toHaveLength(1);
+      expect(events[0]?.name).toBe(expectedName);
+    }
+  );
+
+  it('forwards the stable user ID without person properties and resets on logout', () => {
+    setAnalyticsClient(recordingClient);
+
+    identifyAuthenticatedUser('user-1');
+    identifyAuthenticatedUser('  ');
+    resetAnalyticsIdentity();
+
+    expect(identify).toHaveBeenCalledOnce();
+    expect(identify).toHaveBeenCalledWith('user-1');
+    expect(reset).toHaveBeenCalledOnce();
+  });
+
+  it('contains client failures', () => {
+    setAnalyticsClient({
+      capture: () => {
+        throw new Error('offline');
+      },
+      identify: () => {
+        throw new Error('offline');
+      },
+      reset: () => {
+        throw new Error('offline');
+      },
+    });
+
+    expect(() => trackOnboardingCompleted()).not.toThrow();
+    expect(() => identifyAuthenticatedUser('user-1')).not.toThrow();
+    expect(() => resetAnalyticsIdentity()).not.toThrow();
   });
 });

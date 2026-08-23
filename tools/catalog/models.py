@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
-# The closed enumeration from docs/01_TECHNICAL_SPEC.md:534. Closed is what
+# The closed enumeration from Technical Spec §5.2 step 4. Closed is what
 # makes the engine's equipment filter a set operation rather than a
 # string-matching problem, so nothing may emit a value outside this list.
 Equipment = Literal[
@@ -72,7 +72,10 @@ class MealDbMeal(BaseModel):
     id: str = Field(alias="idMeal")
     name: str = Field(alias="strMeal")
     category: str | None = Field(default=None, alias="strCategory")
-    area: str | None = Field(default=None, alias="strArea")
+    # TheMealDB migrated origin from strArea to strCountry without notice;
+    # accepting both keeps cuisine populated instead of silently nulling a
+    # quarter of the catalog.
+    area: str | None = Field(default=None, validation_alias=AliasChoices("strArea", "strCountry"))
     instructions: str = Field(alias="strInstructions")
     image_url: str | None = Field(default=None, alias="strMealThumb")
 
@@ -130,7 +133,7 @@ class CatalogRecipe(BaseModel):
     dietary_tags: list[DietaryTag] = Field(serialization_alias="dietaryTags")
     ingredients: list[CatalogIngredient]
     instructions: str
-    source: Literal["tier1"] = "tier1"
+    source: Literal["bundled"] = "bundled"
 
 
 class VocabularyEntry(BaseModel):

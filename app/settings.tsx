@@ -4,11 +4,11 @@ import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-nat
 
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { Text } from '@/components/ui/Text';
-import { trackSettingsUpdated } from '@/lib/analytics';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
@@ -73,33 +73,25 @@ export default function SettingsScreen() {
 
   const updateTheme = (value: ThemeMode) => {
     setThemeMode(value);
-    trackSettingsUpdated({ setting: 'theme', value });
   };
 
   const updateTier = (value: string) => {
     setTier(value);
-    trackSettingsUpdated({ setting: 'equipment_tier', value });
   };
 
   const updateExtra = (value: (typeof extras)[number]) => {
     toggleExtra(value);
-    trackSettingsUpdated({ setting: 'extra_appliance', value });
   };
 
   const updateAllergen = (value: string) => {
-    const enabled = !allergens.includes(value);
     toggleAllergen(value);
-    trackSettingsUpdated({ setting: 'allergen_filter_enabled', value: enabled });
   };
 
   const updateDietary = (value: (typeof dietary)[number]) => {
-    const enabled = !dietary.includes(value);
     toggleDietary(value);
-    trackSettingsUpdated({ setting: 'dietary_filter_enabled', value: enabled });
   };
 
   const confirmReset = () => {
-    trackSettingsUpdated({ setting: 'reset', value: 'confirmed' });
     reset();
     router.replace('/(onboarding)/equipment');
   };
@@ -125,25 +117,16 @@ export default function SettingsScreen() {
     }
   };
 
-  const openSpoonacular = () => {
-    Linking.openURL('https://spoonacular.com/food-api');
+  // Required by TheMealDB's paid terms: "You can use our custom artwork in your
+  // projects but must mention us as the source of the data", and artwork
+  // "should link back to our website where appropriate". They supply 792 of the
+  // 812 bundled recipes and every recipe image, so this credit is not optional.
+  const openMealDb = () => {
+    Linking.openURL('https://www.themealdb.com');
   };
 
   return (
-    <Screen>
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        accessibilityHint="Returns to the previous screen"
-        onPress={() => router.back()}
-        style={styles.backRow}
-      >
-        <Text variant="heading" tone="accent">
-          ‹ Back
-        </Text>
-      </Pressable>
-
+    <Screen header={<Header backLabel="Back" fallbackHref="/" />}>
       <View style={styles.header}>
         <Text variant="display">Settings</Text>
         <Text variant="body" tone="muted">
@@ -162,6 +145,7 @@ export default function SettingsScreen() {
           style={styles.group}
           accessibilityRole="radiogroup"
           accessibilityLabel="Appearance theme options"
+          accessibilityHint="Choose light, dark, or follow your system setting"
         >
           {THEME_OPTIONS.map((opt) => (
             <SelectableCard
@@ -187,6 +171,7 @@ export default function SettingsScreen() {
           style={styles.group}
           accessibilityRole="radiogroup"
           accessibilityLabel="Kitchen equipment tier"
+          accessibilityHint="Choose the appliances you can cook with"
         >
           {EQUIPMENT_TIERS.map((tier) => (
             <SelectableCard
@@ -262,13 +247,13 @@ export default function SettingsScreen() {
           <Pressable
             accessible
             accessibilityRole="link"
-            accessibilityLabel="Recipe data powered by spoonacular"
-            accessibilityHint="Opens the Spoonacular website in browser"
-            onPress={openSpoonacular}
+            accessibilityLabel="Recipe data and images from TheMealDB"
+            accessibilityHint="Opens TheMealDB website in browser"
+            onPress={openMealDb}
             style={styles.attributionLink}
           >
             <Text variant="caption" tone="accent">
-              Recipe data powered by Spoonacular ↗
+              Recipe data & images from TheMealDB ↗
             </Text>
           </Pressable>
         </Card>
@@ -308,7 +293,6 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  backRow: { minHeight: 44, justifyContent: 'center' },
   header: { gap: space.xs },
   section: { gap: space.sm, marginTop: space.sm },
   group: { gap: space.sm },

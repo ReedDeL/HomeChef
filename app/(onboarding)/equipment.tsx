@@ -11,7 +11,7 @@ import { SelectableCard } from '@/components/ui/SelectableCard';
 import { space } from '@/theme/tokens';
 
 /**
- * Spec §3.1 — the first screen anyone sees (Step 1 of 3).
+ * Spec §3 — the first screen anyone sees (Step 1 of 3).
  *
  * Equipment leads onboarding because it is the wedge no competitor has: an app
  * that knows you own a microwave and nothing else is immediately, visibly
@@ -48,6 +48,7 @@ export default function EquipmentScreen() {
         style={styles.group}
         accessibilityRole="radiogroup"
         accessibilityLabel="Kitchen equipment tier"
+        accessibilityHint="Choose the appliances you can cook with"
       >
         {EQUIPMENT_TIERS.map((tier) => (
           <SelectableCard

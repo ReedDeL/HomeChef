@@ -32,6 +32,7 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState('');
 
+  const isOutOfCatalog = candidate.unmatchedReason === 'out_of_catalog';
   const results = editing ? searchVocabulary(query, SEARCH_LIMIT) : [];
   const flag = flagFor(candidate);
 
@@ -47,7 +48,9 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
         accessibilityLabel={candidate.displayName ?? candidate.detectedName}
         accessibilityHint={
           candidate.ingredientId === null
-            ? 'Not recognized. Choose an ingredient before adding.'
+            ? isOutOfCatalog
+              ? 'No recipe in our catalog uses this ingredient, so it cannot be added to your pantry.'
+              : 'We could not read this ingredient. Choose an ingredient before adding.'
             : 'Include this in your pantry'
         }
         disabled={candidate.ingredientId === null}
@@ -77,7 +80,10 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
           ) : null}
 
           {flag ? (
-            <Text variant="caption" tone={candidate.ingredientId === null ? 'danger' : 'near'}>
+            <Text
+              variant="caption"
+              tone={candidate.unmatchedReason === 'misread' ? 'danger' : 'near'}
+            >
               {flag}
             </Text>
           ) : null}
@@ -85,21 +91,23 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
       </Pressable>
 
       <View style={styles.actions}>
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={`Change ${candidate.displayName ?? candidate.detectedName}`}
-          accessibilityHint="Search for the right ingredient"
-          onPress={() => {
-            setEditing((current) => !current);
-            setQuery(editing ? '' : candidate.detectedName);
-          }}
-          style={styles.action}
-        >
-          <Text variant="caption" tone="accent">
-            {editing ? 'Cancel' : 'Change'}
-          </Text>
-        </Pressable>
+        {!isOutOfCatalog ? (
+          <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`Change ${candidate.displayName ?? candidate.detectedName}`}
+            accessibilityHint="Search for the right ingredient"
+            onPress={() => {
+              setEditing((current) => !current);
+              setQuery(editing ? '' : candidate.detectedName);
+            }}
+            style={styles.action}
+          >
+            <Text variant="caption" tone="accent">
+              {editing ? 'Cancel' : 'Change'}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           accessible
@@ -123,6 +131,7 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
             placeholder="Search ingredients"
             placeholderTextColor={color.textMuted}
             accessibilityLabel="Search for the correct ingredient"
+            accessibilityHint="Type the ingredient you meant instead"
             autoCorrect={false}
             autoFocus
             style={[
@@ -162,7 +171,10 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
  */
 function flagFor(candidate: PantryCandidate): string | null {
   if (candidate.corrected) return null;
-  if (candidate.ingredientId === null) return "We don't recognize this one";
+  if (candidate.unmatchedReason === 'out_of_catalog') {
+    return `No recipe in our catalog uses ${candidate.detectedName}.`;
+  }
+  if (candidate.unmatchedReason === 'misread') return "We couldn't read this one.";
   if (candidate.match === 'partial') return 'We simplified this name — check it';
   if (candidate.match === 'fuzzy') return 'Close match, not exact';
   if (candidate.confidence < CONFIDENCE_THRESHOLD) return 'Hard to see in the photo';

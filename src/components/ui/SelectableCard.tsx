@@ -13,7 +13,7 @@ interface SelectableCardProps {
   accessibilityHint: string;
 }
 
-/** Spec §3.1: 72pt tall, accent border when selected. */
+/** Spec §3: 72pt tall, accent border when selected. */
 const CARD_HEIGHT = 72;
 
 /**

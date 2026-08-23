@@ -3,7 +3,7 @@
  *
  * Everything here is plain data. No Supabase row types, no React, no promises.
  * The data layer converts into these types (src/lib/adapters/) and the engine
- * never learns where a recipe came from — bundled Tier 1 or live Tier 2.
+ * never learns where a recipe came from — the bundled catalog or a live Spoonacular result.
  */
 
 /**
@@ -18,7 +18,7 @@ export type IngredientId = string;
 export type Minutes = number;
 
 /**
- * Closed equipment enumeration (docs/01_TECHNICAL_SPEC.md:534).
+ * Closed equipment enumeration (Technical Spec §5.2 step 4).
  *
  * Closed is what makes the equipment filter a set operation instead of a
  * string-matching problem. snake_case is canonical; the catalog pipeline emits
@@ -83,11 +83,11 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   instructions: string;
   /**
-   * Which tier supplied this recipe. The engine ignores it entirely; it exists
+   * Which source supplied this recipe. The engine ignores it entirely; it exists
    * so the persistence layer can enforce the Spoonacular field whitelist and
    * the UI can render attribution.
    */
-  source: 'tier1' | 'tier2';
+  source: 'bundled' | 'spoonacular';
 }
 
 export interface UserPreferences {
@@ -117,13 +117,13 @@ export interface ScoredRecipe {
  * Every one of these is stated out loud in the UI — silent filter changes are
  * how an app teaches a user not to trust it.
  *
- * `tier2_escalation` is the one exception: it adds options without removing
- * constraints, so there is nothing to disclose (docs/01_TECHNICAL_SPEC.md:480).
+ * `spoonacular_expansion` is the one exception: it adds options without removing
+ * constraints, so there is nothing to disclose (Technical Spec §4.3).
  */
 export type Relaxation =
   | { kind: 'time_widened'; from: Minutes; to: Minutes }
   | { kind: 'cuisine_dropped'; cuisine: string }
-  | { kind: 'tier2_escalation' }
+  | { kind: 'spoonacular_expansion' }
   | { kind: 'bucket_promoted'; bucket: Bucket };
 
 export interface DecisionResult {

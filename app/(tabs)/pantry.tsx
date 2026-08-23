@@ -1,14 +1,21 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { IngredientChip } from '@/components/ui/IngredientChip';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { INGREDIENT_VOCABULARY } from '@/data/catalog';
 import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
-import { trackPantryItemAdded, trackPantryItemRemoved } from '@/lib/analytics';
 import { radius, space, touchTarget } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
@@ -25,22 +32,14 @@ const MAX_SEARCH_RESULTS = 24;
  */
 export default function PantryScreen() {
   const router = useRouter();
-  const { color } = useTheme();
+  const { color, shadow } = useTheme();
+  const { width } = useWindowDimensions();
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
   const pantry = useKitchenStore((state) => state.pantry);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
   const removePantryItem = useKitchenStore((state) => state.removePantryItem);
 
   const [query, setQuery] = useState('');
-
-  const addPantryItem = (id: (typeof pantry)[number]) => {
-    togglePantryItem(id);
-    trackPantryItemAdded({ source: 'pantry', item_count: 1 });
-  };
-
-  const removePantryItemWithTracking = (id: (typeof pantry)[number]) => {
-    removePantryItem(id);
-    trackPantryItemRemoved({ source: 'pantry', item_count: 1 });
-  };
 
   const suggestions = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -82,51 +81,78 @@ export default function PantryScreen() {
         </Pressable>
       </View>
 
-      <PrimaryButton
-        label="Scan with a photo"
-        onPress={() => router.push('/scan')}
-        accessibilityHint="Photograph your kitchen to add ingredients"
-      />
-
-      <View style={styles.chipRow}>
-        {pantry.map((id) => (
-          <IngredientChip
-            key={id}
-            id={id}
-            inPantry
-            onToggle={removePantryItemWithTracking}
-            onRemove={removePantryItemWithTracking}
-          />
-        ))}
-      </View>
-
-      <View style={styles.group}>
-        <Text variant="heading">Add something</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search ingredients"
-          placeholderTextColor={color.textMuted}
-          accessibilityLabel="Search ingredients to add"
-          accessibilityHint="Filters the list below"
-          autoCorrect={false}
+      <View
+        style={[
+          styles.pantryLayout,
+          responsive.isDesktop && styles.desktopPantryLayout,
+          responsive.isDesktop && { columnGap: responsive.columnGap },
+        ]}
+      >
+        <View
           style={[
-            styles.input,
-            { borderColor: color.border, backgroundColor: color.surface, color: color.text },
+            styles.inventoryPanel,
+            responsive.isDesktop && styles.desktopPanel,
+            responsive.isDesktop && { backgroundColor: color.surface, borderColor: color.border },
+            responsive.isDesktop && shadow.sm,
           ]}
-        />
+        >
+          <PrimaryButton
+            label="Scan with a photo"
+            onPress={() => router.push('/scan')}
+            accessibilityHint="Photograph your kitchen to add ingredients"
+          />
 
-        <View style={styles.chipRow}>
-          {suggestions.map((id) => (
-            <IngredientChip key={id} id={id} onToggle={addPantryItem} />
-          ))}
+          <View style={styles.chipRow}>
+            {pantry.map((id) => (
+              <IngredientChip
+                key={id}
+                id={id}
+                inPantry
+                onToggle={removePantryItem}
+                onRemove={removePantryItem}
+              />
+            ))}
+          </View>
         </View>
 
-        {query.trim().length > 0 && suggestions.length === 0 ? (
-          <Text variant="caption" tone="muted">
-            Nothing matching &ldquo;{query.trim()}&rdquo; in our ingredient list yet.
-          </Text>
-        ) : null}
+        <View
+          style={[
+            styles.group,
+            responsive.isDesktop && styles.desktopPanel,
+            responsive.isDesktop && {
+              backgroundColor: color.surfaceAlt,
+              borderColor: color.border,
+            },
+            responsive.isDesktop && shadow.sm,
+          ]}
+        >
+          <Text variant="heading">Add something</Text>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search ingredients"
+            placeholderTextColor={color.textMuted}
+            accessibilityLabel="Search ingredients to add"
+            accessibilityHint="Filters the list below"
+            autoCorrect={false}
+            style={[
+              styles.input,
+              { borderColor: color.border, backgroundColor: color.surface, color: color.text },
+            ]}
+          />
+
+          <View style={styles.chipRow}>
+            {suggestions.map((id) => (
+              <IngredientChip key={id} id={id} onToggle={togglePantryItem} />
+            ))}
+          </View>
+
+          {query.trim().length > 0 && suggestions.length === 0 ? (
+            <Text variant="caption" tone="muted">
+              Nothing matching &ldquo;{query.trim()}&rdquo; in our ingredient list yet.
+            </Text>
+          ) : null}
+        </View>
       </View>
     </Screen>
   );
@@ -148,6 +174,16 @@ const styles = StyleSheet.create({
     paddingTop: space.xs,
   },
   group: { gap: space.sm },
+  pantryLayout: { gap: space.lg },
+  inventoryPanel: { gap: space.lg },
+  desktopPantryLayout: { flexDirection: 'row', alignItems: 'flex-start' },
+  desktopPanel: {
+    flex: 1,
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   input: {
     minHeight: touchTarget.standard,

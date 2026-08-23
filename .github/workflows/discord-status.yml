@@ -2,7 +2,7 @@ name: Discord status update
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
     inputs:
       summary:

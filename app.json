@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "HomeChef",
+    "version": "0.1.0",
     "slug": "homechef",
     "scheme": "homechef",
     "plugins": [

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { Header } from '@/components/ui/Header';
 import { IngredientChip } from '@/components/ui/IngredientChip';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
@@ -9,15 +10,11 @@ import { StepIndicator } from '@/components/ui/StepIndicator';
 import { Text } from '@/components/ui/Text';
 import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
 import { STAPLE_INGREDIENT_IDS } from '@/data/catalog';
-import {
-  trackOnboardingCompleted,
-  trackPantryItemAdded,
-  trackPantryItemRemoved,
-} from '@/lib/analytics';
+import { trackOnboardingCompleted } from '@/lib/analytics';
 import { space } from '@/theme/tokens';
 
 /**
- * Spec §3.3 — the pantry starter (Step 3 of 3).
+ * Spec §3 — the pantry starter (Step 3 of 3).
  *
  * Pre-populating and asking the user to *remove* what they lack is the whole
  * trick: it is faster than adding twenty items, and it teaches the correction
@@ -34,31 +31,17 @@ import { space } from '@/theme/tokens';
 export default function StaplesScreen() {
   const router = useRouter();
   const pantry = useKitchenStore((state) => state.pantry);
-  const tierId = useKitchenStore((state) => state.tierId);
-  const allergens = useKitchenStore((state) => state.allergens);
-  const dietary = useKitchenStore((state) => state.dietary);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
   const completeOnboarding = useKitchenStore((state) => state.completeOnboarding);
 
   const finish = () => {
-    trackOnboardingCompleted({
-      pantry_count: pantry.length,
-      equipment_tier: tierId,
-      allergen_count: allergens.length,
-      dietary_restriction_count: dietary.length,
-    });
+    trackOnboardingCompleted();
     completeOnboarding();
     router.replace('/');
   };
 
   const toggleIngredient = (id: (typeof pantry)[number]) => {
-    const adding = !pantry.includes(id);
     togglePantryItem(id);
-    if (adding) {
-      trackPantryItemAdded({ source: 'onboarding', item_count: 1 });
-    } else {
-      trackPantryItemRemoved({ source: 'onboarding', item_count: 1 });
-    }
   };
 
   const back = () => router.back();
@@ -67,6 +50,14 @@ export default function StaplesScreen() {
 
   return (
     <Screen
+      header={
+        <Header
+          onBack={back}
+          backLabel="Allergies"
+          backHint="Returns to allergies and diet (Step 2)"
+          fallbackHref="/(onboarding)/restrictions"
+        />
+      }
       footer={
         <StepFooter
           onBack={back}

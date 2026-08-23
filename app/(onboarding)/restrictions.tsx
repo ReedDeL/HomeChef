@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Chip } from '@/components/ui/Chip';
+import { Header } from '@/components/ui/Header';
 import { Screen } from '@/components/ui/Screen';
 import { StepFooter } from '@/components/ui/StepFooter';
 import { StepIndicator } from '@/components/ui/StepIndicator';
@@ -10,7 +11,7 @@ import { COMMON_ALLERGENS, DIETARY_PRESETS, useKitchenStore } from '@/store/kitc
 import { space } from '@/theme/tokens';
 
 /**
- * Spec §3.2 — allergies and diet (Step 2 of 3).
+ * Spec §3 — allergies and diet (Step 2 of 3).
  *
  * The promise in the copy is load-bearing: allergens and dietary restrictions
  * are hard constraints that the relaxation ladder never touches, so "we'll
@@ -33,6 +34,14 @@ export default function RestrictionsScreen() {
 
   return (
     <Screen
+      header={
+        <Header
+          onBack={back}
+          backLabel="Kitchen"
+          backHint="Returns to kitchen setup (Step 1)"
+          fallbackHref="/(onboarding)/equipment"
+        />
+      }
       footer={
         <StepFooter
           onBack={back}

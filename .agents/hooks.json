@@ -1,0 +1,11 @@
+{
+  "discord-status-updater": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node scripts/discord-status.mjs --auto",
+        "timeout": 15
+      }
+    ]
+  }
+}

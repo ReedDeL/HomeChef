@@ -1,23 +1,37 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { BucketSection } from '@/components/ui/BucketSection';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { RelaxationBanner } from '@/components/ui/RelaxationBanner';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { TIER1_CATALOG } from '@/data/catalog';
+import { BUNDLED_CATALOG } from '@/data/catalog';
 import { decide } from '@/engine/decide';
 import { decideWithRelaxation } from '@/engine/relax';
 import type { Bucket, Minutes } from '@/engine/types';
+import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { CUISINE_OPTIONS } from '@/lib/cuisines';
 import { formatDuration } from '@/lib/format';
+import {
+  trackConstraintRelaxed,
+  trackPantryFilterSubmitted,
+  trackRecommendationsShown,
+} from '@/lib/analytics';
 import { TimeTile } from '@/components/ui/TimeTile';
 import { toEnginePreferences, useKitchenStore } from '@/store/kitchen';
-import { space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 
 /**
  * Spec §4 and §5 — the decision screen, before and after the one input it
@@ -69,10 +83,10 @@ export default function HomeScreen() {
       // `decide` never relaxes, so this can legitimately come back empty. That
       // is the one empty state the product allows, because the user asked for
       // it explicitly and can undo it — unlike an app that dead-ends on its own.
-      return { ...decide(TIER1_CATALOG, pantrySet, preferences, timeLimit), relaxed: false };
+      return { ...decide(BUNDLED_CATALOG, pantrySet, preferences, timeLimit), relaxed: false };
     }
     return {
-      ...decideWithRelaxation(TIER1_CATALOG, pantrySet, preferences, timeLimit),
+      ...decideWithRelaxation(BUNDLED_CATALOG, pantrySet, preferences, timeLimit),
       relaxed: true,
     };
   }, [timeLimit, pantrySet, preferences, strict]);
@@ -81,51 +95,61 @@ export default function HomeScreen() {
     ? BUCKET_ORDER.reduce((sum, bucket) => sum + decision.buckets[bucket].length, 0)
     : 0;
 
+  useEffect(() => {
+    if (!decision) return;
+
+    trackRecommendationsShown({ recommendation_count: totalResults });
+    for (const relaxation of decision.appliedRelaxations) {
+      trackConstraintRelaxed({ constraint: relaxation.kind });
+    }
+  }, [decision, totalResults]);
+
+  const submitPantryFilter = (minutes: Minutes) => {
+    trackPantryFilterSubmitted({ time_limit_minutes: minutes });
+    setTimeLimit(minutes);
+  };
+
   if (decision === null || timeLimit === null) {
     return (
       <TimePrompt
         pantryCount={pantry.length}
         cuisine={cuisine}
         onSelectCuisine={setCuisine}
-        onChooseTime={setTimeLimit}
+        onChooseTime={submitPantryFilter}
         onOpenPantry={() => router.push('/pantry')}
       />
     );
   }
 
   return (
-    <Screen scroll={false}>
-      <View style={styles.topBar}>
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={`${formatDuration(timeLimit)}. Change the time.`}
-          accessibilityHint="Returns to the time picker"
-          onPress={() => {
+    <Screen
+      scroll={false}
+      header={
+        <Header
+          onBack={() => {
             setTimeLimit(null);
             setStrict(false);
           }}
-          style={styles.backRow}
-        >
-          <Text variant="heading" tone="accent">
-            ‹ {formatDuration(timeLimit)}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-          onPress={() => router.push('/settings')}
-          style={styles.settingsButton}
-        >
-          <Text variant="caption" tone="accent">
-            ⚙️ Settings
-          </Text>
-        </Pressable>
-      </View>
-
+          backLabel={formatDuration(timeLimit)}
+          backAccessibilityLabel={`${formatDuration(timeLimit)}. Change the time.`}
+          backHint="Returns to the time picker"
+          rightAction={
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
+              onPress={() => router.push('/settings')}
+              style={styles.settingsButton}
+            >
+              <Text variant="caption" tone="accent">
+                ⚙️ Settings
+              </Text>
+            </Pressable>
+          }
+        />
+      }
+    >
       <ScrollView contentContainerStyle={styles.results} showsVerticalScrollIndicator={false}>
         <RelaxationBanner
           relaxations={decision.appliedRelaxations}
@@ -176,88 +200,124 @@ function TimePrompt({
   onOpenPantry,
 }: TimePromptProps) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
 
   return (
     <Screen>
-      <View style={styles.topRow}>
-        <Text variant="caption" tone="muted">
-          {greeting()}
-        </Text>
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-          onPress={() => router.push('/settings')}
-          style={styles.settingsButton}
-        >
-          <Text variant="caption" tone="accent">
-            ⚙️ Settings
-          </Text>
-        </Pressable>
-      </View>
-
-      <Text variant="display">How much time do you have?</Text>
-
-      <View style={styles.tileRow}>
-        {TIME_CHOICES.map((choice) => (
-          <TimeTile
-            key={choice.minutes}
-            minutes={choice.minutes}
-            openEnded={choice.openEnded}
-            selected={false}
-            onPress={onChooseTime}
-          />
-        ))}
-      </View>
-
-      <View style={styles.optional}>
-        <Text variant="caption" tone="muted">
-          Feeling like something?
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cuisineRow}
-        >
-          <Chip
-            label="Any"
-            selected={cuisine === null}
-            onPress={() => onSelectCuisine(null)}
-            accessibilityLabel="Any cuisine"
-            accessibilityHint="Removes the cuisine preference"
-          />
-          {CUISINE_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              label={option.label}
-              selected={cuisine === option.value}
-              onPress={() => onSelectCuisine(cuisine === option.value ? null : option.value)}
-              accessibilityLabel={option.label}
-              accessibilityHint="Prefers this cuisine, but never at the cost of an empty screen"
-            />
-          ))}
-        </ScrollView>
-      </View>
-
-      <PrimaryButton
-        label="Show me meals"
-        onPress={() => onChooseTime(30)}
-        accessibilityHint="Shows meals you can make in 30 minutes"
-      />
-
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={`Pantry, ${pantryCount} items`}
-        accessibilityHint="Opens your pantry to add or correct ingredients"
-        onPress={onOpenPantry}
-        style={styles.pantryLink}
+      <View
+        style={[
+          styles.promptLayout,
+          responsive.isDesktop && styles.desktopPromptLayout,
+          responsive.isDesktop && { columnGap: responsive.columnGap },
+        ]}
       >
-        <Text variant="caption" tone="muted">
-          Pantry · {pantryCount} {pantryCount === 1 ? 'item' : 'items'}
-        </Text>
-      </Pressable>
+        <View style={[styles.promptPanel, responsive.isDesktop && styles.desktopPanel]}>
+          <View style={styles.topRow}>
+            <Text variant="caption" tone="muted">
+              {greeting()}
+            </Text>
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
+              onPress={() => router.push('/settings')}
+              style={styles.settingsButton}
+            >
+              <Text variant="caption" tone="accent">
+                ⚙️ Settings
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text variant="display">How much time do you have?</Text>
+
+          <View style={styles.tileRow}>
+            {TIME_CHOICES.map((choice) => (
+              <TimeTile
+                key={choice.minutes}
+                minutes={choice.minutes}
+                openEnded={choice.openEnded}
+                selected={false}
+                onPress={onChooseTime}
+              />
+            ))}
+          </View>
+
+          <View style={styles.optional}>
+            <Text variant="caption" tone="muted">
+              Feeling like something?
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.cuisineRow}
+            >
+              <Chip
+                label="Any"
+                selected={cuisine === null}
+                onPress={() => onSelectCuisine(null)}
+                accessibilityLabel="Any cuisine"
+                accessibilityHint="Removes the cuisine preference"
+              />
+              {CUISINE_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={cuisine === option.value}
+                  onPress={() => onSelectCuisine(cuisine === option.value ? null : option.value)}
+                  accessibilityLabel={option.label}
+                  accessibilityHint="Prefers this cuisine, but never at the cost of an empty screen"
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          <PrimaryButton
+            label="Show me meals"
+            onPress={() => onChooseTime(30)}
+            accessibilityHint="Shows meals you can make in 30 minutes"
+          />
+
+          {!responsive.isDesktop ? (
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`Pantry, ${pantryCount} items`}
+              accessibilityHint="Opens your pantry to add or correct ingredients"
+              onPress={onOpenPantry}
+              style={styles.pantryLink}
+            >
+              <Text variant="caption" tone="muted">
+                Pantry · {pantryCount} {pantryCount === 1 ? 'item' : 'items'}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {responsive.isDesktop ? (
+          <Card variant="alt" style={styles.contextPanel}>
+            <Text variant="heading">Your kitchen, ready when you are</Text>
+            <Text variant="body" tone="muted">
+              HomeChef filters every suggestion against the {pantryCount} ingredient
+              {pantryCount === 1 ? '' : 's'} in your pantry.
+            </Text>
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`Pantry, ${pantryCount} items`}
+              accessibilityHint="Opens your pantry to add or correct ingredients"
+              onPress={onOpenPantry}
+              style={styles.pantryLink}
+            >
+              <Text variant="caption" tone="accent">
+                Update pantry · {pantryCount} {pantryCount === 1 ? 'item' : 'items'}
+              </Text>
+            </Pressable>
+          </Card>
+        ) : null}
+      </View>
     </Screen>
   );
 }
@@ -271,18 +331,16 @@ function greeting(): string {
 }
 
 const styles = StyleSheet.create({
+  promptLayout: { gap: space.lg },
+  desktopPromptLayout: { flexDirection: 'row', alignItems: 'stretch' },
+  promptPanel: { gap: space.lg },
+  desktopPanel: { flex: 1, padding: space.xl, borderRadius: radius.lg },
+  contextPanel: { flex: 1, justifyContent: 'center', minHeight: 260 },
   tileRow: { flexDirection: 'row', gap: space.sm },
   optional: { gap: space.sm },
   cuisineRow: { flexDirection: 'row', gap: space.sm, paddingRight: space.lg },
   pantryLink: { minHeight: 44, justifyContent: 'center' },
-  backRow: { minHeight: 44, justifyContent: 'center' },
   results: { gap: space.lg, paddingBottom: space.xl },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 44,
-  },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
