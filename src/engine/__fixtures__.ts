@@ -3,6 +3,11 @@
  * test only states the one thing it cares about.
  */
 import type {
+  BodyProfile,
+  ContinuousOnboardingProgress,
+  ContinuousOnboardingPromptState,
+} from '@/contracts/meal-journeys';
+import type {
   DietaryTag,
   Equipment,
   IngredientId,
@@ -10,6 +15,44 @@ import type {
   RecipeIngredient,
   UserPreferences,
 } from '@/engine/types';
+
+export function makeBodyProfile(overrides: Partial<BodyProfile> = {}): BodyProfile {
+  return {
+    ageYears: 32,
+    heightCentimeters: 168,
+    weightKilograms: 68.5,
+    calculationSex: 'female',
+    activityLevel: 'moderate',
+    goal: 'maintain',
+    pregnant: false,
+    breastfeeding: false,
+    ...overrides,
+  };
+}
+
+export function makeOnboardingProgress(
+  overrides: Partial<ContinuousOnboardingProgress> = {}
+): ContinuousOnboardingProgress {
+  return {
+    safetyCompleted: false,
+    weekPreferenceCompleted: false,
+    photoTasteCompleted: false,
+    bodyProfileCompleted: false,
+    reminderCompleted: false,
+    updatedAt: '2026-08-23T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function makeOnboardingPromptState(
+  overrides: Partial<ContinuousOnboardingPromptState> = {}
+): ContinuousOnboardingPromptState {
+  return {
+    shownThisSession: false,
+    activePrompt: null,
+    ...overrides,
+  };
+}
 
 export function ingredient(
   id: IngredientId,

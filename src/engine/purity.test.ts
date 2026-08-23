@@ -26,9 +26,15 @@ const sourceFiles = readdirSync(ENGINE_DIR).filter(
   (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.startsWith('__')
 );
 
+const DETERMINISTIC_POLICY_FILES = ['onboarding-prompt.ts', 'portion-guidance.ts'];
+
 describe('src/engine/ purity', () => {
   it('has source files to check', () => {
     expect(sourceFiles.length).toBeGreaterThan(0);
+  });
+
+  it('covers the portion and continuous-onboarding policies', () => {
+    expect(sourceFiles).toEqual(expect.arrayContaining(DETERMINISTIC_POLICY_FILES));
   });
 
   for (const file of sourceFiles) {
@@ -46,6 +52,8 @@ describe('src/engine/ purity', () => {
       it('performs no I/O and reads no ambient state', () => {
         expect(contents).not.toMatch(/\bfetch\s*\(/);
         expect(contents).not.toMatch(/Math\.random/);
+        expect(contents).not.toMatch(/performance\.now/);
+        expect(contents).not.toMatch(/crypto\.(?:getRandomValues|randomUUID)/);
         expect(contents).not.toMatch(/Date\.now|new Date\(/);
         expect(contents).not.toMatch(/process\.env/);
       });
