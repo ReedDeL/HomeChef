@@ -147,9 +147,6 @@ declare
   results text[] := '{}';
   n int;
   blocked boolean;
-  replacement_entries jsonb;
-  creation_entries jsonb;
-  created_plan_id uuid;
 begin
   select household_id into household_b from public.profiles where id = user_b;
 
@@ -316,6 +313,9 @@ declare
   results text[] := '{}';
   n int;
   blocked boolean;
+  replacement_entries jsonb;
+  creation_entries jsonb;
+  created_plan_id uuid;
 begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
