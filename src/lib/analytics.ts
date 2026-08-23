@@ -10,6 +10,7 @@ export const ANALYTICS_EVENTS = {
   constraintRelaxed: 'constraint_relaxed',
   visionScanSucceeded: 'vision_scan_succeeded',
   visionScanFailed: 'vision_scan_failed',
+  settingsUpdated: 'settings_updated',
 } as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -51,6 +52,11 @@ export interface VisionScanSucceededProperties extends AnalyticsProperties {
 export interface VisionScanFailedProperties extends AnalyticsProperties {
   photo_count: number;
   failure_stage: 'analyze';
+}
+
+export interface SettingsUpdatedProperties extends AnalyticsProperties {
+  setting: string;
+  value: AnalyticsProperty;
 }
 
 const approvedEventNames = new Set<string>(Object.values(ANALYTICS_EVENTS));
@@ -129,4 +135,8 @@ export function trackVisionScanSucceeded(properties: VisionScanSucceededProperti
 
 export function trackVisionScanFailed(properties: VisionScanFailedProperties): void {
   capture(ANALYTICS_EVENTS.visionScanFailed, properties);
+}
+
+export function trackSettingsUpdated(properties: SettingsUpdatedProperties): void {
+  capture(ANALYTICS_EVENTS.settingsUpdated, properties);
 }

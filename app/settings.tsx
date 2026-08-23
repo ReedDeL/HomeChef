@@ -13,6 +13,7 @@ import {
   MEAL_PREP_REMINDER_LEAD_MINUTES,
   type MealPrepReminderLeadMinutes,
 } from '@/lib/meal-prep-reminder';
+import { trackSettingsUpdated } from '@/lib/analytics';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
@@ -96,22 +97,29 @@ export default function SettingsScreen() {
 
   const updateTheme = (value: ThemeMode) => {
     setThemeMode(value);
+    trackSettingsUpdated({ setting: 'theme', value });
   };
 
   const updateTier = (value: string) => {
     setTier(value);
+    trackSettingsUpdated({ setting: 'equipment_tier', value });
   };
 
   const updateExtra = (value: (typeof extras)[number]) => {
     toggleExtra(value);
+    trackSettingsUpdated({ setting: 'extra_appliance', value });
   };
 
   const updateAllergen = (value: string) => {
+    const enabled = !allergens.includes(value);
     toggleAllergen(value);
+    trackSettingsUpdated({ setting: 'allergen_filter_enabled', value: enabled });
   };
 
   const updateDietary = (value: (typeof dietary)[number]) => {
+    const enabled = !dietary.includes(value);
     toggleDietary(value);
+    trackSettingsUpdated({ setting: 'dietary_filter_enabled', value: enabled });
   };
 
   const clearReminders = () => {
@@ -122,6 +130,7 @@ export default function SettingsScreen() {
 
   const confirmReset = () => {
     clearReminders();
+    trackSettingsUpdated({ setting: 'reset', value: 'confirmed' });
     reset();
     router.replace('/(onboarding)/equipment');
   };

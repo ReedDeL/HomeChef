@@ -14,6 +14,7 @@ import {
   trackPantryFilterSubmitted,
   trackRecipeOpened,
   trackRecommendationsShown,
+  trackSettingsUpdated,
   trackVisionScanFailed,
   trackVisionScanSucceeded,
   type AnalyticsClient,
@@ -49,6 +50,7 @@ describe('analytics helpers', () => {
       'constraint_relaxed',
       'vision_scan_succeeded',
       'vision_scan_failed',
+      'settings_updated',
     ]);
 
     expect(isApprovedAnalyticsEvent('recipe_opened')).toBe(true);
@@ -87,6 +89,7 @@ describe('analytics helpers', () => {
       'vision_scan_failed',
       () => trackVisionScanFailed({ photo_count: 1, failure_stage: 'analyze' }),
     ],
+    ['settings_updated', () => trackSettingsUpdated({ setting: 'theme', value: 'dark' })],
   ] satisfies ReadonlyArray<[AnalyticsEventName, () => void]>)(
     'captures %s with its fixed event name',
     (expectedName, track) => {
