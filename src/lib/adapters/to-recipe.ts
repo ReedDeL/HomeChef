@@ -26,6 +26,7 @@ export function toRecipe(raw: unknown): Recipe | null {
   if (ingredients.length === 0) return null;
 
   const minutes = asNumber(raw.totalTimeMinutes);
+  const nutrition = toNutrition(raw);
 
   return {
     id,
@@ -37,12 +38,7 @@ export function toRecipe(raw: unknown): Recipe | null {
     dietaryTags: keepKnown(raw.dietaryTags, DIETARY_TAGS),
     ingredients,
     instructions: asString(raw.instructions) ?? '',
-    baseServings: asPositiveNumber(raw.baseServings),
-    energyKcalPerServing: asPositiveNumber(raw.energyKcalPerServing),
-    nutritionProvenance: toNutritionProvenance(raw.nutritionProvenance),
-    nutritionConfidence: nutritionConfidenceSchema
-      .catch('unavailable')
-      .parse(raw.nutritionConfidence),
+    ...nutrition,
     source: raw.source === 'tier2' ? 'tier2' : 'tier1',
   };
 }
@@ -112,4 +108,42 @@ function asPositiveNumber(value: unknown): number | null {
 function toNutritionProvenance(raw: unknown): Recipe['nutritionProvenance'] {
   const result = nutritionProvenanceSchema.safeParse(raw);
   return result.success ? result.data : null;
+}
+
+function toNutrition(
+  raw: Record<string, unknown>
+): Pick<
+  Recipe,
+  'baseServings' | 'energyKcalPerServing' | 'nutritionProvenance' | 'nutritionConfidence'
+> {
+  const baseServings = asPositiveNumber(raw.baseServings);
+  const nutritionProvenance = toNutritionProvenance(raw.nutritionProvenance);
+  const parsedConfidence = nutritionConfidenceSchema
+    .catch('unavailable')
+    .parse(raw.nutritionConfidence);
+
+  if (nutritionProvenance === null && parsedConfidence !== 'unavailable') {
+    return {
+      baseServings,
+      energyKcalPerServing: null,
+      nutritionProvenance: null,
+      nutritionConfidence: 'unavailable',
+    };
+  }
+
+  if (parsedConfidence === 'low' || parsedConfidence === 'unavailable') {
+    return {
+      baseServings,
+      energyKcalPerServing: null,
+      nutritionProvenance,
+      nutritionConfidence: parsedConfidence,
+    };
+  }
+
+  return {
+    baseServings,
+    energyKcalPerServing: baseServings === null ? null : asPositiveNumber(raw.energyKcalPerServing),
+    nutritionProvenance,
+    nutritionConfidence: parsedConfidence,
+  };
 }

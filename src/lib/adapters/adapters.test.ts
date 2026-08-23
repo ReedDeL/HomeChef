@@ -202,6 +202,56 @@ describe('toRecipe', () => {
     );
   });
 
+  it.each(['low', 'unavailable'] as const)(
+    'suppresses energy for %s-confidence nutrition',
+    (nutritionConfidence) => {
+      expect(
+        toRecipe({
+          ...raw,
+          baseServings: 2,
+          energyKcalPerServing: 400,
+          nutritionProvenance,
+          nutritionConfidence,
+        })
+      ).toMatchObject({ energyKcalPerServing: null, nutritionConfidence });
+    }
+  );
+
+  it.each(['low', 'medium', 'high'] as const)(
+    'fails %s-confidence nutrition closed when provenance is malformed',
+    (nutritionConfidence) => {
+      expect(
+        toRecipe({
+          ...raw,
+          baseServings: 2,
+          energyKcalPerServing: 400,
+          nutritionProvenance: { ...nutritionProvenance, cacheChecksum: 'invalid' },
+          nutritionConfidence,
+        })
+      ).toMatchObject({
+        energyKcalPerServing: null,
+        nutritionProvenance: null,
+        nutritionConfidence: 'unavailable',
+      });
+    }
+  );
+
+  it('suppresses per-serving energy when base servings are missing', () => {
+    expect(
+      toRecipe({
+        ...raw,
+        baseServings: null,
+        energyKcalPerServing: 400,
+        nutritionProvenance,
+        nutritionConfidence: 'high',
+      })
+    ).toMatchObject({
+      baseServings: null,
+      energyKcalPerServing: null,
+      nutritionConfidence: 'high',
+    });
+  });
+
   it.each([
     { ...nutritionProvenance, usdaFdcIds: [] },
     { ...nutritionProvenance, usdaFdcIds: [2, 1] },

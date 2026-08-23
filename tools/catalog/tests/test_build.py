@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -11,9 +13,10 @@ from tools.catalog.build import (
     build_vocabulary,
     estimate_total_minutes,
     extract_ingredients,
+    load_catalog_recipes,
     to_catalog_recipe,
 )
-from tools.catalog.models import EQUIPMENT_VALUES
+from tools.catalog.models import EQUIPMENT_VALUES, CatalogRecipe
 
 
 def make_meal(**overrides: Any) -> dict[str, Any]:
@@ -132,8 +135,41 @@ class TestToCatalogRecipe:
 
     def test_serialises_to_the_camel_case_shape_the_engine_reads(self) -> None:
         payload = to_catalog_recipe(make_meal()).model_dump(by_alias=True)
-        for key in ("imageUrl", "totalTimeMinutes", "equipmentRequired", "dietaryTags"):
+        for key in (
+            "imageUrl",
+            "totalTimeMinutes",
+            "equipmentRequired",
+            "dietaryTags",
+            "baseServings",
+            "energyKcalPerServing",
+            "nutritionProvenance",
+            "nutritionConfidence",
+        ):
             assert key in payload
+
+    def test_unknown_nutrition_serialises_to_safe_defaults(self) -> None:
+        payload = to_catalog_recipe(make_meal()).model_dump(by_alias=True)
+        assert payload["baseServings"] is None
+        assert payload["energyKcalPerServing"] is None
+        assert payload["nutritionProvenance"] is None
+        assert payload["nutritionConfidence"] == "unavailable"
+
+    @pytest.mark.parametrize("confidence", ["low", "unavailable"])
+    def test_rejects_energy_that_cannot_be_used_for_guidance(self, confidence: str) -> None:
+        payload = to_catalog_recipe(make_meal()).model_dump(by_alias=True)
+        payload["energyKcalPerServing"] = 400
+        payload["nutritionConfidence"] = confidence
+
+        with pytest.raises(ValidationError):
+            CatalogRecipe.model_validate(payload)
+
+    def test_rejects_guidance_energy_without_normalization_provenance(self) -> None:
+        payload = to_catalog_recipe(make_meal()).model_dump(by_alias=True)
+        payload["energyKcalPerServing"] = 400
+        payload["nutritionConfidence"] = "high"
+
+        with pytest.raises(ValidationError):
+            CatalogRecipe.model_validate(payload)
 
 
 class TestBuildVocabulary:
@@ -160,3 +196,15 @@ class TestBuildVocabulary:
 
     def test_handles_an_empty_catalog(self) -> None:
         assert build_vocabulary([]) == []
+
+
+def test_load_catalog_recipes_validates_the_committed_shape(tmp_path: Path) -> None:
+    path = tmp_path / "recipes.json"
+    path.write_text(
+        json.dumps([to_catalog_recipe(make_meal()).model_dump(by_alias=True)]),
+        encoding="utf-8",
+    )
+
+    recipes = load_catalog_recipes(path)
+
+    assert [recipe.id for recipe in recipes] == ["52959"]
