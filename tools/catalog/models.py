@@ -260,7 +260,7 @@ class CatalogRecipe(BaseModel):
         validation_alias=AliasChoices("nutrition_confidence", "nutritionConfidence"),
         serialization_alias="nutritionConfidence",
     )
-    source: Literal["bundled", "tier1"] = "bundled"
+    source: Literal["bundled"] = "bundled"
 
     @model_validator(mode="after")
     def _nutrition_is_coherent(self) -> Self:
