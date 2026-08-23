@@ -1,10 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Header } from '@/components/ui/Header';
+import {
+  clearMealPrepReminders,
+  requestMealPrepReminderPermission,
+} from '@/lib/meal-prep-notifications';
+import {
+  MEAL_PREP_REMINDER_LEAD_MINUTES,
+  type MealPrepReminderLeadMinutes,
+} from '@/lib/meal-prep-reminder';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
@@ -18,6 +26,14 @@ import {
   type ThemeMode,
 } from '@/store/kitchen';
 import { space } from '@/theme/tokens';
+
+const REMINDER_LEAD_LABELS: Record<MealPrepReminderLeadMinutes, string> = {
+  0: 'At cook time',
+  10: '10 min early',
+  15: '15 min early',
+  30: '30 min early',
+  60: '60 min early',
+};
 
 const THEME_OPTIONS: readonly {
   id: ThemeMode;
@@ -68,6 +84,13 @@ export default function SettingsScreen() {
   const toggleAllergen = useKitchenStore((state) => state.toggleAllergen);
   const toggleDietary = useKitchenStore((state) => state.toggleDietary);
 
+  const mealPrepRemindersEnabled = useKitchenStore((state) => state.mealPrepRemindersEnabled);
+  const mealPrepReminderLeadMinutes = useKitchenStore((state) => state.mealPrepReminderLeadMinutes);
+  const setMealPrepRemindersEnabled = useKitchenStore((state) => state.setMealPrepRemindersEnabled);
+  const setMealPrepReminderLeadMinutes = useKitchenStore(
+    (state) => state.setMealPrepReminderLeadMinutes
+  );
+
   const reset = useKitchenStore((state) => state.reset);
   const [resetConfirming, setResetConfirming] = useState(false);
 
@@ -91,9 +114,41 @@ export default function SettingsScreen() {
     toggleDietary(value);
   };
 
+  const clearReminders = () => {
+    clearMealPrepReminders().catch((error: unknown) => {
+      console.warn('[notifications] Unable to clear meal-prep reminders', error);
+    });
+  };
+
   const confirmReset = () => {
+    clearReminders();
     reset();
     router.replace('/(onboarding)/equipment');
+  };
+
+  const handleReminderToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      setMealPrepRemindersEnabled(false);
+      clearReminders();
+      return;
+    }
+
+    try {
+      const granted = await requestMealPrepReminderPermission();
+      if (granted) {
+        setMealPrepRemindersEnabled(true);
+        return;
+      }
+    } catch (error: unknown) {
+      console.warn('[notifications] Unable to request permission', error);
+    }
+
+    setMealPrepRemindersEnabled(false);
+    clearReminders();
+    Alert.alert(
+      'Reminders are off',
+      'You can enable notifications for HomeChef in your device settings.'
+    );
   };
 
   const handleReset = () => {
@@ -236,6 +291,48 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <View style={styles.section}>
+        <Text variant="heading">Meal-prep reminders</Text>
+        <Text variant="caption" tone="muted">
+          Get a reminder when a future weekly meal-prep plan needs you to start cooking.
+        </Text>
+        <View style={styles.reminderToggle}>
+          <Text variant="bodyStrong">Start-cooking reminders</Text>
+          <Switch
+            accessible
+            accessibilityRole="switch"
+            accessibilityLabel="Meal-prep reminders"
+            accessibilityHint="Turns reminders on only for future weekly meal-prep plans"
+            accessibilityState={{ checked: mealPrepRemindersEnabled }}
+            value={mealPrepRemindersEnabled}
+            onValueChange={handleReminderToggle}
+          />
+        </View>
+
+        {mealPrepRemindersEnabled ? (
+          <View
+            style={styles.group}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="How early should meal-prep reminders arrive"
+            accessibilityHint="Choose when meal-prep reminders arrive before cooking"
+          >
+            <Text variant="bodyStrong">Remind me</Text>
+            <View style={styles.chipRow}>
+              {MEAL_PREP_REMINDER_LEAD_MINUTES.map((minutes) => (
+                <Chip
+                  key={minutes}
+                  label={REMINDER_LEAD_LABELS[minutes]}
+                  selected={mealPrepReminderLeadMinutes === minutes}
+                  onPress={() => setMealPrepReminderLeadMinutes(minutes)}
+                  accessibilityLabel={REMINDER_LEAD_LABELS[minutes]}
+                  accessibilityHint="Sets how early meal-prep reminders arrive"
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </View>
+
       {/* Attribution & About Section */}
       <View style={styles.section}>
         <Text variant="heading">About & Attribution</Text>
@@ -297,6 +394,7 @@ const styles = StyleSheet.create({
   section: { gap: space.sm, marginTop: space.sm },
   group: { gap: space.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  reminderToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   attributionLink: { minHeight: 32, justifyContent: 'center', marginTop: space.xs },
   confirmRow: { gap: space.sm },
 });
