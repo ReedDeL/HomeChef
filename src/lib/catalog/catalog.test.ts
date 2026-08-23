@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    rpc: vi.fn(),
+  },
+}));
 
 import { ingredient, makePrefs, makeRecipe } from '@/engine/__fixtures__';
 import { decideWithRelaxation, TIME_TIERS } from '@/engine/relax';

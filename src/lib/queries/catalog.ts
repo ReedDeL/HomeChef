@@ -9,7 +9,10 @@ import {
   type CatalogCandidateRequest,
 } from '@/lib/catalog';
 import { queryKeys } from '@/lib/queries/keys';
-import { hasSupabaseConfig } from '@/lib/supabase';
+
+function hasSupabaseConfig(): boolean {
+  return Boolean(process.env.EXPO_PUBLIC_SUPABASE_URL && process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+}
 
 export function useCatalogCandidates(request: CatalogCandidateRequest | null) {
   const normalized = request ? normalizeCandidateRequest(request) : null;

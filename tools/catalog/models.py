@@ -121,12 +121,27 @@ class CatalogIngredient(BaseModel):
     model_config = {"populate_by_name": True}
 
     id: str
-    measure: str
+    measure: str = ""
+    raw_measure: str = Field(
+        default="",
+        validation_alias=AliasChoices("raw_measure", "rawMeasure"),
+        serialization_alias="rawMeasure",
+    )
+    quantity: float | None = None
+    unit: str | None = None
     allergen_groups: list[str] = Field(
         default_factory=list,
         validation_alias=AliasChoices("allergen_groups", "allergenGroups"),
         serialization_alias="allergenGroups",
     )
+
+    @model_validator(mode="after")
+    def _sync_measures(self) -> Self:
+        if not self.measure and self.raw_measure:
+            self.measure = self.raw_measure
+        elif not self.raw_measure and self.measure:
+            self.raw_measure = self.measure
+        return self
 
 
 class NutritionProvenance(BaseModel):
@@ -187,7 +202,7 @@ class CatalogRecipe(BaseModel):
     TypeScript engine, whose ``Recipe`` type this must satisfy exactly.
     """
 
-    model_config = {"populate_by_name": True}
+    model_config = {"extra": "forbid", "populate_by_name": True}
 
     id: str
     title: str
@@ -210,6 +225,21 @@ class CatalogRecipe(BaseModel):
     )
     ingredients: list[CatalogIngredient]
     instructions: str
+    allergen_status: SafetyStatus = Field(
+        default="verified",
+        validation_alias=AliasChoices("allergen_status", "allergenStatus"),
+        serialization_alias="allergenStatus",
+    )
+    dietary_status: SafetyStatus = Field(
+        default="verified",
+        validation_alias=AliasChoices("dietary_status", "dietaryStatus"),
+        serialization_alias="dietaryStatus",
+    )
+    provenance: list[Provenance] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("provenance", "provenance"),
+        serialization_alias="provenance",
+    )
     base_servings: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = Field(
         default=None,
         validation_alias=AliasChoices("base_servings", "baseServings"),
@@ -253,7 +283,93 @@ class VocabularyEntry(BaseModel):
     and the decision engine, so an error here propagates everywhere.
     """
 
+    model_config = {"populate_by_name": True}
+
     id: str
-    display_name: str = Field(serialization_alias="displayName")
-    allergen_groups: list[str] = Field(default_factory=list, serialization_alias="allergenGroups")
-    is_staple: bool = Field(default=False, serialization_alias="isStaple")
+    display_name: str = Field(
+        validation_alias=AliasChoices("display_name", "displayName"),
+        serialization_alias="displayName",
+    )
+    allergen_groups: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("allergen_groups", "allergenGroups"),
+        serialization_alias="allergenGroups",
+    )
+    is_staple: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("is_staple", "isStaple"),
+        serialization_alias="isStaple",
+    )
+
+
+SafetyStatus = Literal["verified", "unknown"]
+
+
+class SourceIngredient(BaseModel):
+    """One source archive ingredient; extra keys are a contract violation."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    name: str
+    measure: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def require_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("ingredient name must not be blank")
+        return value.strip()
+
+
+class SourceRecipe(BaseModel):
+    """The single neutral JSONL record format accepted by this pipeline."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    source_recipe_id: str = Field(alias="sourceRecipeId")
+    title: str
+    instructions: str
+    ingredients: list[SourceIngredient]
+    cuisine: str | None = None
+    total_time_minutes: Annotated[int, Field(gt=0)] = Field(alias="totalTimeMinutes")
+    image_url: str | None = Field(default=None, alias="imageUrl")
+    equipment: list[Equipment]
+    allergen_status: SafetyStatus = Field(alias="allergenStatus")
+    dietary_status: SafetyStatus = Field(alias="dietaryStatus")
+    dietary_tags: list[DietaryTag] = Field(default_factory=list, alias="dietaryTags")
+
+    @field_validator("source_recipe_id", "title", "instructions")
+    @classmethod
+    def require_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+    @field_validator("cuisine", "image_url", mode="before")
+    @classmethod
+    def blank_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+
+class Provenance(BaseModel):
+    """A source row retained after recipes from different archives coalesce."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    source_id: str = Field(
+        validation_alias=AliasChoices("source_id", "sourceId"), serialization_alias="sourceId"
+    )
+    source_version: str = Field(
+        validation_alias=AliasChoices("source_version", "sourceVersion"),
+        serialization_alias="sourceVersion",
+    )
+    source_recipe_id: str = Field(
+        validation_alias=AliasChoices("source_recipe_id", "sourceRecipeId"),
+        serialization_alias="sourceRecipeId",
+    )
+    archive_sha256: str = Field(
+        validation_alias=AliasChoices("archive_sha256", "archiveSha256"),
+        serialization_alias="archiveSha256",
+    )

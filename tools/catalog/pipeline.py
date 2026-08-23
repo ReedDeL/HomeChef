@@ -306,10 +306,10 @@ def _normalize_recipe(
         ingredients.append(
             CatalogIngredient(
                 id=ingredient_id,
-                rawMeasure=measure.raw,
+                raw_measure=measure.raw,
                 quantity=measure.quantity,
                 unit=measure.unit,
-                allergenGroups=allergen_groups_for(ingredient_id),
+                allergen_groups=allergen_groups_for(ingredient_id),
             )
         )
     recipe_id = _homechef_id(recipe, ingredients)
@@ -317,21 +317,21 @@ def _normalize_recipe(
         CatalogRecipe(
             id=recipe_id,
             title=recipe.title,
-            imageUrl=recipe.image_url,
+            image_url=recipe.image_url,
             cuisine=recipe.cuisine.lower() if recipe.cuisine else None,
-            totalTimeMinutes=recipe.total_time_minutes,
-            equipmentRequired=equipment,
-            allergenStatus=recipe.allergen_status,
-            dietaryStatus=recipe.dietary_status,
-            dietaryTags=sorted(set(recipe.dietary_tags)),
+            total_time_minutes=recipe.total_time_minutes,
+            equipment_required=equipment,
+            allergen_status=recipe.allergen_status,
+            dietary_status=recipe.dietary_status,
+            dietary_tags=sorted(set(recipe.dietary_tags)),
             ingredients=ingredients,
             instructions=recipe.instructions,
             provenance=[
                 Provenance(
-                    sourceId=source.id,
-                    sourceVersion=source.version,
-                    sourceRecipeId=recipe.source_recipe_id,
-                    archiveSha256=source.sha256,
+                    source_id=source.id,
+                    source_version=source.version,
+                    source_recipe_id=recipe.source_recipe_id,
+                    archive_sha256=source.sha256,
                 )
             ],
         ),
@@ -430,9 +430,9 @@ def _build_vocabulary(recipes: list[CatalogRecipe]) -> list[VocabularyEntry]:
     return [
         VocabularyEntry(
             id=ingredient_id,
-            displayName=display_name(ingredient_id),
-            allergenGroups=allergen_groups_for(ingredient_id),
-            isStaple=is_staple(ingredient_id),
+            display_name=display_name(ingredient_id),
+            allergen_groups=allergen_groups_for(ingredient_id),
+            is_staple=is_staple(ingredient_id),
         )
         for ingredient_id in sorted({item.id for recipe in recipes for item in recipe.ingredients})
     ]

@@ -15,4 +15,30 @@ export const queryKeys = {
   weeklyMealPlan: (userId: string, weekStart: string) =>
     ['weekly-meal-plan', userId, weekStart] as const,
   mealReminderPreferences: (userId: string) => ['meal-reminder-preferences', userId] as const,
+  catalogCandidates: (request: {
+    pantryIngredientIds: readonly string[];
+    ownedEquipment: readonly string[];
+    allergens: readonly string[];
+    dietaryRestrictions: readonly string[];
+    requestedMinutes: number | null;
+    cuisine: string | null;
+    excludedRecipeIds: readonly string[];
+    limit: number;
+  }) =>
+    [
+      'catalog',
+      'candidates',
+      request.pantryIngredientIds,
+      request.ownedEquipment,
+      request.allergens,
+      request.dietaryRestrictions,
+      request.requestedMinutes,
+      request.cuisine,
+      request.excludedRecipeIds,
+      request.limit,
+    ] as const,
+  catalogCandidatesIdle: () => ['catalog', 'candidates', 'idle'] as const,
+  catalogRecipeDetail: (recipeId: string) => ['catalog', 'recipe-detail', 'id', recipeId] as const,
+  catalogRecipeDetailIdle: () => ['catalog', 'recipe-detail', 'idle'] as const,
+  catalogAttributions: () => ['catalog', 'attributions'] as const,
 } as const;

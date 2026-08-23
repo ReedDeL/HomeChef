@@ -7,10 +7,10 @@ import {
   type DetectedItem,
   type PantryCandidate,
 } from '@/lib/ingredients/candidates';
-import { getSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 /**
- * The I/O half of the photo → pantry pipeline: compress,
+ * The I/O half of the photo → pantry pipeline (Technical Spec §5.1): compress,
  * send, hand the result to the pure mapping in `ingredients/candidates.ts`.
  *
  * Nothing here writes to the pantry. Every detected item goes to the
@@ -19,23 +19,23 @@ import { getSupabase } from '@/lib/supabase';
  * capture-time origin of the inventory drift (risk R3) that rots
  * recommendations.
  *
- * Normalization is client-side to keep the canonical mapping consistent with
- * the vocabulary shipped in this build. It runs against
- * `src/data/ingredients.json`, the same vocabulary the engine matches against.
- * Two things make the client the better seat:
+ * NORMALIZATION IS CLIENT-SIDE, where §5.1 specifies server-side. The spec's
+ * reason is correctness of the canonical mapping, and that is preserved: it
+ * runs against `src/data/ingredients.json`, the same bundled vocabulary the
+ * engine matches against. Two things make the client the better seat:
  *
  *  - Correcting a detected name has to re-resolve instantly. Server-side
  *    normalization would make every keystroke a network round trip, or would
  *    need a second implementation on the client — and two normalizers that
- *    disagree is exactly the drift this shared vocabulary is meant to prevent.
+ *    disagree is exactly the drift §5.1 exists to prevent.
  *  - The vocabulary ships with the app. A server normalizing against a newer
  *    list could hand back ids this build has never heard of.
  */
 
-/** The model's input-size contract; anything larger is wasted upload. */
+/** §5.1: the model's input size. Anything larger is wasted upload. */
 const TARGET_EDGE = 640;
 
-/** The client upload contract's approximate JPEG quality. */
+/** §5.1: ~0.7 JPEG quality. */
 const JPEG_QUALITY = 0.7;
 
 export class PantryPhotoError extends Error {}
@@ -111,7 +111,7 @@ export async function analyzePantryPhotos(uris: readonly string[]): Promise<Pant
 
   const images = await Promise.all(uris.map(compressForUpload));
 
-  const { data, error } = await getSupabase().functions.invoke<{ items: DetectedItem[] }>(
+  const { data, error } = await supabase.functions.invoke<{ items: DetectedItem[] }>(
     'analyze-pantry-photo',
     { body: { images, mimeType: 'image/jpeg' } }
   );

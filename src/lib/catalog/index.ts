@@ -4,8 +4,7 @@ import { isRecipeHardConstraintSatisfied } from '@/engine/filter-hard';
 import { TIME_TIERS } from '@/engine/relax';
 import { DIETARY_TAGS, EQUIPMENT } from '@/engine/types';
 import type { DietaryTag, Equipment, Recipe, UserPreferences } from '@/engine/types';
-import { getSupabase } from '@/lib/supabase';
-import type { Database } from '@/types/supabase-generated';
+import { supabase } from '@/lib/supabase';
 
 export const CATALOG_RPC_LIMIT = 100;
 export const HOSTED_RECOVERY_REQUESTED_MINUTES = Math.max(...TIME_TIERS);
@@ -69,8 +68,20 @@ interface CatalogRpcResult {
   error: { message: string } | null;
 }
 
-type CandidateRpcArgs = Database['public']['Functions']['catalog_candidates']['Args'];
-type DetailRpcArgs = Database['public']['Functions']['catalog_recipe_detail']['Args'];
+type CandidateRpcArgs = {
+  p_pantry_ingredient_ids: string[];
+  p_owned_equipment: string[];
+  p_allergens: string[];
+  p_dietary_restrictions: string[];
+  p_requested_minutes?: number | null;
+  p_cuisine?: string | null;
+  p_excluded_recipe_ids: string[];
+  p_limit: number;
+};
+
+type DetailRpcArgs = {
+  p_recipe_id: string;
+};
 
 type CatalogRpcInvocation =
   | { name: 'catalog_candidates'; args: CandidateRpcArgs }
@@ -368,14 +379,19 @@ export function isHttpsUrl(value: string | null): value is string {
   }
 }
 
+type GenericRpcCaller = (
+  fn: string,
+  args?: Record<string, unknown>
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+
 async function invokeCatalogRpc(invocation: CatalogRpcInvocation): Promise<CatalogRpcResult> {
-  const client = getSupabase();
+  const rpc = supabase.rpc as unknown as GenericRpcCaller;
   const response =
     invocation.name === 'catalog_candidates'
-      ? await client.rpc('catalog_candidates', invocation.args)
+      ? await rpc('catalog_candidates', invocation.args)
       : invocation.name === 'catalog_recipe_detail'
-        ? await client.rpc('catalog_recipe_detail', invocation.args)
-        : await client.rpc('catalog_attributions');
+        ? await rpc('catalog_recipe_detail', invocation.args)
+        : await rpc('catalog_attributions');
   const { data, error } = response;
   return { data, error: error ? { message: error.message } : null };
 }
@@ -407,6 +423,11 @@ function toCandidateRecipe(row: z.infer<typeof candidateSchema>): Recipe {
     // Candidate RPC intentionally omits preparation text. A detail RPC fills it
     // before cook mode, while the engine only needs constraint metadata.
     instructions: '',
+    source: 'bundled',
+    baseServings: null,
+    energyKcalPerServing: null,
+    nutritionProvenance: null,
+    nutritionConfidence: 'unavailable',
   };
 }
 
