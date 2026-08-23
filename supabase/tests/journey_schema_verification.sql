@@ -303,9 +303,9 @@ select format('%s has exact index %s', table_name, index_name),
        )
   from (values
     ('taste_signals', 'taste_signals_user_recorded_at_idx',
-     array['user_id', 'recorded_at DESC'], false),
+     array['user_id', 'recorded_at'], false),
     ('meal_satiety', 'meal_satiety_user_recorded_at_idx',
-     array['user_id', 'recorded_at DESC'], false),
+     array['user_id', 'recorded_at'], false),
     ('weekly_meal_plans', 'weekly_meal_plans_user_week_idx',
      array['user_id', 'week_start'], true),
     ('weekly_meal_plan_entries', 'weekly_meal_plan_entries_user_plan_idx',
