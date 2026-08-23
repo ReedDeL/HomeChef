@@ -61,8 +61,8 @@ select household_id, 'rice', 'manual'
   from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000001';
 
 insert into public.meal_feedback (user_id, recipe_id, verdict)
-values ('aaaaaaaa-0000-4000-8000-000000000001', 'tier1-0001', 'liked'),
-       ('bbbbbbbb-0000-4000-8000-000000000001', 'tier1-0002', 'disliked');
+values ('aaaaaaaa-0000-4000-8000-000000000001', 'bundled-0001', 'liked'),
+       ('bbbbbbbb-0000-4000-8000-000000000001', 'bundled-0002', 'disliked');
 
 -- An allergen is the highest-stakes private field in the schema. If a roommate
 -- can read this row, the privacy model has failed.
@@ -123,7 +123,7 @@ begin
   blocked := false;
   begin
     insert into public.meal_feedback (user_id, recipe_id, verdict)
-    values (user_b, 'tier1-0003', 'liked');
+    values (user_b, 'bundled-0003', 'liked');
   exception when others then blocked := true;
   end;
   results := results || format('9|A cannot write feedback as B|blocked|%s',
@@ -178,6 +178,73 @@ begin
   results := results || format('19|Anon sees no households|0|%s', n);
 
   perform set_config('role', 'postgres', true);
+
+  insert into _rls_results (n, assertion, expected, actual, pass)
+  select split_part(r, '|', 1)::int,
+         split_part(r, '|', 2),
+         split_part(r, '|', 3),
+         split_part(r, '|', 4),
+         split_part(r, '|', 3) = split_part(r, '|', 4)
+    from unnest(results) as r;
+end $$;
+
+-- ----------------------------------------------------- scan budget (0005) ----
+-- The Gemini daily-scan budget. Three properties matter: clients cannot read
+-- the ledger, the cap actually caps, and each user's budget is their own.
+-- Calls run as postgres because EXECUTE belongs to service_role only -- the
+-- Edge Function's seat -- but identity still comes from the JWT claims, so
+-- what is exercised here is the same code path production takes.
+
+do $$
+declare
+  user_a        uuid := 'aaaaaaaa-0000-4000-8000-000000000001';
+  user_b        uuid := 'bbbbbbbb-0000-4000-8000-000000000001';
+  results       text[] := '{}';
+  blocked       boolean;
+  granted       boolean;
+  granted_count int;
+  i             int;
+begin
+  -- Ledger hidden from an authenticated session: `private` carries no USAGE
+  -- for anon/authenticated (0001), and RLS on the table denies all anyway.
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', user_a, 'role', 'authenticated')::text, true);
+
+  blocked := false;
+  begin
+    perform count(*) from private.pantry_scan_usage;
+  exception when others then blocked := true;
+  end;
+  results := results || format('20|Scan ledger hidden from clients|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  -- Spend A's budget against a limit of 2: two grants, then a refusal. The
+  -- refusal is the point -- an off-by-one here is the cost attack reopening.
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', user_a, 'role', 'authenticated')::text, true);
+
+  granted_count := 0;
+  for i in 1 .. 3 loop
+    granted := private.claim_pantry_scan(2);
+    if granted then
+      granted_count := granted_count + 1;
+    end if;
+  end loop;
+  results := results || format('21|Budget grants exactly the daily limit|2|%s', granted_count);
+
+  -- B's budget starts fresh regardless of how much A has spent today.
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', user_b, 'role', 'authenticated')::text, true);
+  results := results || format('22|Roommate budget independent|true|%s',
+                               private.claim_pantry_scan(2));
+
+  -- No JWT claims, no identity, no scan. This is the branch that keeps the
+  -- function safe even if it were ever called without forwarding auth.
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  results := results || format('23|Anonymous claim refused|false|%s',
+                               private.claim_pantry_scan(2));
 
   insert into _rls_results (n, assertion, expected, actual, pass)
   select split_part(r, '|', 1)::int,
