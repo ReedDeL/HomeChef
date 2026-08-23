@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import recipesJson from '@/data/recipes.json';
 import { INGREDIENT_VOCABULARY, BUNDLED_CATALOG, lookupIngredient } from '@/data/catalog';
 import { decideWithRelaxation } from '@/engine/relax';
 import { EQUIPMENT } from '@/engine/types';
@@ -44,6 +45,24 @@ describe('bundled catalog', () => {
   it('gives every recipe at least one ingredient', () => {
     for (const recipe of BUNDLED_CATALOG) {
       expect(recipe.ingredients.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives every recipe explicit safe nutrition fields', () => {
+    for (const raw of recipesJson) {
+      for (const key of [
+        'baseServings',
+        'energyKcalPerServing',
+        'nutritionProvenance',
+        'nutritionConfidence',
+      ]) {
+        expect(Object.hasOwn(raw, key)).toBe(true);
+      }
+    }
+    for (const recipe of BUNDLED_CATALOG) {
+      if (recipe.nutritionConfidence === 'low' || recipe.nutritionConfidence === 'unavailable') {
+        expect(recipe.energyKcalPerServing).toBeNull();
+      }
     }
   });
 

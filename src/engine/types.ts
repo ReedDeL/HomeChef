@@ -5,6 +5,7 @@
  * The data layer converts into these types (src/lib/adapters/) and the engine
  * never learns where a recipe came from — the bundled catalog or a live Spoonacular result.
  */
+import type { NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
 
 /**
  * Canonical ingredient identifier from src/data/ingredients.json.
@@ -82,6 +83,10 @@ export interface Recipe {
   dietaryTags: DietaryTag[];
   ingredients: RecipeIngredient[];
   instructions: string;
+  baseServings: number | null;
+  energyKcalPerServing: number | null;
+  nutritionProvenance: NutritionProvenance | null;
+  nutritionConfidence: NutritionConfidence;
   /**
    * Which source supplied this recipe. The engine ignores it entirely; it exists
    * so the persistence layer can enforce the Spoonacular field whitelist and
@@ -101,6 +106,14 @@ export interface UserPreferences {
   skippedRecipeIds: Set<string>;
   /** Soft preference; the first thing dropped during relaxation after time. */
   preferredCuisine: string | null;
+}
+
+export interface DailyPlanPreference {
+  /** ISO local calendar date supplied by the caller. */
+  date: string;
+  selectedLimit: Minutes;
+  /** Local wall-clock time with seconds and a numeric UTC offset. */
+  mealTime: string;
 }
 
 export type Bucket = 'ready' | 'missing_few' | 'missing_some' | 'grocery_run';
@@ -128,5 +141,10 @@ export type Relaxation =
 
 export interface DecisionResult {
   buckets: Record<Bucket, ScoredRecipe[]>;
+  appliedRelaxations: Relaxation[];
+}
+
+export interface VisibleDecision {
+  buckets: Partial<Record<Bucket, ScoredRecipe[]>>;
   appliedRelaxations: Relaxation[];
 }

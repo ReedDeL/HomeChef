@@ -16,50 +16,76 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from tools.catalog.build import build_vocabulary, to_catalog_recipe
+from tools.catalog.build import build_vocabulary, load_catalog_recipes, to_catalog_recipe
 from tools.catalog.fetch import fetch_all_meals
 from tools.catalog.models import CatalogRecipe
+from tools.catalog.nutrition import (
+    enrich_recipes,
+    load_usda_cache,
+    refresh_usda_cache,
+)
 from tools.catalog.seed_loader import load_seed_recipes, merge_seed
 
 logger = logging.getLogger("catalog")
 
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "src" / "data"
+CATALOG_PATH = OUTPUT_DIR / "recipes.json"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build the HomeChef bundled catalog.")
     parser.add_argument("--limit", type=int, default=None, help="stop after N recipes")
     parser.add_argument(
+        "--refresh-mealdb",
+        action="store_true",
+        help="explicitly refresh the owned catalog from TheMealDB",
+    )
+    usda_group = parser.add_mutually_exclusive_group()
+    usda_group.add_argument(
+        "--usda-cache",
+        type=Path,
+        help="enrich from a checksum-verified USDA cache without network access",
+    )
+    usda_group.add_argument(
+        "--refresh-usda-cache",
+        type=Path,
+        help="explicitly refresh USDA data using USDA_FDC_API_KEY",
+    )
+    parser.add_argument(
         "--output-dir", type=Path, default=OUTPUT_DIR, help="where to write the JSON files"
     )
     args = parser.parse_args(argv)
+    if args.limit is not None and not args.refresh_mealdb:
+        parser.error("--limit requires --refresh-mealdb")
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    raw_meals = fetch_all_meals(limit=args.limit)
-    logger.info("fetched %d meals", len(raw_meals))
-
-    recipes: list[CatalogRecipe] = []
-    skipped = 0
-    for raw in raw_meals:
-        try:
-            recipes.append(to_catalog_recipe(raw))
-        except ValidationError:
-            # One bad record must not fail a 300-recipe build.
-            skipped += 1
-            logger.warning("skipping malformed meal %s", raw.get("idMeal", "<unknown>"))
+    if args.refresh_mealdb:
+        recipes, skipped = _refresh_mealdb(args.limit)
+        seed = load_seed_recipes()
+        recipes = merge_seed(recipes, seed)
+        logger.info("merged %d hand-curated seed recipes", len(seed))
+    else:
+        recipes = load_catalog_recipes(CATALOG_PATH)
+        skipped = 0
+        logger.info("loaded %d recipes from committed catalog", len(recipes))
 
     if not recipes:
         logger.error("no recipes produced; refusing to write an empty catalog")
         return 1
 
-    # Merged before build_vocabulary so seed ingredients reach the vocabulary.
-    # A seed id that is not already in the TheMealDB-derived vocabulary would
-    # otherwise be unreachable from the pantry forever -- the test suite pins
-    # seed ids to existing vocabulary entries to keep that from happening.
-    seed = load_seed_recipes()
-    recipes = merge_seed(recipes, seed)
-    logger.info("merged %d hand-curated seed recipes", len(seed))
+    try:
+        if args.refresh_usda_cache is not None:
+            ingredient_ids = sorted(
+                {ingredient.id for recipe in recipes for ingredient in recipe.ingredients}
+            )
+            cache = refresh_usda_cache(args.refresh_usda_cache, ingredient_ids)
+            recipes = enrich_recipes(recipes, cache)
+        elif args.usda_cache is not None:
+            recipes = enrich_recipes(recipes, load_usda_cache(args.usda_cache))
+    except (OSError, ValueError, ValidationError) as error:
+        logger.error("USDA nutrition enrichment failed: %s", error)
+        return 1
 
     vocabulary = build_vocabulary(recipes)
 
@@ -74,9 +100,28 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _refresh_mealdb(limit: int | None) -> tuple[list[CatalogRecipe], int]:
+    raw_meals = fetch_all_meals(limit=limit)
+    logger.info("fetched %d meals", len(raw_meals))
+
+    recipes: list[CatalogRecipe] = []
+    skipped = 0
+    for raw in raw_meals:
+        try:
+            recipes.append(to_catalog_recipe(raw))
+        except ValidationError:
+            # One bad record must not fail a 300-recipe build.
+            skipped += 1
+            logger.warning("skipping malformed meal %s", raw.get("idMeal", "<unknown>"))
+    return recipes, skipped
+
+
 def _write(path: Path, payload: object) -> None:
     # sort_keys and a trailing newline keep the committed diff readable.
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     logger.info("wrote %s", path)
 
 

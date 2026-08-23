@@ -84,6 +84,8 @@ class SeedRecipe(BaseModel):
                 for item in self.ingredients
             ],
             instructions=self.instructions,
+            # Each curated entry describes one complete single-meal preparation.
+            base_servings=1,
         )
 
 

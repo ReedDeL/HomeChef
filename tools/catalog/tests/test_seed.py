@@ -43,6 +43,9 @@ class TestSeedLoads:
         # of the definition. The engine needs no new case for them.
         assert all(recipe.source == "bundled" for recipe in seed)
 
+    def test_single_meal_seed_uses_one_base_serving(self, seed: list[CatalogRecipe]) -> None:
+        assert all(recipe.base_servings == 1 for recipe in seed)
+
     def test_ids_are_unique(self, seed: list[CatalogRecipe]) -> None:
         ids = [recipe.id for recipe in seed]
         assert len(set(ids)) == len(ids)

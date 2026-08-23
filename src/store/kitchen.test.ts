@@ -101,6 +101,10 @@ describe('COMMON_ALLERGENS', () => {
         },
       ],
       instructions: 'Melt it.',
+      baseServings: null,
+      energyKcalPerServing: null,
+      nutritionProvenance: null,
+      nutritionConfidence: 'unavailable',
       source: 'bundled',
     };
 
