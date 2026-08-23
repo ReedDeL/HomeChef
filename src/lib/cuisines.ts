@@ -1,4 +1,4 @@
-import { OFFLINE_TRANSITIONAL_CATALOG } from '@/data/catalog';
+import { BUNDLED_CATALOG } from '@/data/catalog';
 
 export interface CuisineOption {
   /** The catalog's own value — what the engine matches against. */
@@ -10,9 +10,9 @@ export interface CuisineOption {
 /**
  * The cuisine shortlist offered on the home screen.
  *
- * Curated rather than derived, because the transitional catalog's values are
- * not a clean vocabulary: it mixes adjectives with country names ("british"
- * beside "france" and "netherlands"), and many recipes carry no cuisine.
+ * Curated rather than derived, because the catalog's values are not a clean
+ * vocabulary: TheMealDB mixes adjectives with country names ("british" beside
+ * "france" and "netherlands"), and 209 recipes carry no cuisine at all.
  * Rendering the raw set would put "Norway" and "Netherlands" in front of a
  * user as though they were cuisines.
  *
@@ -37,5 +37,5 @@ const CANDIDATES: readonly CuisineOption[] = [
  * silently returns nothing.
  */
 export const CUISINE_OPTIONS: readonly CuisineOption[] = CANDIDATES.filter((option) =>
-  OFFLINE_TRANSITIONAL_CATALOG.some((recipe) => recipe.cuisine === option.value)
+  BUNDLED_CATALOG.some((recipe) => recipe.cuisine === option.value)
 );

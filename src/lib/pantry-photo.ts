@@ -1,4 +1,5 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 
 import {
   MAX_PHOTOS,
@@ -63,6 +64,39 @@ export async function compressForUpload(uri: string): Promise<string> {
 }
 
 /**
+ * Translate a failed invoke into the message the scan screen shows. Status
+ * codes the Edge Function emits deliberately (401, 429) get words that tell
+ * the user what to do; everything else stays generic so upstream bodies —
+ * which can carry infrastructure detail — never reach the screen.
+ */
+async function toPantryPhotoError(error: unknown): Promise<PantryPhotoError> {
+  if (error instanceof FunctionsHttpError) {
+    // `context` is the raw Response of the failed call.
+    const response: unknown = error.context;
+    const status = (response as { status?: number } | null)?.status;
+    if (status === 401) return new PantryPhotoError('Sign in to scan your pantry.');
+    if (status === 429) {
+      return new PantryPhotoError('Daily photo limit reached. Try again tomorrow.');
+    }
+
+    try {
+      const body: unknown = await (response as Response).json();
+      if (
+        body !== null &&
+        typeof body === 'object' &&
+        'error' in body &&
+        typeof (body as { error: unknown }).error === 'string'
+      ) {
+        return new PantryPhotoError((body as { error: string }).error);
+      }
+    } catch {
+      // Not JSON — fall through to the generic message below.
+    }
+  }
+  return new PantryPhotoError('Could not scan photos right now.');
+}
+
+/**
  * Send photos for recognition and return candidates ready for confirmation.
  *
  * Throws rather than returning an empty list on failure: an empty fridge and a
@@ -82,7 +116,7 @@ export async function analyzePantryPhotos(uris: readonly string[]): Promise<Pant
     { body: { images, mimeType: 'image/jpeg' } }
   );
 
-  if (error) throw new PantryPhotoError(error.message);
+  if (error) throw await toPantryPhotoError(error);
   if (!data || !Array.isArray(data.items)) {
     throw new PantryPhotoError('Photo recognition returned an unexpected response.');
   }

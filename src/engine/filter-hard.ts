@@ -1,6 +1,6 @@
 /**
  * Hard constraints. These eliminate; they are never relaxed, not at the last
- * rung of the ladder, not ever (docs/01_TECHNICAL_SPEC.md:478).
+ * rung of the ladder, not ever (Technical Spec §4.3).
  *
  * An allergen leak is a safety incident, and recommending a braise to a
  * microwave-only user destroys trust on the first use the whole product rests

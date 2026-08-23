@@ -2,16 +2,18 @@
  * Inventory data access.
  *
  * Column lists are explicit everywhere -- never `select *`. A generated column
- * or a new field should not silently widen what the client pulls over the wire.
+ * or a new field should not silently widen what the client pulls over the wire,
+ * and an explicit list is what makes the Spoonacular field whitelist greppable
+ * when Spoonacular support lands.
  */
-import { getSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { InventoryRow, InventorySource } from '@/types/database';
 
 const INVENTORY_COLUMNS =
   'id, household_id, ingredient_id, quantity, unit, purchased_on, source, added_by, updated_at';
 
 export async function fetchInventory(householdId: string): Promise<InventoryRow[]> {
-  const { data, error } = await getSupabase()
+  const { data, error } = await supabase
     .from('inventory')
     .select(INVENTORY_COLUMNS)
     .eq('household_id', householdId)
@@ -37,19 +39,17 @@ export interface AddInventoryItem {
  * second row.
  */
 export async function upsertInventoryItem(item: AddInventoryItem): Promise<void> {
-  const { error } = await getSupabase()
-    .from('inventory')
-    .upsert(
-      {
-        household_id: item.householdId,
-        ingredient_id: item.ingredientId,
-        quantity: item.quantity ?? 1,
-        unit: item.unit ?? null,
-        source: item.source ?? 'manual',
-        added_by: item.addedBy ?? null,
-      },
-      { onConflict: 'household_id,ingredient_id' }
-    );
+  const { error } = await supabase.from('inventory').upsert(
+    {
+      household_id: item.householdId,
+      ingredient_id: item.ingredientId,
+      quantity: item.quantity ?? 1,
+      unit: item.unit ?? null,
+      source: item.source ?? 'manual',
+      added_by: item.addedBy ?? null,
+    },
+    { onConflict: 'household_id,ingredient_id' }
+  );
 
   if (error) throw error;
 }
@@ -63,7 +63,7 @@ export async function removeInventoryItem(
   householdId: string,
   ingredientId: string
 ): Promise<void> {
-  const { error } = await getSupabase()
+  const { error } = await supabase
     .from('inventory')
     .delete()
     .eq('household_id', householdId)

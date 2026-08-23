@@ -1,21 +1,46 @@
 ---
 name: homechef-ui
-description: Use for HomeChef app screens, components, tokens, accessibility, TanStack Query, Zustand, and hosted-plus-offline catalog presentation.
+description: Use when building screens, expo-router routes, components, theme styling, design tokens, accessibility, TanStack Query hooks, or Zustand stores in app/ and src/. Covers the token rule, a11y requirements, state-management split, and the never-empty-results rule.
 ---
 
-# HomeChef UI layer
+# UI layer (app/, src/components/, src/theme/, src/store/, src/lib/queries/)
 
-Read `docs/04_UIUX_SPEC.md`, `src/theme/tokens.ts`, and nearby components.
-Use no hardcoded colors or spacing; every interactive element needs accessible
-role, label, and state. TanStack Query owns server state and Zustand owns
-client-only state.
+## Read first
 
-Render offline catalog results immediately, merge bounded hosted candidates by
-stable HomeChef ID, and retain offline results silently on hosted failure. The
-pure engine performs the final hard-constraint check. Equipment, allergens, and
-dietary restrictions never relax; unknown status excludes. Show at most 3-4
-answers per bucket and never create an empty results screen. Attribution comes
-from active catalog data while transitional attribution remains present.
+- `docs/04_UIUX_SPEC.md` — screens, tokens, interaction rules
+- `src/theme/tokens.ts` — the only source of colors, spacing, type sizes
 
-Verify with targeted tests, `npm run lint && npm run typecheck`, and `npm run
-check` before handoff.
+## Rules
+
+**No hardcoded colors or spacing.** Everything comes from
+`src/theme/tokens.ts` via `useTheme`. A literal `#hex` or raw pixel padding is
+a review failure.
+
+**Accessibility props on every interactive element** — CI enforces this.
+Roles, labels, states; no bare `Pressable` without an accessible name.
+
+**Exports:** named exports everywhere, except expo-router route files in
+`app/`, which must default-export.
+
+**State split:** TanStack Query owns server state (`src/lib/queries/`, with
+query keys from `keys.ts`). Zustand owns client-only state
+(`src/store/kitchen.ts`). Never mirror server data into Zustand.
+
+**Never show an empty results screen.** Relaxation is a code path with tests,
+and every soft-constraint relaxation is stated aloud in the UI using the
+`Relaxation` data the engine returns — never silently applied.
+
+**Vocabulary in code and copy:** pantry, catalog, bucket, equipment tier,
+household, drift. Synonyms are review comments.
+
+**Spoonacular content stays session-scoped:** only `id`/`title`/`imageUrl`
+may be cached or persisted; ingredients/instructions render from memory and
+are discarded.
+
+## Verify
+
+```sh
+npm run lint && npm run typecheck
+npx vitest run src/components src/store src/theme   # targeted loop
+npm run check                                       # before handoff
+```

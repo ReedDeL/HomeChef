@@ -1,15 +1,23 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Header } from '@/components/ui/Header';
+import {
+  clearMealPrepReminders,
+  requestMealPrepReminderPermission,
+} from '@/lib/meal-prep-notifications';
+import {
+  MEAL_PREP_REMINDER_LEAD_MINUTES,
+  type MealPrepReminderLeadMinutes,
+} from '@/lib/meal-prep-reminder';
+import { trackSettingsUpdated } from '@/lib/analytics';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { Text } from '@/components/ui/Text';
-import { isHttpsUrl, mergeAttributions, type CatalogAttribution } from '@/lib/catalog';
-import { useCatalogAttributions } from '@/lib/queries/catalog';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
@@ -19,6 +27,14 @@ import {
   type ThemeMode,
 } from '@/store/kitchen';
 import { space } from '@/theme/tokens';
+
+const REMINDER_LEAD_LABELS: Record<MealPrepReminderLeadMinutes, string> = {
+  0: 'At cook time',
+  10: '10 min early',
+  15: '15 min early',
+  30: '30 min early',
+  60: '60 min early',
+};
 
 const THEME_OPTIONS: readonly {
   id: ThemeMode;
@@ -46,13 +62,6 @@ const THEME_OPTIONS: readonly {
   },
 ];
 
-const TRANSITIONAL_ATTRIBUTION: CatalogAttribution = {
-  sourceId: 'transitional-catalog',
-  sourceVersion: 'legacy-bundle',
-  attribution: 'Transitional bundled catalog data from TheMealDB',
-  url: 'https://www.themealdb.com/',
-};
-
 /**
  * Settings Screen / Window.
  *
@@ -76,16 +85,85 @@ export default function SettingsScreen() {
   const toggleAllergen = useKitchenStore((state) => state.toggleAllergen);
   const toggleDietary = useKitchenStore((state) => state.toggleDietary);
 
+  const mealPrepRemindersEnabled = useKitchenStore((state) => state.mealPrepRemindersEnabled);
+  const mealPrepReminderLeadMinutes = useKitchenStore((state) => state.mealPrepReminderLeadMinutes);
+  const setMealPrepRemindersEnabled = useKitchenStore((state) => state.setMealPrepRemindersEnabled);
+  const setMealPrepReminderLeadMinutes = useKitchenStore(
+    (state) => state.setMealPrepReminderLeadMinutes
+  );
+
   const reset = useKitchenStore((state) => state.reset);
   const [resetConfirming, setResetConfirming] = useState(false);
-  const hostedAttributions = useCatalogAttributions();
-  const attributions = mergeAttributions(hostedAttributions.data ?? [], [TRANSITIONAL_ATTRIBUTION]);
+
+  const updateTheme = (value: ThemeMode) => {
+    setThemeMode(value);
+    trackSettingsUpdated({ setting: 'theme', value });
+  };
+
+  const updateTier = (value: string) => {
+    setTier(value);
+    trackSettingsUpdated({ setting: 'equipment_tier', value });
+  };
+
+  const updateExtra = (value: (typeof extras)[number]) => {
+    toggleExtra(value);
+    trackSettingsUpdated({ setting: 'extra_appliance', value });
+  };
+
+  const updateAllergen = (value: string) => {
+    const enabled = !allergens.includes(value);
+    toggleAllergen(value);
+    trackSettingsUpdated({ setting: 'allergen_filter_enabled', value: enabled });
+  };
+
+  const updateDietary = (value: (typeof dietary)[number]) => {
+    const enabled = !dietary.includes(value);
+    toggleDietary(value);
+    trackSettingsUpdated({ setting: 'dietary_filter_enabled', value: enabled });
+  };
+
+  const clearReminders = () => {
+    clearMealPrepReminders().catch((error: unknown) => {
+      console.warn('[notifications] Unable to clear meal-prep reminders', error);
+    });
+  };
+
+  const confirmReset = () => {
+    clearReminders();
+    trackSettingsUpdated({ setting: 'reset', value: 'confirmed' });
+    reset();
+    router.replace('/(onboarding)/equipment');
+  };
+
+  const handleReminderToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      setMealPrepRemindersEnabled(false);
+      clearReminders();
+      return;
+    }
+
+    try {
+      const granted = await requestMealPrepReminderPermission();
+      if (granted) {
+        setMealPrepRemindersEnabled(true);
+        return;
+      }
+    } catch (error: unknown) {
+      console.warn('[notifications] Unable to request permission', error);
+    }
+
+    setMealPrepRemindersEnabled(false);
+    clearReminders();
+    Alert.alert(
+      'Reminders are off',
+      'You can enable notifications for HomeChef in your device settings.'
+    );
+  };
 
   const handleReset = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Reset all pantry items and onboarding preferences?')) {
-        reset();
-        router.replace('/(onboarding)/equipment');
+        confirmReset();
       }
     } else {
       Alert.alert(
@@ -96,31 +174,23 @@ export default function SettingsScreen() {
           {
             text: 'Reset All',
             style: 'destructive',
-            onPress: () => {
-              reset();
-              router.replace('/(onboarding)/equipment');
-            },
+            onPress: confirmReset,
           },
         ]
       );
     }
   };
 
-  return (
-    <Screen>
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        accessibilityHint="Returns to the previous screen"
-        onPress={() => router.back()}
-        style={styles.backRow}
-      >
-        <Text variant="heading" tone="accent">
-          ‹ Back
-        </Text>
-      </Pressable>
+  // Required by TheMealDB's paid terms: "You can use our custom artwork in your
+  // projects but must mention us as the source of the data", and artwork
+  // "should link back to our website where appropriate". They supply 792 of the
+  // 812 bundled recipes and every recipe image, so this credit is not optional.
+  const openMealDb = () => {
+    Linking.openURL('https://www.themealdb.com');
+  };
 
+  return (
+    <Screen header={<Header backLabel="Back" fallbackHref="/" />}>
       <View style={styles.header}>
         <Text variant="display">Settings</Text>
         <Text variant="body" tone="muted">
@@ -139,6 +209,7 @@ export default function SettingsScreen() {
           style={styles.group}
           accessibilityRole="radiogroup"
           accessibilityLabel="Appearance theme options"
+          accessibilityHint="Choose light, dark, or follow your system setting"
         >
           {THEME_OPTIONS.map((opt) => (
             <SelectableCard
@@ -146,7 +217,7 @@ export default function SettingsScreen() {
               title={`${opt.icon}  ${opt.label}`}
               subtitle={opt.subtitle}
               selected={themeMode === opt.id}
-              onPress={() => setThemeMode(opt.id)}
+              onPress={() => updateTheme(opt.id)}
               accessibilityHint={`Switches app appearance to ${opt.label}`}
             />
           ))}
@@ -164,6 +235,7 @@ export default function SettingsScreen() {
           style={styles.group}
           accessibilityRole="radiogroup"
           accessibilityLabel="Kitchen equipment tier"
+          accessibilityHint="Choose the appliances you can cook with"
         >
           {EQUIPMENT_TIERS.map((tier) => (
             <SelectableCard
@@ -171,7 +243,7 @@ export default function SettingsScreen() {
               title={tier.label}
               subtitle={tier.subtitle}
               selected={tier.id === tierId}
-              onPress={() => setTier(tier.id)}
+              onPress={() => updateTier(tier.id)}
               accessibilityHint="Sets your primary kitchen setup"
             />
           ))}
@@ -184,7 +256,7 @@ export default function SettingsScreen() {
               key={appliance.id}
               label={appliance.label}
               selected={extras.includes(appliance.id)}
-              onPress={() => toggleExtra(appliance.id)}
+              onPress={() => updateExtra(appliance.id)}
               accessibilityLabel={appliance.label}
               accessibilityHint="Toggles this appliance in your kitchen"
             />
@@ -206,7 +278,7 @@ export default function SettingsScreen() {
               key={allergen.id}
               label={allergen.label}
               selected={allergens.includes(allergen.id)}
-              onPress={() => toggleAllergen(allergen.id)}
+              onPress={() => updateAllergen(allergen.id)}
               accessibilityLabel={allergen.label}
               accessibilityHint="Recipes containing this are excluded"
             />
@@ -220,12 +292,54 @@ export default function SettingsScreen() {
               key={preset.id}
               label={preset.label}
               selected={dietary.includes(preset.id)}
-              onPress={() => toggleDietary(preset.id)}
+              onPress={() => updateDietary(preset.id)}
               accessibilityLabel={preset.label}
               accessibilityHint="Filters recipes for this diet"
             />
           ))}
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="heading">Meal-prep reminders</Text>
+        <Text variant="caption" tone="muted">
+          Get a reminder when a future weekly meal-prep plan needs you to start cooking.
+        </Text>
+        <View style={styles.reminderToggle}>
+          <Text variant="bodyStrong">Start-cooking reminders</Text>
+          <Switch
+            accessible
+            accessibilityRole="switch"
+            accessibilityLabel="Meal-prep reminders"
+            accessibilityHint="Turns reminders on only for future weekly meal-prep plans"
+            accessibilityState={{ checked: mealPrepRemindersEnabled }}
+            value={mealPrepRemindersEnabled}
+            onValueChange={handleReminderToggle}
+          />
+        </View>
+
+        {mealPrepRemindersEnabled ? (
+          <View
+            style={styles.group}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="How early should meal-prep reminders arrive"
+            accessibilityHint="Choose when meal-prep reminders arrive before cooking"
+          >
+            <Text variant="bodyStrong">Remind me</Text>
+            <View style={styles.chipRow}>
+              {MEAL_PREP_REMINDER_LEAD_MINUTES.map((minutes) => (
+                <Chip
+                  key={minutes}
+                  label={REMINDER_LEAD_LABELS[minutes]}
+                  selected={mealPrepReminderLeadMinutes === minutes}
+                  onPress={() => setMealPrepReminderLeadMinutes(minutes)}
+                  accessibilityLabel={REMINDER_LEAD_LABELS[minutes]}
+                  accessibilityHint="Sets how early meal-prep reminders arrive"
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {/* Attribution & About Section */}
@@ -236,33 +350,18 @@ export default function SettingsScreen() {
           <Text variant="caption" tone="muted">
             Photo-based meal decision engine. Version 0.1.0
           </Text>
-          {attributions.map((attribution) =>
-            attribution.url ? (
-              <Pressable
-                key={`${attribution.sourceId}-${attribution.sourceVersion}`}
-                accessible
-                accessibilityRole="link"
-                accessibilityLabel={`${attribution.attribution}, ${attribution.sourceVersion}`}
-                accessibilityHint="Opens this catalog source in your browser"
-                onPress={() => {
-                  if (isHttpsUrl(attribution.url)) void Linking.openURL(attribution.url);
-                }}
-                style={styles.attributionLink}
-              >
-                <Text variant="caption" tone="accent">
-                  {attribution.attribution} ↗
-                </Text>
-              </Pressable>
-            ) : (
-              <Text
-                key={`${attribution.sourceId}-${attribution.sourceVersion}`}
-                variant="caption"
-                tone="muted"
-              >
-                {attribution.attribution}
-              </Text>
-            )
-          )}
+          <Pressable
+            accessible
+            accessibilityRole="link"
+            accessibilityLabel="Recipe data and images from TheMealDB"
+            accessibilityHint="Opens TheMealDB website in browser"
+            onPress={openMealDb}
+            style={styles.attributionLink}
+          >
+            <Text variant="caption" tone="accent">
+              Recipe data & images from TheMealDB ↗
+            </Text>
+          </Pressable>
         </Card>
       </View>
 
@@ -300,11 +399,11 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  backRow: { minHeight: 44, justifyContent: 'center' },
   header: { gap: space.xs },
   section: { gap: space.sm, marginTop: space.sm },
   group: { gap: space.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  reminderToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   attributionLink: { minHeight: 32, justifyContent: 'center', marginTop: space.xs },
   confirmRow: { gap: space.sm },
 });

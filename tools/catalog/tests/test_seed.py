@@ -38,16 +38,21 @@ class TestSeedLoads:
     def test_parses_and_validates(self, seed: list[CatalogRecipe]) -> None:
         assert len(seed) == EXPECTED_SEED_COUNT
 
-    def test_every_recipe_retains_homechef_authored_provenance(
-        self, seed: list[CatalogRecipe]
-    ) -> None:
-        assert all(recipe.provenance[0].source_id == "homechef-authored" for recipe in seed)
+    def test_every_recipe_is_marked_bundled(self, seed: list[CatalogRecipe]) -> None:
+        # These are bundled, offline and owned, so the source label is explicit.
+        # of the definition. The engine needs no new case for them.
+        assert all(recipe.source == "bundled" for recipe in seed)
+
+    def test_single_meal_seed_uses_one_base_serving(self, seed: list[CatalogRecipe]) -> None:
+        assert all(recipe.base_servings == 1 for recipe in seed)
 
     def test_ids_are_unique(self, seed: list[CatalogRecipe]) -> None:
         ids = [recipe.id for recipe in seed]
         assert len(set(ids)) == len(ids)
 
-    def test_ids_are_homechef_identifiers(self, seed: list[CatalogRecipe]) -> None:
+    def test_ids_cannot_collide_with_themealdb(self, seed: list[CatalogRecipe]) -> None:
+        # TheMealDB ids are bare digits. The hc-mw- prefix makes a collision
+        # impossible by construction and the provenance greppable.
         assert all(recipe.id.startswith("hc-mw-") for recipe in seed)
         assert not any(recipe.id.isdigit() for recipe in seed)
 
@@ -183,16 +188,13 @@ class TestSeedSafety:
         planted = CatalogRecipe(
             id="hc-mw-planted",
             title="Bad Idea",
-            imageUrl=None,
+            image_url=None,
             cuisine=None,
-            totalTimeMinutes=5,
-            equipmentRequired=["microwave"],
-            allergenStatus="verified",
-            dietaryStatus="verified",
-            dietaryTags=[],
-            ingredients=[CatalogIngredient(id="egg", rawMeasure="2")],
+            total_time_minutes=5,
+            equipment_required=["microwave"],
+            dietary_tags=[],
+            ingredients=[CatalogIngredient(id="egg", measure="2")],
             instructions="Place the egg in its shell on a plate and heat for 3 minutes.",
-            provenance=[],
         )
         haystack = self._directive_text(planted)
         assert any(banned in haystack for banned in self.BANNED)

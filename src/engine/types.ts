@@ -3,8 +3,9 @@
  *
  * Everything here is plain data. No Supabase row types, no React, no promises.
  * The data layer converts into these types (src/lib/adapters/) and the engine
- * never learns where a recipe came from — only validated plain catalog data.
+ * never learns where a recipe came from — the bundled catalog or a live Spoonacular result.
  */
+import type { NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
 
 /**
  * Canonical ingredient identifier from src/data/ingredients.json.
@@ -18,7 +19,7 @@ export type IngredientId = string;
 export type Minutes = number;
 
 /**
- * Closed equipment enumeration (docs/01_TECHNICAL_SPEC.md:534).
+ * Closed equipment enumeration (Technical Spec §5.2 step 4).
  *
  * Closed is what makes the equipment filter a set operation instead of a
  * string-matching problem. snake_case is canonical; the catalog pipeline emits
@@ -82,6 +83,16 @@ export interface Recipe {
   dietaryTags: DietaryTag[];
   ingredients: RecipeIngredient[];
   instructions: string;
+  baseServings: number | null;
+  energyKcalPerServing: number | null;
+  nutritionProvenance: NutritionProvenance | null;
+  nutritionConfidence: NutritionConfidence;
+  /**
+   * Which source supplied this recipe. The engine ignores it entirely; it exists
+   * so the persistence layer can enforce the Spoonacular field whitelist and
+   * the UI can render attribution.
+   */
+  source: 'bundled' | 'spoonacular';
 }
 
 export interface UserPreferences {
@@ -95,6 +106,14 @@ export interface UserPreferences {
   skippedRecipeIds: Set<string>;
   /** Soft preference; the first thing dropped during relaxation after time. */
   preferredCuisine: string | null;
+}
+
+export interface DailyPlanPreference {
+  /** ISO local calendar date supplied by the caller. */
+  date: string;
+  selectedLimit: Minutes;
+  /** Local wall-clock time with seconds and a numeric UTC offset. */
+  mealTime: string;
 }
 
 export type Bucket = 'ready' | 'missing_few' | 'missing_some' | 'grocery_run';
@@ -111,13 +130,21 @@ export interface ScoredRecipe {
  * Every one of these is stated out loud in the UI — silent filter changes are
  * how an app teaches a user not to trust it.
  *
+ * `spoonacular_expansion` is the one exception: it adds options without removing
+ * constraints, so there is nothing to disclose (Technical Spec §4.3).
  */
 export type Relaxation =
   | { kind: 'time_widened'; from: Minutes; to: Minutes }
   | { kind: 'cuisine_dropped'; cuisine: string }
+  | { kind: 'spoonacular_expansion' }
   | { kind: 'bucket_promoted'; bucket: Bucket };
 
 export interface DecisionResult {
   buckets: Record<Bucket, ScoredRecipe[]>;
+  appliedRelaxations: Relaxation[];
+}
+
+export interface VisibleDecision {
+  buckets: Partial<Record<Bucket, ScoredRecipe[]>>;
   appliedRelaxations: Relaxation[];
 }

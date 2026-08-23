@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { STAPLE_INGREDIENT_IDS, lookupIngredient } from '@/data/catalog';
 import type { DietaryTag, Equipment, IngredientId, UserPreferences } from '@/engine/types';
+import type { MealPrepReminderLeadMinutes } from '@/lib/meal-prep-reminder';
 import { getJSON, setJSON, storage } from '@/lib/storage';
 
 /**
@@ -12,9 +13,9 @@ import { getJSON, setJSON, storage } from '@/lib/storage';
  * engine is synchronous and the bundled catalog ships inside the app, so the
  * entire product works with no account and no network — which is what lets the
  * first result appear in under ten seconds instead of behind a signup form.
- * `src/lib/queries/` and `src/hooks/useHomeChefData.ts` already implement the
- * server-backed equivalents; wiring them in is a swap at this seam, not a
- * rewrite, and is blocked only on auth being enabled for the project.
+ * `src/lib/queries/` already implements the server-backed data access; wiring
+ * it in is a swap at this seam, not a rewrite, and is blocked only on auth
+ * being enabled for the project.
  *
  * Server state, when it arrives, belongs in TanStack Query — never here.
  */
@@ -26,7 +27,7 @@ export interface EquipmentTier {
   equipment: readonly Equipment[];
 }
 
-/** Spec §3.1: three tiers, single-select, subtitle does the explaining. */
+/** Spec §3: three tiers, single-select, subtitle does the explaining. */
 export const EQUIPMENT_TIERS: readonly EquipmentTier[] = [
   {
     id: 'microwave',
@@ -48,7 +49,7 @@ export const EQUIPMENT_TIERS: readonly EquipmentTier[] = [
   },
 ];
 
-/** Spec §3.1: multi-select appliances, added on top of the tier. */
+/** Spec §3: multi-select appliances, added on top of the tier. */
 export const EXTRA_APPLIANCES: readonly { id: Equipment; label: string }[] = [
   { id: 'air_fryer', label: 'Air fryer' },
   { id: 'rice_cooker', label: 'Rice cooker' },
@@ -131,6 +132,8 @@ interface KitchenState {
   pantry: IngredientId[];
   onboardingDone: boolean;
   themeMode: ThemeMode;
+  mealPrepRemindersEnabled: boolean;
+  mealPrepReminderLeadMinutes: MealPrepReminderLeadMinutes;
 
   setTier: (tierId: string) => void;
   toggleExtra: (equipment: Equipment) => void;
@@ -142,6 +145,8 @@ interface KitchenState {
   addPantryItems: (ids: readonly IngredientId[]) => void;
   completeOnboarding: () => void;
   setThemeMode: (mode: ThemeMode) => void;
+  setMealPrepRemindersEnabled: (enabled: boolean) => void;
+  setMealPrepReminderLeadMinutes: (minutes: MealPrepReminderLeadMinutes) => void;
   reset: () => void;
 }
 
@@ -169,10 +174,12 @@ export const useKitchenStore = create<KitchenState>()(
       extras: [],
       allergens: [],
       dietary: [],
-      // Spec §3.3: "We assumed you have these. Tap any you don't."
+      // Spec §10: "We assumed you have these. Tap any you don't."
       pantry: [...STAPLE_INGREDIENT_IDS],
       onboardingDone: false,
       themeMode: 'system',
+      mealPrepRemindersEnabled: false,
+      mealPrepReminderLeadMinutes: 0,
 
       setTier: (tierId) => set({ tierId }),
       toggleExtra: (equipment) => set((s) => ({ extras: toggle(s.extras, equipment) })),
@@ -186,6 +193,9 @@ export const useKitchenStore = create<KitchenState>()(
       addPantryItems: (ids) => set((s) => ({ pantry: [...new Set([...s.pantry, ...ids])] })),
       completeOnboarding: () => set({ onboardingDone: true }),
       setThemeMode: (themeMode) => set({ themeMode }),
+      setMealPrepRemindersEnabled: (mealPrepRemindersEnabled) => set({ mealPrepRemindersEnabled }),
+      setMealPrepReminderLeadMinutes: (mealPrepReminderLeadMinutes) =>
+        set({ mealPrepReminderLeadMinutes }),
       reset: () =>
         set({
           tierId: DEFAULT_TIER_ID,
@@ -195,6 +205,8 @@ export const useKitchenStore = create<KitchenState>()(
           pantry: [...STAPLE_INGREDIENT_IDS],
           onboardingDone: false,
           themeMode: 'system',
+          mealPrepRemindersEnabled: false,
+          mealPrepReminderLeadMinutes: 0,
         }),
     }),
     { name: 'homechef-kitchen', storage: zustandStorage }

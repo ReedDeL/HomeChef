@@ -1,11 +1,13 @@
 {
   "expo": {
     "name": "HomeChef",
+    "version": "0.1.0",
     "slug": "homechef",
     "scheme": "homechef",
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-notifications",
       [
         "expo-image-picker",
         {
@@ -13,7 +15,9 @@
           "cameraPermission": "Allow HomeChef to access your camera to photograph your fridge and pantry.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-localization",
+      "posthog-react-native/expo"
     ],
     "web": {
       "bundler": "metro",

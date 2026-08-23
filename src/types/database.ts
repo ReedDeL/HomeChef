@@ -1,21 +1,20 @@
 /**
  * Row shapes for the tables in supabase/migrations/.
  *
- * These are derived from `supabase-generated.ts`, which is normally emitted by
+ * These are now DERIVED from `supabase-generated.ts`, which is emitted by
  *
  *     npx supabase gen types typescript --linked > src/types/supabase-generated.ts
  *
- * against an authorized target. Remote generation is intentionally outside
- * this task's authority, so the protected-catalog section is a local,
- * generated-style mirror of 0005_protected_catalog.sql. Regenerate it before
- * an authorized deployment. A column added, dropped, or retyped in a migration
- * becomes a compile error here on regeneration rather than a hand-written
+ * against the live project. That file is the source of truth; do not edit it.
+ * A column added, dropped, or retyped in a migration now becomes a compile
+ * error here the moment the types are regenerated, rather than a hand-written
  * interface that quietly lies about what Postgres will return.
  *
- * This file restores the narrow TypeScript domains that CHECK-constrained
- * columns and JSON RPC payloads cannot express in generated types alone.
+ * This file exists on top of it for one reason: two columns are constrained by
+ * a CHECK, not a Postgres enum, so the generator can only see `string`. The
+ * unions below restore the domain the database actually enforces.
  */
-import type { Database, Tables } from '@/types/supabase-generated';
+import type { Tables } from '@/types/supabase-journeys';
 
 /**
  * Narrows a generated `text` column to the union its CHECK constraint permits.
@@ -38,121 +37,47 @@ export type FeedbackVerdict = 'liked' | 'disliked' | 'skipped';
 
 export type MealFeedbackRow = NarrowColumn<Tables<'meal_feedback'>, 'verdict', FeedbackVerdict>;
 
-/** `inventory.source`, per the CHECK in 0001_initial_schema.sql. */
-export type InventorySource = 'manual' | 'photo' | 'staple' | 'shopping_list';
+/** `inventory.source`, tightened by the dual-meal-journeys migration. */
+export type InventorySource = 'manual' | 'photo' | 'staple';
 
 export type InventoryRow = NarrowColumn<Tables<'inventory'>, 'source', InventorySource>;
 
-/** Catalog safety checks deliberately retain an explicit unknown outcome. */
-export type CatalogSafetyStatus = 'verified' | 'unknown';
+export type CalculationSex = 'female' | 'male';
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+export type BodyGoal = 'lose' | 'maintain' | 'gain';
+export type TasteSignalKind = 'photo_selected';
+export type MealJourney = 'now' | 'week';
+export type MealSatietyLevel = 'still_hungry' | 'satisfied' | 'too_full';
+export type WeeklyPlanStatus = 'draft' | 'confirmed';
+export type WeeklyEntryKind = 'recipe' | 'day_of_decision';
+export type WeeklyEntryReason = 'no_safe_recipe' | 'grocery_need_cap';
+export type StatedRelaxation = 'time' | 'cuisine';
+export type ReminderLeadMinutes = 0 | 10 | 15 | 30 | 60;
 
-/** Closed equipment vocabulary for the protected catalog. */
-export type CatalogEquipment =
-  | 'microwave'
-  | 'stove'
-  | 'oven'
-  | 'air_fryer'
-  | 'kettle'
-  | 'blender'
-  | 'rice_cooker'
-  | 'toaster_oven'
-  | 'none'
-  | 'unclassified';
+type BodyProfileChecks = NarrowColumn<Tables<'body_profiles'>, 'calculation_sex', CalculationSex>;
+type BodyProfileActivity = NarrowColumn<BodyProfileChecks, 'activity_level', ActivityLevel>;
+export type BodyProfileRow = NarrowColumn<BodyProfileActivity, 'goal', BodyGoal>;
 
-/** Closed dietary vocabulary for the protected catalog. */
-export type CatalogDietaryTag =
-  | 'vegetarian'
-  | 'vegan'
-  | 'gluten_free'
-  | 'dairy_free'
-  | 'halal'
-  | 'kosher'
-  | 'pescatarian'
-  | 'keto';
+type TasteSignalKindRow = NarrowColumn<Tables<'taste_signals'>, 'kind', TasteSignalKind>;
+export type TasteSignalRow = NarrowColumn<TasteSignalKindRow, 'journey', MealJourney>;
 
-/** `catalog_release_sources.rights_status`, per 0005_protected_catalog.sql. */
-export type CatalogRightsStatus = 'approved' | 'quarantine';
+export type MealSatietyRow = NarrowColumn<Tables<'meal_satiety'>, 'level', MealSatietyLevel>;
+export type OnboardingProgressRow = Tables<'onboarding_progress'>;
 
-export type CatalogReleaseRow = Tables<'catalog_releases'>;
+type WeeklyPlanStatusRow = NarrowColumn<Tables<'weekly_meal_plans'>, 'status', WeeklyPlanStatus>;
+export type WeeklyMealPlanRow = Omit<WeeklyPlanStatusRow, 'stated_relaxations'> & {
+  stated_relaxations: StatedRelaxation[];
+};
 
-export type CatalogReleaseSourceRow = NarrowColumn<
-  Tables<'catalog_release_sources'>,
-  'rights_status',
-  CatalogRightsStatus
+type WeeklyEntryKindRow = NarrowColumn<Tables<'weekly_meal_plan_entries'>, 'kind', WeeklyEntryKind>;
+export type WeeklyMealPlanEntryRow = Omit<WeeklyEntryKindRow, 'reason' | 'stated_relaxations'> & {
+  reason: WeeklyEntryReason | null;
+  stated_relaxations: StatedRelaxation[];
+};
+
+export type PlanLinkedGroceryNeedRow = Tables<'plan_linked_grocery_needs'>;
+export type MealReminderPreferencesRow = NarrowColumn<
+  Tables<'meal_reminder_preferences'>,
+  'lead_minutes',
+  ReminderLeadMinutes
 >;
-
-export type CatalogIngredientRow = NarrowColumn<
-  Tables<'catalog_ingredients'>,
-  'allergen_status',
-  CatalogSafetyStatus
->;
-
-export type CatalogRecipeRow = Omit<
-  Tables<'catalog_recipes'>,
-  'allergen_status' | 'dietary_status' | 'dietary_tags' | 'equipment_required' | 'equipment_status'
-> & {
-  allergen_status: CatalogSafetyStatus;
-  dietary_status: CatalogSafetyStatus;
-  dietary_tags: CatalogDietaryTag[];
-  equipment_required: CatalogEquipment[];
-  equipment_status: CatalogSafetyStatus;
-};
-
-export type CatalogRecipeIngredientRow = Tables<'catalog_recipe_ingredients'>;
-
-export type CatalogRecipeSourceRow = Tables<'catalog_recipe_sources'>;
-
-export interface CatalogIngredientPayload {
-  allergenGroups: string[];
-  allergenStatus: CatalogSafetyStatus;
-  id: string;
-  quantity: number | null;
-  rawMeasure: string;
-  unit: string | null;
-}
-
-export interface CatalogProvenancePayload {
-  archiveSha256: string;
-  sourceId: string;
-  sourceRecipeId: string;
-  sourceVersion: string;
-}
-
-export type CatalogCandidateRpcRow = Omit<
-  Database['public']['Functions']['catalog_candidates']['Returns'][number],
-  | 'allergen_status'
-  | 'dietary_status'
-  | 'dietary_tags'
-  | 'equipment_required'
-  | 'equipment_status'
-  | 'ingredients'
-> & {
-  allergen_status: CatalogSafetyStatus;
-  dietary_status: CatalogSafetyStatus;
-  dietary_tags: CatalogDietaryTag[];
-  equipment_required: CatalogEquipment[];
-  equipment_status: CatalogSafetyStatus;
-  ingredients: CatalogIngredientPayload[];
-};
-
-export type CatalogRecipeDetailRpcRow = Omit<
-  Database['public']['Functions']['catalog_recipe_detail']['Returns'][number],
-  | 'allergen_status'
-  | 'dietary_status'
-  | 'dietary_tags'
-  | 'equipment_required'
-  | 'equipment_status'
-  | 'ingredients'
-  | 'provenance'
-> & {
-  allergen_status: CatalogSafetyStatus;
-  dietary_status: CatalogSafetyStatus;
-  dietary_tags: CatalogDietaryTag[];
-  equipment_required: CatalogEquipment[];
-  equipment_status: CatalogSafetyStatus;
-  ingredients: CatalogIngredientPayload[];
-  provenance: CatalogProvenancePayload[];
-};
-
-export type CatalogAttributionRpcRow =
-  Database['public']['Functions']['catalog_attributions']['Returns'][number];

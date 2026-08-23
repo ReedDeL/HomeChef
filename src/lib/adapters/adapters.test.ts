@@ -135,6 +135,16 @@ describe('toRecipe', () => {
     dietaryTags: ['vegetarian'],
     ingredients: [{ id: 'egg', measure: '2', allergenGroups: ['egg'] }],
     instructions: 'Bake.',
+    source: 'bundled',
+  };
+
+  const nutritionProvenance = {
+    usdaFdcIds: [171287, 173424],
+    cacheChecksum: 'a'.repeat(64),
+    matchMethod: 'alias',
+    sourceVersion: 'FoodData Central 2026-08',
+    calculatedAt: '2026-08-22T12:00:00-07:00',
+    confidence: 0.82,
   };
 
   it('maps a well-formed bundled record', () => {
@@ -142,7 +152,119 @@ describe('toRecipe', () => {
     expect(recipe).not.toBeNull();
     expect(recipe?.id).toBe('52959');
     expect(recipe?.ingredients[0]?.allergenGroups).toEqual(['egg']);
-    expect(recipe).not.toHaveProperty('source');
+  });
+
+  it('maps complete nutrition metadata defensively', () => {
+    const recipe = toRecipe({
+      ...raw,
+      baseServings: 4,
+      energyKcalPerServing: 512.5,
+      nutritionProvenance,
+      nutritionConfidence: 'medium',
+    });
+
+    expect(recipe).toMatchObject({
+      baseServings: 4,
+      energyKcalPerServing: 512.5,
+      nutritionProvenance,
+      nutritionConfidence: 'medium',
+    });
+  });
+
+  it('uses unavailable nutrition defaults when metadata is missing', () => {
+    expect(toRecipe(raw)).toMatchObject({
+      baseServings: null,
+      energyKcalPerServing: null,
+      nutritionProvenance: null,
+      nutritionConfidence: 'unavailable',
+    });
+  });
+
+  it.each([
+    { baseServings: 0 },
+    { baseServings: Number.POSITIVE_INFINITY },
+    { energyKcalPerServing: -1 },
+    { energyKcalPerServing: Number.NaN },
+  ])('defaults invalid nutrition number %# to null', (override) => {
+    const recipe = toRecipe({
+      ...raw,
+      baseServings: 2,
+      energyKcalPerServing: 400,
+      ...override,
+    });
+    const key = Object.keys(override)[0] as 'baseServings' | 'energyKcalPerServing';
+    expect(recipe?.[key]).toBeNull();
+  });
+
+  it('defaults invalid nutrition confidence to unavailable', () => {
+    expect(toRecipe({ ...raw, nutritionConfidence: 'certain' })?.nutritionConfidence).toBe(
+      'unavailable'
+    );
+  });
+
+  it.each(['low', 'unavailable'] as const)(
+    'suppresses energy for %s-confidence nutrition',
+    (nutritionConfidence) => {
+      expect(
+        toRecipe({
+          ...raw,
+          baseServings: 2,
+          energyKcalPerServing: 400,
+          nutritionProvenance,
+          nutritionConfidence,
+        })
+      ).toMatchObject({ energyKcalPerServing: null, nutritionConfidence });
+    }
+  );
+
+  it.each(['low', 'medium', 'high'] as const)(
+    'fails %s-confidence nutrition closed when provenance is malformed',
+    (nutritionConfidence) => {
+      expect(
+        toRecipe({
+          ...raw,
+          baseServings: 2,
+          energyKcalPerServing: 400,
+          nutritionProvenance: { ...nutritionProvenance, cacheChecksum: 'invalid' },
+          nutritionConfidence,
+        })
+      ).toMatchObject({
+        energyKcalPerServing: null,
+        nutritionProvenance: null,
+        nutritionConfidence: 'unavailable',
+      });
+    }
+  );
+
+  it('suppresses per-serving energy when base servings are missing', () => {
+    expect(
+      toRecipe({
+        ...raw,
+        baseServings: null,
+        energyKcalPerServing: 400,
+        nutritionProvenance,
+        nutritionConfidence: 'high',
+      })
+    ).toMatchObject({
+      baseServings: null,
+      energyKcalPerServing: null,
+      nutritionConfidence: 'high',
+    });
+  });
+
+  it.each([
+    { ...nutritionProvenance, usdaFdcIds: [] },
+    { ...nutritionProvenance, usdaFdcIds: [2, 1] },
+    { ...nutritionProvenance, usdaFdcIds: [1, 1] },
+    { ...nutritionProvenance, cacheChecksum: 'A'.repeat(64) },
+    { ...nutritionProvenance, matchMethod: 'fuzzy' },
+    { ...nutritionProvenance, sourceVersion: '' },
+    { ...nutritionProvenance, calculatedAt: '2026-08-22T12:00-07:00' },
+    { ...nutritionProvenance, confidence: 1.1 },
+  ])('defaults malformed nutrition provenance %# to null', (nutritionProvenanceInput) => {
+    expect(
+      toRecipe({ ...raw, nutritionProvenance: nutritionProvenanceInput })?.nutritionProvenance
+    ).toBeNull();
   });
 
   it('defaults allergenGroups to an empty array when absent', () => {
@@ -150,39 +272,27 @@ describe('toRecipe', () => {
     expect(recipe?.ingredients[0]?.allergenGroups).toEqual([]);
   });
 
-  it('marks mixed known and invalid equipment as unclassified', () => {
+  it('drops equipment outside the closed enum rather than passing it through', () => {
     const recipe = toRecipe({ ...raw, equipmentRequired: ['oven', 'sous_vide'] });
-    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+    expect(recipe?.equipmentRequired).toEqual(['oven']);
   });
 
-  it('marks unrecognised equipment as unclassified instead of no-equipment', () => {
+  it('fails closed when equipment contains only unknown values', () => {
     const recipe = toRecipe({ ...raw, equipmentRequired: ['sous_vide'] });
     expect(recipe?.equipmentRequired).toEqual(['unclassified']);
   });
 
-  it('marks missing equipment as unclassified instead of no-equipment', () => {
-    const recipe = toRecipe({ ...raw, equipmentRequired: [] });
-    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  it('fails closed when equipment metadata is missing or empty', () => {
+    expect(toRecipe({ ...raw, equipmentRequired: undefined })?.equipmentRequired).toEqual([
+      'unclassified',
+    ]);
+    expect(toRecipe({ ...raw, equipmentRequired: [] })?.equipmentRequired).toEqual([
+      'unclassified',
+    ]);
   });
 
-  it('preserves an explicit verified no-equipment value', () => {
-    const recipe = toRecipe({ ...raw, equipmentRequired: ['none'] });
-    expect(recipe?.equipmentRequired).toEqual(['none']);
-  });
-
-  it('does not let an invalid value piggyback on no-equipment', () => {
-    const recipe = toRecipe({ ...raw, equipmentRequired: ['none', 'sous_vide'] });
-    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
-  });
-
-  it('marks duplicate no-equipment claims as unclassified', () => {
-    const recipe = toRecipe({ ...raw, equipmentRequired: ['none', 'none'] });
-    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
-  });
-
-  it('marks no-equipment mixed with real equipment as unclassified', () => {
-    const recipe = toRecipe({ ...raw, equipmentRequired: ['none', 'oven'] });
-    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  it('preserves explicit verified none equipment', () => {
+    expect(toRecipe({ ...raw, equipmentRequired: ['none'] })?.equipmentRequired).toEqual(['none']);
   });
 
   it('returns null for a record missing required fields', () => {

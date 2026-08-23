@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CONFIDENCE_THRESHOLD,
+  acceptedIngredientIds,
   correctCandidate,
   toCandidates,
   type DetectedItem,
@@ -50,6 +51,26 @@ describe('toCandidates', () => {
     expect(candidate?.detectedName).toBe('leftover pizza');
   });
 
+  it('marks a confidently named unmatched food as outside the catalog', () => {
+    // Adding a catalog near-match for grapes would lie about what is in the
+    // pantry, so this row must stay out of the accepted ids.
+    const candidates = toCandidates([detected({ name: 'grapes', confidence: 0.95 })]);
+
+    expect(candidates[0]?.unmatchedReason).toBe('out_of_catalog');
+    expect(candidates[0]?.accepted).toBe(false);
+    expect(acceptedIngredientIds(candidates)).toEqual([]);
+  });
+
+  it('marks a low-confidence unmatched item as a likely misread', () => {
+    const candidates = toCandidates([
+      detected({ name: 'blurry mystery item', confidence: CONFIDENCE_THRESHOLD - 0.01 }),
+    ]);
+
+    expect(candidates[0]?.unmatchedReason).toBe('misread');
+    expect(candidates[0]?.accepted).toBe(false);
+    expect(acceptedIngredientIds(candidates)).toEqual([]);
+  });
+
   it('merges two detections of the same ingredient into one row', () => {
     // The pantry aggregates by ingredient type, so the sheet must too.
     const candidates = toCandidates([
@@ -91,15 +112,27 @@ describe('toCandidates', () => {
     expect(candidates).toHaveLength(2);
   });
 
-  it('puts the items needing attention first', () => {
+  it('puts actionable review rows before accepted and out-of-catalog rows', () => {
     const candidates = toCandidates([
       detected({ name: 'milk', confidence: 0.99 }),
       detected({ name: 'leftover pizza', confidence: 0.9 }),
       detected({ name: 'garlic', confidence: 0.2 }),
     ]);
 
-    expect(candidates[0]?.ingredientId).toBeNull();
-    expect(candidates.at(-1)?.ingredientId).toBe('milk');
+    expect(candidates.map((candidate) => candidate.detectedName)).toEqual([
+      'garlic',
+      'milk',
+      'leftover pizza',
+    ]);
+  });
+
+  it('puts an uncorrectable out-of-catalog item below actionable review rows', () => {
+    const candidates = toCandidates([
+      detected({ name: 'grapes', confidence: 0.95 }),
+      detected({ name: 'garlic', confidence: 0.2 }),
+    ]);
+
+    expect(candidates.map((candidate) => candidate.detectedName)).toEqual(['garlic', 'grapes']);
   });
 
   it('gives every candidate a distinct key', () => {

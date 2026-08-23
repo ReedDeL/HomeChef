@@ -2,30 +2,54 @@
 
 **Company:** Application42 · **Product:** HomeChef · **Launch:** August 24, 2026
 
+This file is an index. It deliberately does not summarize the documents it
+points at — a summary that drifts from its source is worse than no summary.
+
+---
+
 ## Start here
 
-| Document                                                                  | Use it for                                                           |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [Owned catalog design](specs/2026-08-22-owned-recipe-catalog-design.md)   | Rights, releases, hosted-plus-offline behavior, and transition rules |
-| [Owned catalog roadmap](plans/2026-08-22-owned-recipe-catalog-roadmap.md) | Sequenced implementation and completion evidence                     |
-| [Technical specification](01_TECHNICAL_SPEC.md)                           | Product architecture, safety constraints, and data model             |
-| [Shared style guide](02_STYLE_GUIDE.md)                                   | TypeScript, Python, SQL, and commit conventions                      |
-| [Collaboration blueprint](03_COLLABORATION_BLUEPRINT.md)                  | Review and Definition of Done                                        |
-| [UI/UX specification](04_UIUX_SPEC.md)                                    | Screen behavior, accessibility, and attribution                      |
-| [AI tooling playbook](05_AI_TOOLING_PLAYBOOK.md)                          | Safe AI-assisted work                                                |
-| [API keys and environment](06_API_KEYS_AND_ENV.md)                        | Public variables, secrets, and operational boundaries                |
-| [../AGENTS.md](../AGENTS.md)                                              | Repository-wide instructions                                         |
+| # | Document | Read if you are... |
+|---|---|---|
+| 01 | [Technical Specification](01_TECHNICAL_SPEC.md) | Making any technical decision — the core document |
+| 02 | [Shared Style Guide](02_STYLE_GUIDE.md) | Writing code |
+| 03 | [Collaboration Blueprint](03_COLLABORATION_BLUEPRINT.md) | Working with the team — process, roles, schedule |
+| 04 | [UI/UX Specification](04_UIUX_SPEC.md) | Building a screen |
+| 05 | [AI Tooling Playbook](05_AI_TOOLING_PLAYBOOK.md) | Using AI to build faster |
+| 06 | [API Keys & Environment](06_API_KEYS_AND_ENV.md) | Setting up any third-party service — **read before coding** |
+| 07 | [Cloudflare Web Launch](07_WEB_LAUNCH.md) | Publishing the free web launch and verifying privacy |
+| — | [`../AGENTS.md`](../AGENTS.md) | A coding agent (loaded automatically) |
 
-## Retained feature documents
+**RJ, read first:** 03 (process, roles, critical path) → 01 §8 (risk register)
+→ 04 (product surface).
 
-- [Microwave seed catalog design](specs/2026-08-06-microwave-seed-catalog-design.md)
-- [Photo-to-pantry design](specs/2026-08-07-photo-to-pantry-design.md)
-- [Web webcam capture design](specs/2026-08-10-web-webcam-capture-design.md)
-- [Google OAuth Android/web design](specs/2026-08-12-google-oauth-android-web-design.md)
-- [Responsive web layout design](specs/2026-08-12-responsive-web-layout-design.md)
-- [Google OAuth Android/web plan](plans/2026-08-12-google-oauth-android-web.md)
+**Harshal, read first:** 01 (all of it) → 02 (standards) → 05 §5 (the equipment
+prompt you own).
 
-The existing provider-derived bundle is transitional, non-rebuildable, and
-still attributed while it ships. The current release has 812 recipes, 897
-ingredients, and 76 excluded `unclassified` recipes; replacement parity is the
-gate for removing it.
+---
+
+## Feature documentation
+
+| Folder | Contents | Lifetime |
+|---|---|---|
+| [`specs/`](specs/) | One design per feature — the problem, the decision, and why. Each carries a `**Status:**` header naming the code that implements it. | Permanent. This is the decision record. |
+| [`plans/`](plans/) | Task-by-task implementation plans for work in flight. | **Delete on merge.** A plan for shipped code is scaffolding left standing. |
+
+[`RESEARCH_spoonacular_evaluation.md`](RESEARCH_spoonacular_evaluation.md) is a
+retained decision record for the bundled-catalog and optional-expansion choice (Aug 3, 2026).
+
+---
+
+## Where things live
+
+| Question | Answer |
+|---|---|
+| What are we building, and with what? | Technical Spec §1–2 |
+| What is the schedule? | Collaboration Blueprint §7 — and the Notion board for live status |
+| What are the risks? | Technical Spec §8 (twelve, in full) |
+| What is closed and must not be reopened? | [`../AGENTS.md`](../AGENTS.md) — the "Don't" list |
+| What is done right now? | [`../README.md`](../README.md) — milestones and known gaps |
+
+---
+
+*Application42 · HomeChef*

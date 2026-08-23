@@ -1,77 +1,60 @@
 # HomeChef
 
-**Stop scrolling. Start cooking.**
 
-HomeChef turns a pantry photo and kitchen constraints into 3-4 meals that fit
-the user's time, equipment tier, allergens, dietary needs, and pantry. It is a
-decision engine, not a recipe browser.
 
-## Developer documentation
+HomeChef is a photo-based meal decision engine for the moment when you are
+hungry, short on time, and tired of recipe sites asking you to choose from
+hundreds of possibilities. It turns the kitchen you actually have into a short,
+confident answer to one question: _what should I make right now?_
 
-Architecture rules live in [AGENTS.md](AGENTS.md). Start with the
-[documentation index](docs/README.md) and the
-[owned catalog design](docs/specs/2026-08-22-owned-recipe-catalog-design.md).
+Take a photo of your pantry, set the time you have, and HomeChef returns three
+or four meals that fit. It is not a recipe search engine; more options are not
+the goal. The goal is to make dinner feel decided.
 
-## Catalog status
+## A kitchen-aware answer
 
-HomeChef is replacing retired recipe-provider integration with a rights-first,
-hosted-plus-offline catalog. Approved, checksum-pinned bulk archives will build
-protected hosted releases and a curated offline fallback. The app will render
-offline results immediately, merge bounded hosted candidates when available, and
-retain offline results when the hosted catalog is unavailable.
+Every recommendation starts with real constraints:
 
-The committed `src/data/*.json` bundle is transitional, provider-derived, and
-non-rebuildable from the retired API. It is not already removed. Its attribution
-remains until an approved replacement passes parity. The current artifact has
-812 recipes, 897 ingredients, and 76 `unclassified` recipes that are excluded
-from results.
+- **Your pantry.** A photo scan and quick corrections build a living picture of
+  what is on hand, with simple ways to correct pantry drift.
+- **Your equipment tier.** A microwave-only kitchen should receive meals it can
+  genuinely cook—not aspirational recipes that require a stovetop or blender.
+- **Your time.** Fifteen minutes, thirty minutes, or a slower evening each call
+  for a different answer.
+- **Your dietary and allergen needs.** These are hard constraints. HomeChef
+  never quietly relaxes them to fill a screen.
 
-## Setup
+Results are arranged by what is missing: meals you can make now, meals that
+need a small pantry gap filled, and options for a larger restock. When time or
+cuisine preferences must relax to avoid a dead end, the app says so clearly.
 
-```bash
-npm install
-cp .env.example .env
-```
+## Built for the 6pm moment
 
-Set only `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the
-client environment. Gemini configuration stays in Supabase secrets and is used
-only by photo-to-pantry. See [API keys and environment](docs/06_API_KEYS_AND_ENV.md).
+HomeChef is designed for someone holding a phone in one hand, not someone
+planning a culinary project. The experience favors large, clear controls,
+minimal choices, and a cook mode that keeps the next step legible across a
+counter. Pantry scanning is helpful, never required; manual corrections remain
+part of the product because a useful pantry must be easy to keep accurate.
 
-## Commands
+## Trust is part of the product
 
-```bash
-npm test
-npm run typecheck
-npm run lint
-npm run format:check
+Safety and privacy are product requirements, not polish.
 
-pytest tools/
-ruff check tools/
-mypy --strict tools/catalog
-```
+- Allergens, dietary needs, and available equipment are never compromised.
+- A shared household can share its pantry without sharing private preferences.
+- The bundled catalog works as the dependable base. Optional live expansion is
+  best-effort and never replaces a valid on-hand answer with an error.
+- HomeChef is built to stay free at launch, with no subscription required to get
+  a useful decision.
 
-Catalog tooling is build-time only. Do not run source downloads, release loads,
-or activation against a remote target without explicit authorization.
+## The vision
 
-## Architecture
+HomeChef should make cooking from home feel lighter: less searching, less
+second-guessing, and fewer ingredients bought for one recipe and forgotten.
+It helps people use what they already have, respect the limits of their real
+kitchens, and get from “what is for dinner?” to “let’s make this” in a few
+seconds.
 
-```text
-offline catalog -------------------------> client candidates --+
-                                                              |
-active hosted catalog -- authenticated RPCs -> bounded merge -+-> pure engine
-                                                                     |
-                                                              3-4 answers/bucket
-```
-
-`src/engine/` stays pure: it receives `Recipe[]` and does not know whether a
-candidate came from hosted or offline data. Equipment, allergens, and dietary
-restrictions are never relaxed; unknown status excludes.
-
-## Known transition gates
-
-- Replacement parity and rights approval are required before removing the
-  transitional bundle or its attribution.
-- The photo-to-pantry Edge Function should receive a synthetic-image smoke test
-  after deployment; never use a real pantry photo for infrastructure checks.
-- Catalog tables and release RPCs require RLS and targeted verification before
-  client integration.
+The August 2026 launch focuses on that core promise across iOS, Android, and
+the web. Product decisions and technical details live in [the project
+documentation](docs/).

@@ -8,18 +8,20 @@ import { useTheme } from '@/theme/useTheme';
 
 interface RelaxationBannerProps {
   relaxations: readonly Relaxation[];
-  /** The undo. Always offered, per spec §5.3. */
+  /** The undo. Always offered, per Technical Spec §4.3. */
   onRevert?: () => void;
   revertLabel?: string;
 }
 
 /**
- * States, above the results, which soft constraint the app gave up (spec §5.3).
+ * States, above the results, which soft constraint the app gave up (Technical Spec §4.3).
  *
  * Relaxation is never silent. An app that quietly widens the filter and shows
  * results the user did not ask for is teaching them not to trust the filter,
  * and the filter is the entire product. Undo is always offered alongside.
  *
+ * `spoonacular_expansion` is filtered out deliberately: it adds options without
+ * removing constraints, so there is nothing to disclose.
  */
 export function RelaxationBanner({
   relaxations,
@@ -28,7 +30,8 @@ export function RelaxationBanner({
 }: RelaxationBannerProps) {
   const { color } = useTheme();
 
-  if (relaxations.length === 0) return null;
+  const disclosed = relaxations.filter((relaxation) => relaxation.kind !== 'spoonacular_expansion');
+  if (disclosed.length === 0) return null;
 
   return (
     <View
@@ -37,7 +40,7 @@ export function RelaxationBanner({
       accessibilityRole="alert"
     >
       <View style={styles.copy}>
-        {relaxations.map((relaxation, index) => (
+        {disclosed.map((relaxation, index) => (
           <Text key={`${relaxation.kind}-${index}`} variant="body">
             {formatRelaxation(relaxation)}
           </Text>

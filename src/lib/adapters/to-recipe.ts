@@ -7,6 +7,7 @@
  * is the house rule.
  */
 import { DIETARY_TAGS, EQUIPMENT } from '@/engine/types';
+import { nutritionConfidenceSchema, nutritionProvenanceSchema } from '@/contracts/meal-journeys';
 import type { DietaryTag, Equipment, Recipe, RecipeIngredient } from '@/engine/types';
 
 const FALLBACK_MINUTES = 30;
@@ -25,6 +26,7 @@ export function toRecipe(raw: unknown): Recipe | null {
   if (ingredients.length === 0) return null;
 
   const minutes = asNumber(raw.totalTimeMinutes);
+  const nutrition = toNutrition(raw);
 
   return {
     id,
@@ -36,6 +38,8 @@ export function toRecipe(raw: unknown): Recipe | null {
     dietaryTags: keepKnown(raw.dietaryTags, DIETARY_TAGS),
     ingredients,
     instructions: asString(raw.instructions) ?? '',
+    ...nutrition,
+    source: raw.source === 'spoonacular' || raw.source === 'tier2' ? 'spoonacular' : 'bundled',
   };
 }
 
@@ -70,25 +74,12 @@ function toIngredients(raw: unknown): RecipeIngredient[] {
   return ingredients;
 }
 
-/**
- * `none` is an explicit verified no-equipment claim. Missing or invalid data
- * is unknown, so it must exclude rather than admitting a recipe for everyone.
- */
+/** Unknown metadata cannot make a claim that no equipment is required. */
 function toEquipment(raw: unknown): Equipment[] {
-  if (!Array.isArray(raw) || raw.length === 0) return ['unclassified'];
-
-  const allowed = new Set<string>(EQUIPMENT);
-  if (raw.some((item) => typeof item !== 'string' || !allowed.has(item))) {
-    return ['unclassified'];
-  }
-
   const known = keepKnown(raw, EQUIPMENT);
-  if (known.includes('none')) {
-    return known.length === 1 && known[0] === 'none' ? ['none'] : ['unclassified'];
-  }
   const real = known.filter((item) => item !== 'none');
   if (real.length > 0) return real;
-  return ['unclassified'];
+  return known.length > 0 ? ['none'] : ['unclassified'];
 }
 
 function keepKnown<T extends Equipment | DietaryTag>(raw: unknown, allowed: readonly T[]): T[] {
@@ -107,4 +98,52 @@ function asString(value: unknown): string | null {
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asPositiveNumber(value: unknown): number | null {
+  const number = asNumber(value);
+  return number !== null && number > 0 ? number : null;
+}
+
+function toNutritionProvenance(raw: unknown): Recipe['nutritionProvenance'] {
+  const result = nutritionProvenanceSchema.safeParse(raw);
+  return result.success ? result.data : null;
+}
+
+function toNutrition(
+  raw: Record<string, unknown>
+): Pick<
+  Recipe,
+  'baseServings' | 'energyKcalPerServing' | 'nutritionProvenance' | 'nutritionConfidence'
+> {
+  const baseServings = asPositiveNumber(raw.baseServings);
+  const nutritionProvenance = toNutritionProvenance(raw.nutritionProvenance);
+  const parsedConfidence = nutritionConfidenceSchema
+    .catch('unavailable')
+    .parse(raw.nutritionConfidence);
+
+  if (nutritionProvenance === null && parsedConfidence !== 'unavailable') {
+    return {
+      baseServings,
+      energyKcalPerServing: null,
+      nutritionProvenance: null,
+      nutritionConfidence: 'unavailable',
+    };
+  }
+
+  if (parsedConfidence === 'low' || parsedConfidence === 'unavailable') {
+    return {
+      baseServings,
+      energyKcalPerServing: null,
+      nutritionProvenance,
+      nutritionConfidence: parsedConfidence,
+    };
+  }
+
+  return {
+    baseServings,
+    energyKcalPerServing: baseServings === null ? null : asPositiveNumber(raw.energyKcalPerServing),
+    nutritionProvenance,
+    nutritionConfidence: parsedConfidence,
+  };
 }

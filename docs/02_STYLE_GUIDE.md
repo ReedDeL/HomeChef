@@ -1,7 +1,7 @@
 # HomeChef — Shared Style Guide
 
 **Company:** Application42 · **Product:** HomeChef
-**Project development version:** 0.1.0 · **Style policy version:** 1.0 · **Updated:** August 22, 2026
+**Version:** 0.1.0 · **Date:** August 3, 2026
 **Applies to:** every line of code, every commit, every pull request.
 
 ---
@@ -10,15 +10,15 @@
 
 Two people writing in two personal styles produces a codebase that reads like an argument. With 21 days and a hard launch date, time spent decoding a teammate's formatting is time not spent shipping.
 
-**The governing principle:** _most style questions should be answered by a tool, not by a person._ Formatters and linters are configured once, run automatically, and are never debated in a pull request. Human review is reserved for things tools cannot check — naming, structure, and whether the code is correct.
+**The governing principle:** *most style questions should be answered by a tool, not by a person.* Formatters and linters are configured once, run automatically, and are never debated in a pull request. Human review is reserved for things tools cannot check — naming, structure, and whether the code is correct.
 
-**Language split** (resolved in Technical Spec §2, Architecture):
+**Language split** (resolved in Technical Spec §2.6):
 
-| Language       | Owns                                                                    | Standard |
-| -------------- | ----------------------------------------------------------------------- | -------- |
-| **TypeScript** | The product — app, engine, Edge Functions                               | §2       |
-| **Python**     | Build-time tooling — catalog ingest, equipment enrichment, eval scripts | §3       |
-| **SQL**        | Migrations, RLS policies                                                | §4       |
+| Language | Owns | Standard |
+|---|---|---|
+| **TypeScript** | The product — app, engine, Edge Functions | §2 |
+| **Python** | Build-time tooling — catalog ingest, equipment enrichment, eval scripts | §3 |
+| **SQL** | Migrations, RLS policies | §4 |
 
 Python is not a second-class citizen here. It owns the catalog pipeline, which produces the entire product catalog and closes our largest data gap. It simply does not run in the request path.
 
@@ -30,24 +30,14 @@ These hold in every language.
 
 ### 1.1 Formatting is automated and never discussed
 
-Formatters run on save and in CI. A pull request is never blocked on whitespace, because whitespace cannot be wrong — the formatter already fixed it.
-
-```jsonc
-// .vscode/settings.json — committed to the repo, not personal config
-{
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" },
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.codeActionsOnSave": { "source.organizeImports": "explicit" },
-  },
-}
-```
+The live configuration is authoritative: `.prettierrc`, `eslint.config.mjs`,
+`tsconfig.json`, `pyproject.toml`, and `.github/workflows/ci.yml`.
+Do not duplicate option snapshots here. TypeScript and Python both use a
+100-character line limit, UTF-8, LF endings, and a final newline.
 
 ### 1.2 Comment policy — sparse and meaningful
 
-**Comments explain _why_. Code explains _what_. If a comment explains what, delete the comment and fix the name.**
+**Comments explain *why*. Code explains *what*. If a comment explains what, delete the comment and fix the name.**
 
 Never write this:
 
@@ -64,8 +54,9 @@ These add characters and subtract attention. They are the most common form of AI
 Write this instead:
 
 ```ts
-// An approved archive represents optional ingredient slots as empty strings or
-// null rather than omitting them. Filtering here keeps the internal model normal.
+// TheMealDB returns ingredients in 20 flat numbered fields (strIngredient1..20)
+// rather than an array, with unused slots as "" or null. Filtering empties here
+// keeps the rest of the pipeline working with a normal array.
 const ingredients = raw.filter((i) => i && i.trim().length > 0);
 ```
 
@@ -80,7 +71,7 @@ Both of these encode knowledge that is genuinely unavailable from reading the co
 
 **Comment when, and only when:**
 
-- The _why_ is non-obvious — a workaround, a business rule, a deliberate tradeoff.
+- The *why* is non-obvious — a workaround, a business rule, a deliberate tradeoff.
 - A magic number needs justification.
 - A third-party API behaves surprisingly.
 - The obvious approach was tried and failed. Say so, and say why, or someone will try it again.
@@ -100,14 +91,14 @@ Both of these encode knowledge that is genuinely unavailable from reading the co
 - No abbreviations except universally understood ones (`id`, `url`, `api`, `db`).
 - Domain vocabulary is fixed and shared across TypeScript, Python, SQL, and the Notion board:
 
-| Term               | Means                              | Never call it            |
-| ------------------ | ---------------------------------- | ------------------------ |
-| **pantry**         | The household's current inventory  | fridge, stock, items     |
-| **catalog**        | The bundled recipe set             | database, recipes list   |
-| **bucket**         | One of the four feasibility groups | category, tier, section  |
-| **equipment tier** | Declared kitchen capability        | kitchen type, level      |
-| **household**      | The unit sharing a pantry          | group, family, roommates |
-| **drift**          | Pantry/reality desynchronization   | staleness, error         |
+| Term | Means | Never call it |
+|---|---|---|
+| **pantry** | The household's current inventory | fridge, stock, items |
+| **catalog** | The bundled recipe set | database, recipes list |
+| **bucket** | One of the four feasibility groups | category, tier, section |
+| **equipment tier** | Declared kitchen capability | kitchen type, level |
+| **household** | The unit sharing a pantry | group, family, roommates |
+| **drift** | Pantry/reality desynchronization | staleness, error |
 
 Using a synonym for any of these in code, a commit, or a ticket is a review comment. Shared vocabulary is how a three-person team stays coherent without meetings.
 
@@ -121,50 +112,22 @@ Using a synonym for any of these in code, a commit, or a ticket is a review comm
 
 ### 2.1 Tooling
 
-| Tool       | Role                                    | Config             |
-| ---------- | --------------------------------------- | ------------------ |
-| Prettier   | Formatting — the only authority         | `.prettierrc`      |
-| ESLint     | Correctness, `typescript-eslint` strict | `eslint.config.js` |
-| TypeScript | `strict: true`, **non-negotiable**      | `tsconfig.json`    |
-
-```jsonc
-// .prettierrc
-{
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "all",
-  "printWidth": 100,
-  "tabWidth": 2,
-  "arrowParens": "always",
-}
-```
-
-```jsonc
-// tsconfig.json — the parts that matter
-{
-  "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
-  },
-}
-```
-
-`noUncheckedIndexedAccess` is worth the friction it causes. `recipes[0]` types as `Recipe | undefined`, which is the truth, and it catches the empty-catalog bug before it reaches a user.
+TypeScript strictness comes from `tsconfig.json`; formatting from
+`.prettierrc`; lint rules from `eslint.config.mjs`; enforcement from
+`.github/workflows/ci.yml`. Change those files first, then update this guide
+only when the team rule changes.
 
 ### 2.2 Naming conventions
 
-| Kind                          | Convention                  | Example                             |
-| ----------------------------- | --------------------------- | ----------------------------------- |
-| Variables, functions          | `camelCase`                 | `missingIngredients`, `scoreRecipe` |
-| Types, interfaces, components | `PascalCase`                | `ScoredRecipe`, `IngredientChip`    |
-| Constants (module-level)      | `SCREAMING_SNAKE_CASE`      | `CONFIDENCE_FLOOR`                  |
-| Files — components            | `PascalCase.tsx`            | `RecipeCard.tsx`                    |
-| Files — everything else       | `kebab-case.ts`             | `score-recipe.ts`                   |
-| Routes (expo-router)          | `kebab-case`                | `app/(tabs)/pantry.tsx`             |
-| Booleans                      | `is` / `has` / `can` prefix | `hasAllergen`                       |
+| Kind | Convention | Example |
+|---|---|---|
+| Variables, functions | `camelCase` | `missingIngredients`, `scoreRecipe` |
+| Types, interfaces, components | `PascalCase` | `ScoredRecipe`, `IngredientChip` |
+| Constants (module-level) | `SCREAMING_SNAKE_CASE` | `CONFIDENCE_FLOOR` |
+| Files — components | `PascalCase.tsx` | `RecipeCard.tsx` |
+| Files — everything else | `kebab-case.ts` | `score-recipe.ts` |
+| Routes (expo-router) | `kebab-case` | `app/(tabs)/pantry.tsx` |
+| Booleans | `is` / `has` / `can` prefix | `hasAllergen` |
 
 No `I` prefix on interfaces. No `T` prefix on types. Hungarian notation died for a reason.
 
@@ -174,9 +137,7 @@ No `I` prefix on interfaces. No `T` prefix on types. Hungarian notation died for
 
 ```ts
 // No.
-function parse(data: any) {
-  return data.ingredients;
-}
+function parse(data: any) { return data.ingredients; }
 
 // Yes — validate at the boundary, and everything downstream is typed for free.
 function parse(data: unknown): Ingredient[] {
@@ -193,7 +154,9 @@ Use discriminated unions instead of optional-field soup:
 type Result = { ok?: boolean; data?: Recipe[]; error?: string };
 
 // Yes — the compiler enforces that you handle both cases.
-type Result = { status: 'ok'; data: Recipe[] } | { status: 'error'; message: string };
+type Result =
+  | { status: "ok"; data: Recipe[] }
+  | { status: "error"; message: string };
 ```
 
 `as const` for literal arrays and config objects. `satisfies` when you want checking without widening.
@@ -209,27 +172,18 @@ type Result = { status: 'ok'; data: Recipe[] } | { status: 'error'; message: str
 ```ts
 // No.
 function bucket(missing: number) {
-  if (missing === 0) {
-    return 'ready';
-  } else {
-    if (missing <= 2) {
-      return 'missing_few';
-    } else {
-      if (missing <= 4) {
-        return 'missing_some';
-      } else {
-        return 'grocery_run';
-      }
-    }
-  }
+  if (missing === 0) { return "ready"; }
+  else { if (missing <= 2) { return "missing_few"; }
+         else { if (missing <= 4) { return "missing_some"; }
+                else { return "grocery_run"; } } }
 }
 
 // Yes.
 function bucket(missing: number): Bucket {
-  if (missing === 0) return 'ready';
-  if (missing <= 2) return 'missing_few';
-  if (missing <= 4) return 'missing_some';
-  return 'grocery_run';
+  if (missing === 0) return "ready";
+  if (missing <= 2) return "missing_few";
+  if (missing <= 4) return "missing_some";
+  return "grocery_run";
 }
 ```
 
@@ -273,22 +227,22 @@ export function IngredientChip({ ingredient, onRemove }: IngredientChipProps) {
 - `async`/`await` only. No raw `.then()` chains.
 - Never swallow an error. Either handle it or let it propagate.
 - Every user-visible async operation has a loading state and an error state. "It just spins forever" is a bug, not an edge case.
-- Edge Functions: CORS preflight first, CORS headers on error responses (Technical Spec §6).
+- Edge Functions: CORS preflight first, CORS headers on error responses (Technical Spec §2.2).
 
 ### 2.7 Imports
 
 Ordered, with blank lines between groups (auto-sorted by ESLint):
 
 ```ts
-import { useCallback, useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import { useCallback, useState } from "react";
+import { Pressable, Text } from "react-native";
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from "@tanstack/react-query";
 
-import { decide } from '@/engine/decide';
-import type { Ingredient } from '@/types/pantry';
+import { decide } from "@/engine/decide";
+import type { Ingredient } from "@/types/pantry";
 
-import { styles } from './styles';
+import { styles } from "./styles";
 ```
 
 Absolute imports via `@/` for anything outside the current directory. `../../../` is a code smell about file placement.
@@ -301,32 +255,9 @@ Applies to `tools/catalog/` and any future scripts. **PEP 8 is the baseline; eve
 
 ### 3.1 Tooling
 
-| Tool       | Role                                                                                        |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| **Ruff**   | Formatter _and_ linter. Replaces Black + isort + Flake8, and is fast enough to run on save. |
-| **mypy**   | Static type checking, `strict` mode                                                         |
-| **pytest** | Testing                                                                                     |
-
-```toml
-# tools/catalog/pyproject.toml
-[project]
-name = "homechef-catalog"
-requires-python = ">=3.12"
-
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "ANN"]
-# E/W: pycodestyle (PEP 8)   F: pyflakes      I: import sorting
-# N:   PEP 8 naming          UP: pyupgrade    B: bugbear
-# SIM: simplify              ANN: require annotations
-
-[tool.mypy]
-strict = true
-warn_return_any = true
-```
+`pyproject.toml` is the source of truth for Ruff, mypy, pytest, Python
+version, and enabled lint families. Run `ruff format --check tools/`,
+`ruff check tools/`, `mypy --strict tools/catalog`, and `pytest tools/`.
 
 ### 3.2 Layout (PEP 8)
 
@@ -351,47 +282,39 @@ from catalog.normalize import canonical_ingredient_id
 
 ### 3.3 Naming (PEP 8)
 
-| Kind                 | Convention                  | Example                           |
-| -------------------- | --------------------------- | --------------------------------- |
-| Modules, packages    | `lowercase` or `snake_case` | `normalize.py`                    |
-| Functions, variables | `snake_case`                | `fetch_all_recipes`               |
-| Classes, exceptions  | `PascalCase`                | `RecipeRecord`, `EnrichmentError` |
-| Constants            | `SCREAMING_SNAKE_CASE`      | `SOURCE_ARCHIVE_URL`              |
-| Internal / private   | leading underscore          | `_retry_with_backoff`             |
-| Type variables       | `PascalCase`, short         | `T`, `RecipeT`                    |
+| Kind | Convention | Example |
+|---|---|---|
+| Modules, packages | `lowercase` or `snake_case` | `normalize.py` |
+| Functions, variables | `snake_case` | `fetch_all_recipes` |
+| Classes, exceptions | `PascalCase` | `RecipeRecord`, `EnrichmentError` |
+| Constants | `SCREAMING_SNAKE_CASE` | `MEALDB_BASE_URL` |
+| Internal / private | leading underscore | `_retry_with_backoff` |
+| Type variables | `PascalCase`, short | `T`, `RecipeT` |
 
 Never use `l`, `O`, or `I` as single-character names — indistinguishable from `1` and `0` in many fonts. This is in PEP 8 and it is there for a reason.
 
 ### 3.4 Type hints — required
 
-Every function signature is fully annotated. Enforced by Ruff `ANN` and mypy `strict`.
-
-```python
-def enrich_equipment(instructions: str, client: LLMClient) -> list[Equipment]:
-    """Extract required equipment from free-text cooking instructions.
-
-    Returns an empty list when the model cannot determine equipment, which the
-    decision engine treats as "no special equipment" rather than as a failure.
-    """
-```
-
-Modern generics: `list[str]`, `dict[str, int]`, `str | None`. Not `List`, `Dict`, `Optional`.
+Every function signature is fully annotated. Use modern generics such as
+`list[str]`, `dict[str, int]`, and `str | None`. Validate external data
+at the boundary. Unknown equipment remains `unclassified`; it must never be
+treated as requiring no equipment.
 
 ### 3.5 Docstrings vs comments
 
 Different tools for different jobs, and the distinction matters:
 
 - **Docstrings** describe the public contract — what a function does, what it returns, what it raises. Every public function, class, and module gets one. Triple double quotes, imperative mood, summary line under 80 characters.
-- **Inline comments** explain _why_, per §1.2, and are rare.
+- **Inline comments** explain *why*, per §1.2, and are rare.
 
 ```python
 def parse_measurement(raw: str) -> Measurement:
-    """Parse an archive measurement string into quantity and unit.
+    """Parse a TheMealDB measurement string into a structured quantity and unit.
 
     Raises:
         MeasurementParseError: when no numeric quantity can be recovered.
     """
-    # Source measurements are hand-entered and inconsistent: "1 cup",
+    # TheMealDB measurements are hand-entered and inconsistent: "1 cup",
     # "1/2 tsp", "a pinch", "2 1/2 tbsp", "". Regex handles the numeric forms;
     # everything else falls through to the qualitative lookup table below.
     ...
@@ -406,8 +329,7 @@ Do **not** write Args/Returns blocks that merely restate the type hints. The sig
 - f-strings for formatting. Not `%` and not `.format()`.
 - Comprehensions when they fit on one line and read cleanly; an explicit loop otherwise. A nested triple comprehension is not clever, it is a rereading tax.
 - `logging`, never `print()`, in anything that isn't a CLI entry point.
-- Pydantic models for archive records and LLM outputs. Validate at the boundary,
-  exactly as Zod does on the TypeScript side.
+- Pydantic models for external data — TheMealDB responses and LLM outputs. Validate at the boundary, exactly as Zod does on the TypeScript side.
 - Catch specific exceptions. A bare `except:` swallows `KeyboardInterrupt` and hides real bugs.
 
 ---
@@ -429,19 +351,19 @@ Do **not** write Args/Returns blocks that merely restate the type hints. The sig
 
 **Subject line: imperative present tense, under 50 characters, capitalized, no trailing period.**
 
-The imperative mood is not arbitrary — it matches Git's own generated messages ("Merge branch...", "Revert..."). The test: your subject line should complete the sentence _"If applied, this commit will \____."_
+The imperative mood is not arbitrary — it matches Git's own generated messages ("Merge branch...", "Revert..."). The test: your subject line should complete the sentence *"If applied, this commit will ____."*
 
-| Good                                      | Bad                                                                 | Why the bad one fails            |
-| ----------------------------------------- | ------------------------------------------------------------------- | -------------------------------- |
-| `Add equipment filter to decision engine` | `Added equipment filter`                                            | Past tense                       |
-| `Fix bucket boundary off-by-one`          | `fixes bug`                                                         | Not imperative, vague, lowercase |
-| `Refactor pantry sync to use upsert`      | `Refactoring the pantry sync logic to use upsert instead of insert` | 68 chars, present participle     |
-| `Extract IngredientChip component`        | `misc changes`                                                      | Says nothing                     |
-| `Remove barcode scanning scaffold`        | `updates`                                                           | Says nothing                     |
+| Good | Bad | Why the bad one fails |
+|---|---|---|
+| `Add equipment filter to decision engine` | `Added equipment filter` | Past tense |
+| `Fix bucket boundary off-by-one` | `fixes bug` | Not imperative, vague, lowercase |
+| `Refactor pantry sync to use upsert` | `Refactoring the pantry sync logic to use upsert instead of insert` | 68 chars, present participle |
+| `Extract IngredientChip component` | `misc changes` | Says nothing |
+| `Remove barcode scanning scaffold` | `updates` | Says nothing |
 
 Verbs we use: `Add` · `Fix` · `Remove` · `Refactor` · `Update` · `Rename` · `Move` · `Extract` · `Document` · `Test` · `Bump`
 
-**Body** (optional, wrapped at 72 characters, separated from the subject by a blank line) explains _why_, never _what_ — the diff already shows what:
+**Body** (optional, wrapped at 72 characters, separated from the subject by a blank line) explains *why*, never *what* — the diff already shows what:
 
 ```
 Cut wake-word detection from launch scope
@@ -475,24 +397,21 @@ Types: `feat` · `fix` · `chore` · `docs` · `refactor` · `test`
 - Commented-out code.
 - Personal editor config beyond the committed `.vscode/settings.json`.
 
-`src/data/recipes.json` and `src/data/ingredients.json` are committed
-transitional artifacts. They are frozen and non-rebuildable from the retired
-provider, so their checksums protect them from drift. Source-neutral catalog
-release artifacts are reproducible from approved, checksum-pinned archives.
+`src/data/recipes.json` **is** committed, despite being generated. It is the product catalog, it must be reproducible at any commit, and it must build without running the Python pipeline.
 
 ---
 
 ## 6. Enforcement
 
-| Gate                         | Runs            | Blocks merge |
-| ---------------------------- | --------------- | ------------ |
-| Prettier / Ruff format       | pre-commit + CI | Yes          |
-| ESLint / Ruff lint           | pre-commit + CI | Yes          |
-| `tsc --noEmit` / mypy strict | CI              | Yes          |
-| Unit tests                   | CI              | Yes          |
-| Accessibility lint rules     | CI              | Yes          |
-| Secret scanning              | push            | Yes          |
-| Human review                 | PR              | Yes          |
+| Gate | Runs | Blocks merge |
+|---|---|---|
+| Prettier / Ruff format | pre-commit + CI | Yes |
+| ESLint / Ruff lint | pre-commit + CI | Yes |
+| `tsc --noEmit` / mypy strict | CI | Yes |
+| Unit tests | CI | Yes |
+| Accessibility lint rules | CI | Yes |
+| Secret scanning | push | Yes |
+| Human review | PR | Yes |
 
 **If a rule in this document is not enforced by a tool, it is a suggestion — and we should either automate it or delete it.** Review time is our scarcest resource; spending it on formatting is malpractice.
 
@@ -504,4 +423,4 @@ This is a living document. To change a rule: open a PR against this file, state 
 
 ---
 
-_Application42 · HomeChef · Shared Style Guide v1.0 · August 3, 2026_
+*Application42 · HomeChef · Shared Style Guide v0.1.0 · August 3, 2026*

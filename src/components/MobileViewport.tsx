@@ -15,13 +15,9 @@ import { useTheme } from '@/theme/useTheme';
  * sparse row of ingredient chips. Constraining the width keeps the browser
  * showing the same thing the device shows, which is also what makes the web
  * build usable for reviewing native work.
- *
- * The hairline side borders only appear once the viewport is wider than the
- * column, so on a phone browser they sit off-screen and cost nothing.
  */
 export function MobileViewport({ children }: PropsWithChildren) {
   const { color, isDark } = useTheme();
-
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.body.style.backgroundColor = isDark

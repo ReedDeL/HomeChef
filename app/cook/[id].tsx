@@ -1,17 +1,28 @@
+import { useMutation } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { Header } from '@/components/ui/Header';
+import { MealSatietyCheckIn } from '@/components/ui/MealSatietyCheckIn';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { OFFLINE_TRANSITIONAL_CATALOG } from '@/data/catalog';
-import { catalogRecipeCache, selectCatalogRecipeDetail } from '@/lib/catalog';
-import { useCatalogRecipeDetail } from '@/lib/queries/catalog';
-import { toEnginePreferences, useKitchenStore } from '@/store/kitchen';
+import { BUNDLED_CATALOG } from '@/data/catalog';
+import { trackCookModeCompleted, trackCookModeStarted } from '@/lib/analytics';
+import {
+  cookCompletionReducer,
+  INITIAL_COOK_COMPLETION,
+  planCookCompletionExit,
+  type MealVerdict,
+} from '@/lib/cook-completion';
+import { recordMealSatiety } from '@/lib/queries/preferences';
+import { supabase } from '@/lib/supabase';
+import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import type { MealSatietyLevel } from '@/types/database';
 
 /**
  * Spec §7 — Cook Mode: hands-free-ish, one step at a time.
@@ -23,27 +34,8 @@ export default function CookModeScreen() {
   const { color } = useTheme();
 
   const removePantryItem = useKitchenStore((state) => state.removePantryItem);
-  const tierId = useKitchenStore((state) => state.tierId);
-  const extras = useKitchenStore((state) => state.extras);
-  const allergens = useKitchenStore((state) => state.allergens);
-  const dietary = useKitchenStore((state) => state.dietary);
-  const preferences = useMemo(
-    () => toEnginePreferences({ tierId, extras, allergens, dietary }),
-    [tierId, extras, allergens, dietary]
-  );
 
-  const offlineRecipe = useMemo(
-    () => OFFLINE_TRANSITIONAL_CATALOG.find((candidate) => candidate.id === id),
-    [id]
-  );
-  const hostedDetail = useCatalogRecipeDetail(id);
-
-  const recipe = selectCatalogRecipeDetail({
-    hostedDetail: hostedDetail.data,
-    cachedDetail: catalogRecipeCache.getDetail(id),
-    offlineDetail: offlineRecipe,
-    preferences,
-  });
+  const recipe = useMemo(() => BUNDLED_CATALOG.find((candidate) => candidate.id === id), [id]);
 
   const steps = useMemo(() => {
     if (!recipe) return [];
@@ -54,7 +46,19 @@ export default function CookModeScreen() {
   }, [recipe]);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [completed, setCompleted] = useState(false);
+  const [completion, dispatchCompletion] = useReducer(
+    cookCompletionReducer,
+    INITIAL_COOK_COMPLETION
+  );
+  const startedRecipeId = useRef<string | null>(null);
+  const completedRecipeId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!recipe || steps.length === 0 || startedRecipeId.current === recipe.id) return;
+
+    startedRecipeId.current = recipe.id;
+    trackCookModeStarted({ recipe_id: recipe.id, step_count: steps.length });
+  }, [recipe, steps.length]);
 
   // Timer state for current step if duration detected
   const currentStepText = steps[currentStepIndex] ?? '';
@@ -84,40 +88,65 @@ export default function CookModeScreen() {
     return () => clearInterval(interval);
   }, [timerRunning, timerSecondsLeft]);
 
+  // Expired timers are one of the two legitimate assertive triggers (UIUX §9).
+  // iOS has no live regions, so it needs the imperative announce; Android and
+  // web announce the status text below via its live region.
+  useEffect(() => {
+    if (timerSecondsLeft === 0 && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility('Timer finished.');
+    }
+  }, [timerSecondsLeft]);
+
   const handleNext = useCallback(() => {
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex((prev) => prev + 1);
     } else {
-      setCompleted(true);
+      dispatchCompletion({ type: 'finish_cooking' });
     }
   }, [currentStepIndex, steps.length]);
 
   const handleBack = useCallback(() => {
-    if (completed) {
-      setCompleted(false);
+    if (completion.step !== 'cooking') {
+      dispatchCompletion({ type: 'back' });
     } else if (currentStepIndex > 0) {
       setCurrentStepIndex((prev) => prev - 1);
     }
-  }, [completed, currentStepIndex]);
+  }, [completion.step, currentStepIndex]);
 
-  const handleFinishCooking = useCallback(
-    (removeIngredients: boolean) => {
-      if (removeIngredients && recipe) {
-        for (const ingredient of recipe.ingredients) {
-          removePantryItem(ingredient.id);
-        }
-      }
-      router.replace('/');
+  const handleVerdict = useCallback((verdict: MealVerdict) => {
+    dispatchCompletion({ type: 'select_verdict', verdict });
+  }, []);
+
+  const finishCompletion = useCallback(() => {
+    if (recipe && completedRecipeId.current !== recipe.id) {
+      completedRecipeId.current = recipe.id;
+      trackCookModeCompleted({ recipe_id: recipe.id });
+    }
+    const ingredientIds = recipe?.ingredients.map((ingredient) => ingredient.id) ?? [];
+    const exit = planCookCompletionExit(completion, ingredientIds);
+
+    for (const ingredientId of exit.pantryIngredientIdsToRemove) {
+      removePantryItem(ingredientId);
+    }
+    router.replace('/');
+  }, [completion, recipe, removePantryItem, router]);
+
+  const satietyMutation = useMutation({
+    mutationFn: async (level: MealSatietyLevel) => {
+      if (!recipe) throw new Error('Recipe not found.');
+
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!data.user) throw new Error('Sign in is required to save a hunger stat.');
+      await recordMealSatiety({ recipeId: recipe.id, level });
     },
-    [recipe, removePantryItem, router]
-  );
+    onSuccess: finishCompletion,
+  });
 
   if (!recipe || steps.length === 0) {
     return (
-      <Screen>
-        <Text variant="title" accessibilityRole="alert">
-          {hostedDetail.isPending ? 'Loading recipe details.' : 'Recipe details are unavailable.'}
-        </Text>
+      <Screen header={<Header backLabel="Home" fallbackHref="/" />}>
+        <Text variant="title">Recipe not found.</Text>
         <PrimaryButton
           label="Back to home"
           onPress={() => router.replace('/')}
@@ -127,14 +156,37 @@ export default function CookModeScreen() {
     );
   }
 
-  if (completed) {
+  if (completion.step === 'satiety') {
+    return (
+      <Screen>
+        <MealSatietyCheckIn
+          recipeTitle={recipe.title}
+          isSaving={satietyMutation.isPending}
+          errorMessage={satietyMutation.isError ? 'Unable to save hunger stat.' : null}
+          onBack={handleBack}
+          onSave={satietyMutation.mutate}
+          onSkip={finishCompletion}
+        />
+      </Screen>
+    );
+  }
+
+  if (completion.step === 'verdict') {
     return (
       <Screen
+        header={
+          <Header
+            backLabel="Steps"
+            backHint="Returns to review cooking steps"
+            onBack={handleBack}
+            fallbackHref="/"
+          />
+        }
         footer={
           <View style={styles.footer}>
             <PrimaryButton
               label="Back to results"
-              onPress={() => handleFinishCooking(false)}
+              onPress={finishCompletion}
               accessibilityHint="Finishes cook mode and returns to results"
             />
           </View>
@@ -154,7 +206,7 @@ export default function CookModeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thumbs up, liked it"
               accessibilityHint="Records positive feedback and deducts used pantry ingredients"
-              onPress={() => handleFinishCooking(true)}
+              onPress={() => handleVerdict('loved')}
               style={[
                 styles.rateButton,
                 { backgroundColor: color.surface, borderColor: color.border },
@@ -171,7 +223,7 @@ export default function CookModeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Thumbs down, did not like"
               accessibilityHint="Records feedback and keeps pantry unchanged"
-              onPress={() => handleFinishCooking(false)}
+              onPress={() => handleVerdict('not_great')}
               style={[
                 styles.rateButton,
                 { backgroundColor: color.surface, borderColor: color.border },
@@ -205,6 +257,23 @@ export default function CookModeScreen() {
 
   return (
     <Screen
+      header={
+        <Header
+          onBack={() =>
+            router.canGoBack() ? router.back() : router.replace(`/recipe/${recipe.id}`)
+          }
+          backLabel="Exit"
+          backHint="Exits cook mode and returns to recipe screen"
+          fallbackHref={`/recipe/${recipe.id}`}
+          rightAction={
+            <View style={styles.stepBadge}>
+              <Text variant="caption" tone="accent">
+                Step {currentStepIndex + 1} of {steps.length}
+              </Text>
+            </View>
+          }
+        />
+      }
       footer={
         <View style={styles.navigationRow}>
           <Pressable
@@ -255,27 +324,6 @@ export default function CookModeScreen() {
         </View>
       }
     >
-      <View style={styles.topHeader}>
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Close cook mode"
-          accessibilityHint="Exits cook mode and returns to recipe screen"
-          onPress={() => router.back()}
-          style={styles.closeButton}
-        >
-          <Text variant="heading" tone="muted">
-            ✕
-          </Text>
-        </Pressable>
-
-        <View style={styles.stepBadge}>
-          <Text variant="caption" tone="accent">
-            Step {currentStepIndex + 1} of {steps.length}
-          </Text>
-        </View>
-      </View>
-
       <View style={styles.stepContent} aria-live="polite">
         <Text style={[styles.cookStepText, { color: color.text }]}>{currentStepText}</Text>
       </View>
@@ -289,6 +337,12 @@ export default function CookModeScreen() {
             <Text variant="display" tone={timerSecondsLeft === 0 ? 'ready' : 'default'}>
               {formatTimer(timerSecondsLeft)}
             </Text>
+            {timerSecondsLeft === 0 ? (
+              // Rendered only at expiry so its appearance is announced once.
+              <Text variant="caption" tone="ready" aria-live="assertive">
+                Timer finished.
+              </Text>
+            ) : null}
             <View style={styles.timerControls}>
               <PrimaryButton
                 label={timerRunning ? 'Pause ⏸' : timerSecondsLeft === 0 ? 'Restart ↺' : 'Start ▶'}
@@ -357,17 +411,6 @@ function formatTimer(totalSeconds: number): string {
 }
 
 const styles = StyleSheet.create({
-  topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  closeButton: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-  },
   stepBadge: {
     paddingHorizontal: space.md,
     paddingVertical: space.xs,

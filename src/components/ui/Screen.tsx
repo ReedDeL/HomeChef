@@ -1,11 +1,16 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 interface ScreenProps extends PropsWithChildren {
+  /**
+   * Pinned to the top, outside the scroll area.
+   */
+  header?: ReactNode;
   /**
    * Pinned to the bottom, outside the scroll area. Onboarding's "Continue"
    * lives here so it never scrolls out of reach on a short phone.
@@ -17,34 +22,45 @@ interface ScreenProps extends PropsWithChildren {
 
 /**
  * The frame every screen sits in: safe-area insets, background, page padding,
- * and an optional pinned footer.
+ * and optional pinned header and footer.
  *
  * Centralised so that a screen cannot accidentally ship without safe-area
  * handling — the failure mode is a title tucked under a notch, which is
  * invisible on a simulator with no notch and obvious on real hardware.
  */
-export function Screen({ children, footer, scroll = true }: ScreenProps) {
+export function Screen({ children, header, footer, scroll = true }: ScreenProps) {
   const { color } = useTheme();
+  const { width } = useWindowDimensions();
+  const { horizontalPadding } = getResponsiveLayout(width);
+  const horizontalInset = { paddingHorizontal: horizontalPadding };
 
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: color.bg }]}
       edges={['top', 'bottom']}
     >
+      {header ? <View style={[styles.header, horizontalInset]}>{header}</View> : null}
+
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, horizontalInset]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.content, styles.flex]}>{children}</View>
+        <View style={[styles.content, styles.flex, horizontalInset]}>{children}</View>
       )}
 
       {footer ? (
-        <View style={[styles.footer, { borderTopColor: color.border, backgroundColor: color.bg }]}>
+        <View
+          style={[
+            styles.footer,
+            horizontalInset,
+            { borderTopColor: color.border, backgroundColor: color.bg },
+          ]}
+        >
           {footer}
         </View>
       ) : null}
@@ -55,12 +71,16 @@ export function Screen({ children, footer, scroll = true }: ScreenProps) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   flex: { flex: 1 },
+  header: {
+    paddingTop: space.xs,
+    paddingBottom: space.xs,
+  },
   content: {
-    padding: space.lg,
+    paddingVertical: space.lg,
     gap: space.lg,
   },
   footer: {
-    padding: space.lg,
+    paddingVertical: space.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
 });

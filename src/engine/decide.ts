@@ -1,5 +1,5 @@
-import { BUCKET_CAP, BUCKET_ORDER } from '@/engine/bucket';
-import { isRecipeHardConstraintSatisfied } from '@/engine/filter-hard';
+import { BUCKET_ORDER, PER_BUCKET_RESULT_CAP } from '@/engine/bucket';
+import { hasAllergen, isEquipmentSatisfied, satisfiesDietary } from '@/engine/filter-hard';
 import { scoreRecipe } from '@/engine/score-recipe';
 import type {
   Bucket,
@@ -15,8 +15,9 @@ import type {
  * The decision engine.
  *
  * Pure and synchronous over plain data. It takes a `Recipe[]` and does not know
- * or care whether offline or hosted catalog data supplied it. This keeps the
- * whole suite fast and independent of device or network state.
+ * or care whether bundled JSON or a live Spoonacular fetch supplied it —
+ * which is what lets the whole suite run in milliseconds with no device, no
+ * network, and no API quota.
  *
  * Hard constraints eliminate; soft constraints rank.
  */
@@ -28,8 +29,13 @@ export function decide(
 ): DecisionResult {
   const survivors = catalog.filter(
     (r) =>
+      // A recipe with no ingredients is a catalog defect, not a zero-effort
+      // meal. Admitting it would put it straight into `ready`.
+      r.ingredients.length > 0 &&
       !prefs.dislikedRecipeIds.has(r.id) &&
-      isRecipeHardConstraintSatisfied(r, prefs) &&
+      isEquipmentSatisfied(r.equipmentRequired, prefs.equipment) &&
+      !hasAllergen(r, prefs.allergens) &&
+      satisfiesDietary(r, prefs.dietary) &&
       r.totalTimeMinutes <= timeLimit &&
       (prefs.preferredCuisine === null || r.cuisine === prefs.preferredCuisine)
   );
@@ -41,7 +47,7 @@ export function decide(
   }
 
   for (const bucket of BUCKET_ORDER) {
-    buckets[bucket] = buckets[bucket].sort(byScoreThenId).slice(0, BUCKET_CAP);
+    buckets[bucket] = buckets[bucket].sort(byScoreThenId).slice(0, PER_BUCKET_RESULT_CAP);
   }
 
   return { buckets, appliedRelaxations: [] };

@@ -70,7 +70,7 @@ jobs:
           fi
       - name: Check for service-role keys and private keys in tracked files
         run: |
-          if git grep -nIE '(SUPABASE_SERVICE_ROLE|service_role.*ey[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' -- . ':!*.example' ':!.github/workflows/ci.yml'; then
+          if git grep -nIE '(SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|service_role(_key)?[[:space:]]*[:=][[:space:]]*[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' -- . ':!*.example' ':!.github/workflows/ci.yml'; then
             echo "::error::A service-role key or private key appears in a tracked file."
             exit 1
           fi

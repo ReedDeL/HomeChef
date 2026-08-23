@@ -57,6 +57,21 @@ describe('decideWithRelaxation — the ladder', () => {
     expect(kinds(result)).toContain('bucket_promoted');
     expect(result.buckets.missing_few).toHaveLength(1);
   });
+
+  it('flags a Spoonacular fetch when the bundled catalog stays thin', () => {
+    const catalog = [makeRecipe({ ingredients: [ingredient('egg')] })];
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+    // One ready recipe is below the target of 3.
+    expect(result.shouldFetchSpoonacular).toBe(true);
+  });
+
+  it('does not flag a Spoonacular fetch when the bundled catalog is sufficient', () => {
+    const catalog = Array.from({ length: 4 }, (_, i) =>
+      makeRecipe({ id: `r${i}`, ingredients: [ingredient('egg')] })
+    );
+    const result = decideWithRelaxation(catalog, pantry('egg'), makePrefs(), 15);
+    expect(result.shouldFetchSpoonacular).toBe(false);
+  });
 });
 
 describe('decideWithRelaxation — hard constraints never relax', () => {
@@ -131,7 +146,12 @@ describe('decideWithRelaxation — hard constraints never relax', () => {
     const wide = [makeRecipe({ totalTimeMinutes: 60, ingredients: [ingredient('egg')] })];
     const result = decideWithRelaxation(wide, pantry('egg'), makePrefs(), 15);
     for (const r of result.appliedRelaxations) {
-      expect(['time_widened', 'cuisine_dropped', 'bucket_promoted']).toContain(r.kind);
+      expect([
+        'time_widened',
+        'cuisine_dropped',
+        'spoonacular_expansion',
+        'bucket_promoted',
+      ]).toContain(r.kind);
     }
   });
 
@@ -190,11 +210,12 @@ describe('decideWithRelaxation — hard constraints never relax', () => {
       15
     );
 
-    // The visible soft concessions are reported in their fixed order.
+    // Rungs 1, 2 and 4/5 are reported; rung 3 is the caller's to execute.
     expect(kinds(result)).toEqual(
       expect.arrayContaining(['time_widened', 'cuisine_dropped', 'bucket_promoted'])
     );
     expect(result.appliedRelaxations).toContainEqual({ kind: 'time_widened', from: 15, to: 120 });
+    expect(result.shouldFetchSpoonacular).toBe(true);
 
     // The ladder reached the bottom and produced something, so the absence
     // below is a real exclusion and not just an empty result.
@@ -209,7 +230,7 @@ describe('decideWithRelaxation — hard constraints never relax', () => {
 });
 
 // B10: "an empty results screen is structurally impossible"
-// (docs/01_TECHNICAL_SPEC.md:482). Made executable across the constraint space.
+// (Technical Spec §4.3). Made executable across the constraint space.
 describe('decideWithRelaxation — B10 never-empty property', () => {
   const catalog = syntheticCatalog();
 

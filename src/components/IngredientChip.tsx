@@ -1,7 +1,7 @@
 /**
  * The one and only ingredient chip.
  *
- * The UI ingredient-label contract: every ingredient name anywhere in the app is a
+ * Technical Spec B7: every ingredient name anywhere in the app is a
  * chip, and every chip is long-pressable for "I don't have this." That long
  * press is the drift mitigation (R3) — the pantry goes stale the moment someone
  * cooks without telling us, and correcting it has to be cheaper than opening

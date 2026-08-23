@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  INGREDIENT_VOCABULARY,
-  OFFLINE_TRANSITIONAL_CATALOG,
-  lookupIngredient,
-} from '@/data/catalog';
+import recipesJson from '@/data/recipes.json';
+import { INGREDIENT_VOCABULARY, BUNDLED_CATALOG, lookupIngredient } from '@/data/catalog';
 import { decideWithRelaxation } from '@/engine/relax';
 import { EQUIPMENT } from '@/engine/types';
 
@@ -14,24 +11,24 @@ import { EQUIPMENT } from '@/engine/types';
  * like this catches the two drifting apart. A pipeline change that emits a
  * value the engine cannot read fails here rather than at 6pm on a user's phone.
  */
-describe('transitional offline catalog', () => {
+describe('bundled catalog', () => {
   it('is not empty', () => {
-    expect(OFFLINE_TRANSITIONAL_CATALOG.length).toBeGreaterThan(0);
+    expect(BUNDLED_CATALOG.length).toBeGreaterThan(0);
   });
 
   it('survives adapter parsing without dropping records', () => {
     // toCatalog silently skips malformed entries, so a shortfall here means
     // the generator emitted something the adapter rejected.
-    expect(OFFLINE_TRANSITIONAL_CATALOG.length).toBeGreaterThan(20);
+    expect(BUNDLED_CATALOG.length).toBeGreaterThan(20);
   });
 
   it('has a unique id for every recipe', () => {
-    const ids = OFFLINE_TRANSITIONAL_CATALOG.map((r) => r.id);
+    const ids = BUNDLED_CATALOG.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('uses only equipment values inside the closed enum', () => {
-    for (const recipe of OFFLINE_TRANSITIONAL_CATALOG) {
+    for (const recipe of BUNDLED_CATALOG) {
       expect(recipe.equipmentRequired.length).toBeGreaterThan(0);
       for (const item of recipe.equipmentRequired) {
         expect(EQUIPMENT).toContain(item);
@@ -40,14 +37,32 @@ describe('transitional offline catalog', () => {
   });
 
   it('gives every recipe a positive cook time', () => {
-    for (const recipe of OFFLINE_TRANSITIONAL_CATALOG) {
+    for (const recipe of BUNDLED_CATALOG) {
       expect(recipe.totalTimeMinutes).toBeGreaterThan(0);
     }
   });
 
   it('gives every recipe at least one ingredient', () => {
-    for (const recipe of OFFLINE_TRANSITIONAL_CATALOG) {
+    for (const recipe of BUNDLED_CATALOG) {
       expect(recipe.ingredients.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives every recipe explicit safe nutrition fields', () => {
+    for (const raw of recipesJson) {
+      for (const key of [
+        'baseServings',
+        'energyKcalPerServing',
+        'nutritionProvenance',
+        'nutritionConfidence',
+      ]) {
+        expect(Object.hasOwn(raw, key)).toBe(true);
+      }
+    }
+    for (const recipe of BUNDLED_CATALOG) {
+      if (recipe.nutritionConfidence === 'low' || recipe.nutritionConfidence === 'unavailable') {
+        expect(recipe.energyKcalPerServing).toBeNull();
+      }
     }
   });
 
@@ -55,7 +70,7 @@ describe('transitional offline catalog', () => {
     // The pantry set-difference is a lookup by id. An ingredient a recipe needs
     // but the vocabulary does not know is unreachable from the pantry forever.
     const missing = new Set<string>();
-    for (const recipe of OFFLINE_TRANSITIONAL_CATALOG) {
+    for (const recipe of BUNDLED_CATALOG) {
       for (const ingredient of recipe.ingredients) {
         if (!lookupIngredient(ingredient.id)) missing.add(ingredient.id);
       }
@@ -82,18 +97,18 @@ describe('bundled ingredient vocabulary', () => {
 });
 
 /**
- * The microwave-only user needs reachable offline coverage. The catalog keeps
- * a hand-curated seed because the general transitional data cannot guarantee it.
+ * The microwave-only user is the wedge
+ * (docs/specs/2026-08-06-microwave-seed-catalog-design.md). TheMealDB supplies exactly two
+ * microwave-only recipes and both are 240-minute fudge, which the time ladder
+ * cannot reach — so without the hand-curated seed this user sees nothing at all.
  */
 describe('microwave coverage', () => {
-  const microwaveOnly = OFFLINE_TRANSITIONAL_CATALOG.filter(
+  const microwaveOnly = BUNDLED_CATALOG.filter(
     (r) => r.equipmentRequired.length === 1 && r.equipmentRequired[0] === 'microwave'
   );
 
   it('carries at least 20 recipes that require a microwave', () => {
-    const requiring = OFFLINE_TRANSITIONAL_CATALOG.filter((r) =>
-      r.equipmentRequired.includes('microwave')
-    );
+    const requiring = BUNDLED_CATALOG.filter((r) => r.equipmentRequired.includes('microwave'));
     expect(requiring.length).toBeGreaterThanOrEqual(20);
   });
 
@@ -101,7 +116,7 @@ describe('microwave coverage', () => {
     // The build merges tools/catalog/seed/*.json. If a rebuild ever drops the
     // merge step, src/data/ is regenerated without it and this is the only
     // thing that notices.
-    const seeded = OFFLINE_TRANSITIONAL_CATALOG.filter((r) => r.id.startsWith('hc-mw-'));
+    const seeded = BUNDLED_CATALOG.filter((r) => r.id.startsWith('hc-mw-'));
     expect(seeded.length).toBe(20);
   });
 
@@ -112,7 +127,7 @@ describe('microwave coverage', () => {
 
   it('serves a microwave-only user with a realistic pantry', () => {
     const result = decideWithRelaxation(
-      OFFLINE_TRANSITIONAL_CATALOG,
+      BUNDLED_CATALOG,
       new Set(['egg', 'milk', 'butter', 'salt', 'onion', 'garlic']),
       {
         equipment: ['microwave'],
@@ -133,14 +148,12 @@ describe('microwave coverage', () => {
   // as always satisfied — so they were served to microwave-only users as though
   // verified. Nothing in the catalog may claim `none` unless it was earned.
   it('no longer ships recipes tagged "none" by the keyword fallback', () => {
-    const claimingNone = OFFLINE_TRANSITIONAL_CATALOG.filter((r) =>
-      r.equipmentRequired.includes('none')
-    );
+    const claimingNone = BUNDLED_CATALOG.filter((r) => r.equipmentRequired.includes('none'));
     expect(claimingNone).toEqual([]);
   });
 
   it('marks unclassified recipes honestly instead of as no-equipment', () => {
-    const unclassified = OFFLINE_TRANSITIONAL_CATALOG.filter((r) =>
+    const unclassified = BUNDLED_CATALOG.filter((r) =>
       r.equipmentRequired.includes('unclassified')
     );
     // A backlog, not a statistic: these are excluded from every user's results
@@ -159,7 +172,7 @@ describe('the real catalog never yields an empty screen', () => {
     for (const timeLimit of [15, 30, 60]) {
       it(`returns something for ${equipment.join('+')} at ${timeLimit} min`, () => {
         const result = decideWithRelaxation(
-          OFFLINE_TRANSITIONAL_CATALOG,
+          BUNDLED_CATALOG,
           pantry,
           {
             equipment: [...equipment],

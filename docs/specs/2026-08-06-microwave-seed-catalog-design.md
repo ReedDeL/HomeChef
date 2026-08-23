@@ -17,7 +17,7 @@ identically.** `filter-hard.ts:20` reads `none` as always satisfied, so all 76
 are served to microwave-only users as though verified.
 
 `tools/catalog/equipment.py` documents this fallback as "safe because it cannot
-exclude a user." That is backwards. It cannot _exclude_ — it wrongly _includes_.
+exclude a user." That is backwards. It cannot *exclude* — it wrongly *includes*.
 
 A microwave-only user today is served 78 recipes, 76 of which are unverified and
 most of which need a stove. Confidently wrong is worse than thin.
@@ -48,20 +48,19 @@ to grow. Not a claim to be the finished catalog.
 
 `tools/catalog/seed/microwave.json`, merged into `recipes.json` at build time.
 
-`src/data/` is the current transitional generated artifact. The microwave seed
-remains source material in the build pipeline, not hand-written generated output.
-The transitional bundle is non-rebuildable from the retired provider API and
-retains attribution until an approved replacement reaches parity.
+`src/data/` stays purely generated output. `python -m tools.catalog` overwrites
+`recipes.json` wholesale, so anything hand-written there is destroyed on the
+next rebuild — the merge is what makes this durable.
 
-| Decision       | Value                                        | Reason                                                                        |
-| -------------- | -------------------------------------------- | ----------------------------------------------------------------------------- |
-| ID scheme      | `hc-mw-01` … `hc-mw-20`                      | Stable HomeChef IDs with greppable provenance                                 |
-| `source`       | HomeChef seed provenance                     | Offline source material, with no provider tier semantic                       |
-| Validation     | Same Pydantic archive models as catalog data | Malformed content fails the build, not the user                               |
-| Ingredient IDs | Must already exist in the vocabulary         | Otherwise `eggs` is silently created next to `egg` and pantry matching breaks |
+| Decision | Value | Reason |
+|---|---|---|
+| ID scheme | `hc-mw-01` … `hc-mw-20` | Cannot collide with TheMealDB's numeric IDs; greppable provenance |
+| `source` | `"bundled"` | These are bundled, offline, and owned. No engine change needed |
+| Validation | Same Pydantic models as TheMealDB data | Malformed content fails the build, not the user |
+| Ingredient IDs | Must already exist in the vocabulary | Otherwise `eggs` is silently created next to `egg` and pantry matching breaks |
 
 The ingredient-ID constraint is the subtle one. `build_vocabulary` derives
-`ingredients.json` _from_ the recipes, so an invented ID would be quietly
+`ingredients.json` *from* the recipes, so an invented ID would be quietly
 accepted and become a permanent near-duplicate in the shared vocabulary — the
 one place the spec says an error propagates everywhere.
 
@@ -76,12 +75,12 @@ Grounded in USDA FSIS guidance (poultry 165 °F, eggs 160 °F, fish 145 °F,
 
 Hard exclusions, enforced by a test rather than by care:
 
-| Never                                   | Why                                                                     |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| Eggs in shell                           | Explode during or _after_ heating; burns to hand or mouth               |
-| Raw poultry                             | Needs verified 165 °F and heats unevenly; we cannot check a thermometer |
-| Grapes, hot peppers, high-proof alcohol | Plasma arcing, fire                                                     |
-| Stuffed anything                        | Center does not reliably reach temperature                              |
+| Never | Why |
+|---|---|
+| Eggs in shell | Explode during or *after* heating; burns to hand or mouth |
+| Raw poultry | Needs verified 165 °F and heats unevenly; we cannot check a thermometer |
+| Grapes, hot peppers, high-proof alcohol | Plasma arcing, fire |
+| Stuffed anything | Center does not reliably reach temperature |
 
 Raw meat is avoided entirely. That sidesteps the temperature-probe problem
 rather than papering over it — an app cannot verify internal temperature, so it
@@ -96,17 +95,17 @@ are not copyrightable; expressive prose is. No source text is copied.
 
 ### The `unclassified` change
 
-| File                         | Change                                                                                                 |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `tools/catalog/models.py`    | Add `unclassified` to `Equipment` and `EQUIPMENT_VALUES`                                               |
+| File | Change |
+|---|---|
+| `tools/catalog/models.py` | Add `unclassified` to `Equipment` and `EQUIPMENT_VALUES` |
 | `tools/catalog/equipment.py` | `coerce_equipment` empty result → `["unclassified"]`, not `["none"]`; correct the misleading docstring |
-| `src/engine/types.ts`        | Add `unclassified` to the `EQUIPMENT` const                                                            |
-| `src/engine/filter-hard.ts`  | `unclassified` never satisfies the equipment filter                                                    |
+| `src/engine/types.ts` | Add `unclassified` to the `EQUIPMENT` const |
+| `src/engine/filter-hard.ts` | `unclassified` never satisfies the equipment filter |
 
 `none` keeps its meaning — verified as needing no equipment — and stays always
 satisfied.
 
-**Accepted trade-off:** this removes the 76 from _every_ user, not just
+**Accepted trade-off:** this removes the 76 from *every* user, not just
 microwave users. A full-kitchen user goes from 792 usable recipes to 716.
 
 Chosen because it is one line, fully reversible, and consistent with the
@@ -120,8 +119,8 @@ toward zero and this stops mattering.
 ### Python (`tools/catalog/tests/`)
 
 - Seed file parses and validates against the Pydantic model
-- IDs unique and disjoint from other HomeChef IDs
-- Every ingredient ID exists in the catalog vocabulary
+- IDs unique, and disjoint from TheMealDB IDs
+- Every ingredient ID exists in the TheMealDB-derived vocabulary
 - Every seed recipe requires `microwave`
 - No banned ingredient or technique (in-shell egg, raw poultry, grape, hot
   pepper, stuffed)
@@ -132,7 +131,7 @@ toward zero and this stops mattering.
 
 - `filter-hard`: `unclassified` is not satisfied by any equipment set, including
   the full set
-- `filter-hard`: `none` _is_ still satisfied by every equipment set
+- `filter-hard`: `none` *is* still satisfied by every equipment set
 - `catalog.test.ts`: at least 20 recipes require `microwave`
 - `catalog.test.ts`: a microwave-only user with a realistic pantry gets ≥1 result
 - `relax.test.ts`: microwave-only still never returns empty
@@ -151,8 +150,9 @@ microwave case and this design's premise needs re-examining before proceeding.
 **Result: premise confirmed, and worse than predicted.** Measured against the
 rebuilt catalog with the seed held out, a microwave-only user with the test
 pantry gets **0 results at 15, 30 and 60 minutes** — not a thin list, an empty
-screen. The prior source's only two
-microwave-only recipes are both 240-minute fudge, and `TIME_TIERS` tops out at 120. With the seed merged the same user gets 10.
+screen. The relaxation ladder cannot rescue it: TheMealDB's only two
+microwave-only recipes are both 240-minute fudge, and `TIME_TIERS` tops out at
+120. With the seed merged the same user gets 10.
 
 So the 76 were not merely padding the microwave case, they were the entire
 thing, and every one of them was a guess. The seed is load-bearing; deleting it
@@ -161,12 +161,12 @@ halves of that.
 
 ## Risks
 
-| Risk                                      | Mitigation                                                |
-| ----------------------------------------- | --------------------------------------------------------- |
-| A recipe is unsafe or unappetising        | Human spot-check before merge; automated ban-list test    |
-| 20 recipes is too thin for some pantries  | Relaxation ladder already guarantees a non-empty result   |
+| Risk | Mitigation |
+|---|---|
+| A recipe is unsafe or unappetising | Human spot-check before merge; automated ban-list test |
+| 20 recipes is too thin for some pantries | Relaxation ladder already guarantees a non-empty result |
 | Catalog shrinks to 716 and someone panics | Documented here and in the README; reversible in one line |
-| Seed ingredient IDs drift from vocabulary | Build-time validation fails the build                     |
+| Seed ingredient IDs drift from vocabulary | Build-time validation fails the build |
 
 ## Open items
 

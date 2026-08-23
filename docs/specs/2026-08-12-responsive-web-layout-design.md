@@ -1,11 +1,8 @@
 # HomeChef Responsive Web Layout Design
 
 **Date:** August 12, 2026  
-**Status:** Proposed — not implemented in the current app. `MobileViewport`
-still constrains the web app to a mobile-width column, and there is no
-`src/components/ui/responsive-layout.ts`. The UI/UX Specification records the
-current canonical screen behavior.
-
+**Status:** Implemented — `src/components/ui/responsive-layout.ts`, consumed by
+`MobileViewport` and `Screen`. **Supersedes UI/UX Spec §13.1.**  
 **Scope:** Responsive web presentation for the existing HomeChef app
 
 ## Goal
@@ -107,3 +104,4 @@ business rules or route behavior.
   respected.
 - `npm test`, `npm run typecheck`, and `npm run lint` pass.
 - Existing unrelated working-tree changes are preserved.
+

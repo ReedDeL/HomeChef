@@ -1,173 +1,145 @@
-"""Non-interactive catalog commands; only explicit ``download`` opens a URL."""
+"""Build the bundled catalog.
+
+    python -m tools.catalog --limit 20
+
+Writes ``src/data/recipes.json`` and ``src/data/ingredients.json``. Run
+manually; the output is committed. See docs/01_TECHNICAL_SPEC.md 5.2.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import ValidationError
 
-from tools.catalog.download import download_archive
-from tools.catalog.pipeline import build_release, ingest_archive, load_release, write_release
-from tools.catalog.rights import RightsManifest
+from tools.catalog.build import build_vocabulary, load_catalog_recipes, to_catalog_recipe
+from tools.catalog.fetch import fetch_all_meals
+from tools.catalog.models import CatalogRecipe
+from tools.catalog.nutrition import (
+    enrich_recipes,
+    load_usda_cache,
+    refresh_usda_cache,
+)
+from tools.catalog.seed_loader import load_seed_recipes, merge_seed
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_OUTPUT = _REPO_ROOT / "build" / "catalog"
-_DEFAULT_MANIFEST = Path(__file__).resolve().parent / "rights-manifest.json"
+logger = logging.getLogger("catalog")
+
+OUTPUT_DIR = Path(__file__).resolve().parents[2] / "src" / "data"
+CATALOG_PATH = OUTPUT_DIR / "recipes.json"
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run an explicit command; hosted state is never mutated in this task."""
-    parser = argparse.ArgumentParser(description="Build a rights-first HomeChef catalog release.")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    _add_ingest_parser(subparsers)
-    _add_download_parser(subparsers)
-    _add_validate_parser(subparsers)
-    _add_build_offline_parser(subparsers)
-    _add_release_parser(subparsers, "load", "validate a local release for later protected loading")
-    _add_release_parser(subparsers, "activate", "stop at the not-yet-connected activation boundary")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build the HomeChef bundled catalog.")
+    parser.add_argument("--limit", type=int, default=None, help="stop after N recipes")
+    parser.add_argument(
+        "--refresh-mealdb",
+        action="store_true",
+        help="explicitly refresh the owned catalog from TheMealDB",
+    )
+    usda_group = parser.add_mutually_exclusive_group()
+    usda_group.add_argument(
+        "--usda-cache",
+        type=Path,
+        help="enrich from a checksum-verified USDA cache without network access",
+    )
+    usda_group.add_argument(
+        "--refresh-usda-cache",
+        type=Path,
+        help="explicitly refresh USDA data using USDA_FDC_API_KEY",
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=OUTPUT_DIR, help="where to write the JSON files"
+    )
     args = parser.parse_args(argv)
+    if args.limit is not None and not args.refresh_mealdb:
+        parser.error("--limit requires --refresh-mealdb")
 
-    try:
-        if args.command == "ingest":
-            return _ingest(args)
-        if args.command == "download":
-            return _download(args)
-        if args.command == "validate":
-            return _validate(args)
-        if args.command == "build-offline":
-            return _build_offline(args)
-        if args.command == "load":
-            load_release(args.release)
-            print(f"local handoff validated: {args.release}")
-            return 0
-        load_release(args.release)
-        print(
-            "hosted activation requires a target-authorized operator loader; "
-            "this local CLI intentionally does not mutate Supabase",
-            file=sys.stderr,
-        )
-        return 2
-    except (OSError, json.JSONDecodeError, ValidationError, ValueError) as error:
-        print(f"catalog command failed: {error}", file=sys.stderr)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    if args.refresh_mealdb:
+        recipes, skipped = _refresh_mealdb(args.limit)
+        seed = load_seed_recipes()
+        recipes = merge_seed(recipes, seed)
+        logger.info("merged %d hand-curated seed recipes", len(seed))
+    else:
+        recipes = load_catalog_recipes(CATALOG_PATH)
+        skipped = 0
+        logger.info("loaded %d recipes from committed catalog", len(recipes))
+
+    if not recipes:
+        logger.error("no recipes produced; refusing to write an empty catalog")
         return 1
 
-
-def _add_ingest_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("ingest", help="ingest one approved local JSONL archive")
-    _add_source_args(parser)
-    parser.add_argument("--output", type=Path, default=_DEFAULT_OUTPUT / "ingest.json")
-    parser.add_argument("--overwrite", action="store_true")
-
-
-def _add_download_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("download", help="download one approved checksum-pinned archive")
-    parser.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST)
-    parser.add_argument("--source-id", required=True)
-    parser.add_argument("--output", type=Path, default=_DEFAULT_OUTPUT / "archive.jsonl")
-    parser.add_argument("--overwrite", action="store_true")
-
-
-def _add_validate_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("validate", help="validate an existing local release artifact")
-    parser.add_argument("--release", type=Path, required=True)
-
-
-def _add_build_offline_parser(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> None:
-    parser = subparsers.add_parser(
-        "build-offline", help="build deterministic candidate and offline artifacts"
-    )
-    parser.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST)
-    parser.add_argument("--archive", action="append", default=[], metavar="SOURCE_ID=PATH")
-    parser.add_argument("--output", type=Path, default=_DEFAULT_OUTPUT / "release.json")
-    parser.add_argument("--overwrite", action="store_true")
-
-
-def _add_release_parser(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser], name: str, help_text: str
-) -> None:
-    parser = subparsers.add_parser(name, help=help_text)
-    parser.add_argument("--release", type=Path, required=True)
-
-
-def _add_source_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST)
-    parser.add_argument("--source-id", required=True)
-    parser.add_argument("--archive", type=Path, required=True)
-
-
-def _ingest(args: argparse.Namespace) -> int:
-    manifest = _read_manifest(args.manifest)
-    source = manifest.source(args.source_id)
-    result = ingest_archive(source, args.archive)
-    _write_json(args.output, result.model_dump(by_alias=True), args.overwrite)
-    print(f"ingested {len(result.recipes)} recipes; quarantined {len(result.quarantine)}")
-    return 0
-
-
-def _download(args: argparse.Namespace) -> int:
-    manifest = _read_manifest(args.manifest)
-    source = manifest.source(args.source_id)
-    _ensure_not_transitional(args.output)
-    download_archive(source, args.output, overwrite=args.overwrite)
-    print(f"downloaded {source.id} to {args.output}")
-    return 0
-
-
-def _validate(args: argparse.Namespace) -> int:
-    load_release(args.release)
-    print(f"release is valid: {args.release}")
-    return 0
-
-
-def _build_offline(args: argparse.Namespace) -> int:
-    manifest = _read_manifest(args.manifest)
-    release = build_release(manifest, _archive_mapping(args.archive))
-    _ensure_not_transitional(args.output)
-    write_release(release, args.output, overwrite=args.overwrite)
-    print(f"built {release.counts['recipes']} recipes; offline {release.counts['offlineRecipes']}")
-    return 0
-
-
-def _read_manifest(path: Path) -> RightsManifest:
-    return RightsManifest.model_validate(_read_json(path))
-
-
-def _read_json(path: Path) -> object:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _archive_mapping(values: list[str]) -> dict[str, Path]:
-    archives: dict[str, Path] = {}
-    for value in values:
-        source_id, separator, raw_path = value.partition("=")
-        if not separator or not source_id or not raw_path:
-            raise ValueError("--archive must be SOURCE_ID=PATH")
-        if source_id in archives:
-            raise ValueError(f"duplicate archive supplied for {source_id!r}")
-        archives[source_id] = Path(raw_path)
-    return archives
-
-
-def _write_json(path: Path, payload: object, overwrite: bool) -> None:
-    _ensure_not_transitional(path)
-    if path.exists() and not overwrite:
-        raise ValueError(f"refusing to overwrite {path}; pass --overwrite")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def _ensure_not_transitional(path: Path) -> None:
     try:
-        path.resolve().relative_to(_REPO_ROOT / "src" / "data")
-    except ValueError:
-        return
-    raise ValueError("catalog outputs must not overwrite transitional src/data artifacts")
+        if args.refresh_usda_cache is not None:
+            ingredient_ids = sorted(
+                {ingredient.id for recipe in recipes for ingredient in recipe.ingredients}
+            )
+            cache = refresh_usda_cache(args.refresh_usda_cache, ingredient_ids)
+            recipes = enrich_recipes(recipes, cache)
+        elif args.usda_cache is not None:
+            recipes = enrich_recipes(recipes, load_usda_cache(args.usda_cache))
+    except (OSError, ValueError, ValidationError) as error:
+        logger.error("USDA nutrition enrichment failed: %s", error)
+        return 1
+
+    vocabulary = build_vocabulary(recipes)
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    _write(args.output_dir / "recipes.json", [r.model_dump(by_alias=True) for r in recipes])
+    _write(args.output_dir / "ingredients.json", [v.model_dump(by_alias=True) for v in vocabulary])
+
+    logger.info(
+        "wrote %d recipes and %d ingredients (%d skipped)", len(recipes), len(vocabulary), skipped
+    )
+    _report_equipment_coverage(recipes)
+    return 0
+
+
+def _refresh_mealdb(limit: int | None) -> tuple[list[CatalogRecipe], int]:
+    raw_meals = fetch_all_meals(limit=limit)
+    logger.info("fetched %d meals", len(raw_meals))
+
+    recipes: list[CatalogRecipe] = []
+    skipped = 0
+    for raw in raw_meals:
+        try:
+            recipes.append(to_catalog_recipe(raw))
+        except ValidationError:
+            # One bad record must not fail a 300-recipe build.
+            skipped += 1
+            logger.warning("skipping malformed meal %s", raw.get("idMeal", "<unknown>"))
+    return recipes, skipped
+
+
+def _write(path: Path, payload: object) -> None:
+    # sort_keys and a trailing newline keep the committed diff readable.
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    logger.info("wrote %s", path)
+
+
+def _report_equipment_coverage(recipes: list[CatalogRecipe]) -> None:
+    """Surface how many recipes fell back to ``unclassified``.
+
+    A high fallback rate means the keyword pass is not carrying the equipment
+    wedge and the LLM enrichment step is doing real work, not decoration. These
+    recipes are excluded from every user's results until enrichment classifies
+    them, so this number is a backlog, not a statistic.
+    """
+    unclassified = sum(1 for r in recipes if r.equipment_required == ["unclassified"])
+    logger.info(
+        "equipment: %d/%d recipes unclassified (%.0f%%)",
+        unclassified,
+        len(recipes),
+        100 * unclassified / len(recipes),
+    )
 
 
 if __name__ == "__main__":
