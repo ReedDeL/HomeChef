@@ -17,6 +17,8 @@
 -- a JWT claim set, which is what the DO block below does.
 -- ---------------------------------------------------------------------------
 
+\set ON_ERROR_STOP on
+
 begin;
 
 create temp table _rls_results (
@@ -141,6 +143,9 @@ declare
   results text[] := '{}';
   n int;
   blocked boolean;
+  replacement_entries jsonb;
+  creation_entries jsonb;
+  created_plan_id uuid;
 begin
   select household_id into household_b from public.profiles where id = user_b;
 
@@ -358,19 +363,26 @@ begin
   get diagnostics n = row_count;
   results := results || format('67|A can insert satiety with server ownership|1|%s', n);
 
+  select jsonb_agg(
+           jsonb_build_object(
+             'entry_date', (date '2026-08-24' + day_offset)::text,
+             'kind', 'recipe',
+             'recipe_id', 'bundled-replanned',
+             'planned_meal_time',
+               (date '2026-08-24' + day_offset)::text || 'T18:30:00-07:00',
+             'reason', null,
+             'stated_relaxations', jsonb_build_array('time'),
+             'portion_servings', null,
+             'portion_label', null,
+             'portion_disclaimer', null
+           ) order by day_offset
+         )
+    into replacement_entries
+    from generate_series(0, 6) as days(day_offset);
+
   perform public.replace_weekly_plan_children(
     'a0000000-0000-4000-8000-000000000001',
-    jsonb_build_array(jsonb_build_object(
-      'entry_date', '2026-08-25',
-      'kind', 'recipe',
-      'recipe_id', 'bundled-replanned',
-      'planned_meal_time', '2026-08-25T18:30:00-07:00',
-      'reason', null,
-      'stated_relaxations', jsonb_build_array('time'),
-      'portion_servings', null,
-      'portion_label', null,
-      'portion_disclaimer', null
-    )),
+    replacement_entries,
     jsonb_build_array(jsonb_build_object(
       'ingredient_id', 'milk',
       'recipe_ids', jsonb_build_array('bundled-replanned'),
@@ -385,6 +397,131 @@ begin
     from public.plan_linked_grocery_needs
    where user_id = user_a and ingredient_id = 'egg';
   results := results || format('85|Replacement leaves no stale plan needs|0|%s', n);
+
+  blocked := false;
+  begin
+    perform public.replace_weekly_plan_children(
+      'a0000000-0000-4000-8000-000000000001', '[]'::jsonb, '[]'::jsonb
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('87|Incomplete replacement is rejected|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  select count(*) into n
+    from public.plan_linked_grocery_needs
+   where user_id = user_a and ingredient_id = 'milk';
+  results := results || format('88|Rejected incomplete replacement preserves needs|1|%s', n);
+
+  blocked := false;
+  begin
+    perform public.replace_weekly_plan_children(
+      'a0000000-0000-4000-8000-000000000001', null, null
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('89|Null replacement payloads are rejected|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  blocked := false;
+  begin
+    perform public.replace_weekly_plan_children(
+      'a0000000-0000-4000-8000-000000000001',
+      replacement_entries,
+      jsonb_build_array(jsonb_build_object(
+        'ingredient_id', 'borrowed',
+        'recipe_ids', jsonb_build_array('borrowed-recipe'),
+        'dates', jsonb_build_array('2026-08-24')
+      ))
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('90|Invalid grocery recipe reference is rejected|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  select count(*) into n
+    from public.plan_linked_grocery_needs
+   where user_id = user_a and ingredient_id = 'milk';
+  results := results || format('91|Rejected grocery replacement preserves needs|1|%s', n);
+
+  blocked := false;
+  begin
+    perform public.replace_weekly_plan_children(
+      'a0000000-0000-4000-8000-000000000001',
+      jsonb_set(
+        replacement_entries,
+        '{0,planned_meal_time}',
+        '"2026-08-24T18:30:00"'::jsonb
+      ),
+      '[]'::jsonb
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('96|Meal time without an offset is rejected|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  select count(*) into n
+    from public.plan_linked_grocery_needs
+   where user_id = user_a and ingredient_id = 'milk';
+  results := results || format('97|Rejected timestamp preserves prior children|1|%s', n);
+
+  blocked := false;
+  begin
+    perform public.replace_weekly_plan_children(
+      'a0000000-0000-4000-8000-000000000001',
+      jsonb_set(
+        jsonb_set(replacement_entries, '{6,entry_date}', '"2026-09-03"'::jsonb),
+        '{6,planned_meal_time}',
+        '"2026-09-03T18:30:00-07:00"'::jsonb
+      ),
+      '[]'::jsonb
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('98|Nonconsecutive weekly dates are rejected|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  select count(*) into n
+    from public.plan_linked_grocery_needs
+   where user_id = user_a and ingredient_id = 'milk';
+  results := results || format('99|Rejected date set preserves prior children|1|%s', n);
+
+  select jsonb_agg(
+           jsonb_build_object(
+             'entry_date', (date '2026-08-31' + day_offset)::text,
+             'kind', 'recipe',
+             'recipe_id', 'bundled-created',
+             'planned_meal_time',
+               (date '2026-08-31' + day_offset)::text || 'T18:30:00-07:00',
+             'reason', null,
+             'stated_relaxations', jsonb_build_array(),
+             'portion_servings', null,
+             'portion_label', null,
+             'portion_disclaimer', null
+           ) order by day_offset
+         )
+    into creation_entries
+    from generate_series(0, 6) as days(day_offset);
+
+  created_plan_id := public.create_weekly_meal_plan(
+    '2026-08-31', 'draft', array[]::text[], creation_entries, '[]'::jsonb
+  );
+  results := results || format('92|Transactional plan creation returns an id|true|%s',
+                               created_plan_id is not null);
+  select count(*) into n
+    from public.weekly_meal_plan_entries
+   where plan_id = created_plan_id and user_id = user_a;
+  results := results || format('93|Transactional creation inserts all seven entries|7|%s', n);
+
+  blocked := false;
+  begin
+    perform public.create_weekly_meal_plan(
+      '2026-09-07', 'draft', array[]::text[], '[]'::jsonb, '[]'::jsonb
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('94|Invalid transactional creation is rejected|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  select count(*) into n
+    from public.weekly_meal_plans
+   where user_id = user_a and week_start = '2026-09-07';
+  results := results || format('95|Rejected creation leaves no parent row|0|%s', n);
 
   perform set_config('request.jwt.claims',
                      json_build_object('sub', user_a2, 'role', 'authenticated')::text, true);
@@ -582,7 +719,7 @@ do $$
 declare
   failed int;
 begin
-  select count(*) into failed from _rls_results where not pass;
+  select count(*) into failed from _rls_results where pass is not true;
   if failed > 0 then
     raise exception '% of % RLS assertions failed -- see the table above', failed,
       (select count(*) from _rls_results);

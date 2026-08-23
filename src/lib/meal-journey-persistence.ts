@@ -14,6 +14,7 @@ import type { Recipe } from '@/engine/types';
 const onboardingMutableSchema = continuousOnboardingProgressSchema.omit({ updatedAt: true });
 const reminderMutableSchema = mealReminderPreferencesSchema.omit({ updatedAt: true });
 const uuidSchema = z.uuid();
+const WEEKLY_PLAN_CREATION_RPC = 'create_weekly_meal_plan' as const;
 const WEEKLY_CHILD_REPLACEMENT_RPC = 'replace_weekly_plan_children' as const;
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -117,16 +118,6 @@ function parseWeeklyPlan(plan: WeeklyMealPlan): WeeklyMealPlan {
   return weeklyMealPlanSchema.parse(plan);
 }
 
-function toWeeklyPlanParentInsert(userId: string, input: WeeklyMealPlan) {
-  const plan = parseWeeklyPlan(input);
-  return {
-    user_id: parseUserId(userId),
-    week_start: plan.weekStart,
-    status: plan.status,
-    stated_relaxations: [...plan.statedRelaxations],
-  };
-}
-
 function assertBundledRecipeIds(plan: WeeklyMealPlan, catalog: readonly Recipe[]): void {
   const bundledIds = new Set(
     catalog.filter((recipe) => recipe.source === 'tier1').map((recipe) => recipe.id)
@@ -136,27 +127,27 @@ function assertBundledRecipeIds(plan: WeeklyMealPlan, catalog: readonly Recipe[]
       throw new TypeError(`Recipe ${entry.recipeId} is not in the bundled catalog`);
     }
   }
+
+  const concreteEntryIds = new Set(
+    plan.entries.flatMap((entry) => (entry.kind === 'recipe' ? [entry.recipeId] : []))
+  );
+  for (const need of plan.groceryNeeds) {
+    for (const recipeId of need.recipeIds) {
+      if (!bundledIds.has(recipeId)) {
+        throw new TypeError(`Recipe ${recipeId} is not in the bundled catalog`);
+      }
+      if (!concreteEntryIds.has(recipeId)) {
+        throw new TypeError(`Recipe ${recipeId} is not a concrete recipe entry`);
+      }
+    }
+  }
 }
 
-function toWeeklyPlanReplacement(
-  userId: string,
-  planId: string,
-  input: WeeklyMealPlan,
-  catalog: readonly Recipe[]
-) {
-  const ownerId = parseUserId(userId);
-  const parentId = uuidSchema.parse(planId);
-  const plan = parseWeeklyPlan(input);
-  assertBundledRecipeIds(plan, catalog);
-
+function toWeeklyPlanChildPayload(plan: WeeklyMealPlan) {
   return {
-    operation: WEEKLY_CHILD_REPLACEMENT_RPC,
-    deleteExisting: { plan_id: parentId, user_id: ownerId },
     entries: plan.entries.map((entry) => {
       if (entry.kind === 'day_of_decision') {
         return {
-          plan_id: parentId,
-          user_id: ownerId,
           entry_date: entry.date,
           kind: entry.kind,
           recipe_id: null,
@@ -170,8 +161,6 @@ function toWeeklyPlanReplacement(
       }
 
       return {
-        plan_id: parentId,
-        user_id: ownerId,
         entry_date: entry.date,
         kind: entry.kind,
         recipe_id: entry.recipeId,
@@ -184,11 +173,53 @@ function toWeeklyPlanReplacement(
       };
     }),
     groceryNeeds: plan.groceryNeeds.map((need) => ({
-      plan_id: parentId,
-      user_id: ownerId,
       ingredient_id: need.ingredientId,
       recipe_ids: [...need.recipeIds],
       dates: [...need.dates],
+    })),
+  };
+}
+
+function toWeeklyPlanCreation(userId: string, input: WeeklyMealPlan, catalog: readonly Recipe[]) {
+  parseUserId(userId);
+  const plan = parseWeeklyPlan(input);
+  assertBundledRecipeIds(plan, catalog);
+  const children = toWeeklyPlanChildPayload(plan);
+  return {
+    operation: WEEKLY_PLAN_CREATION_RPC,
+    parent: {
+      week_start: plan.weekStart,
+      status: plan.status,
+      stated_relaxations: [...plan.statedRelaxations],
+    },
+    ...children,
+  };
+}
+
+function toWeeklyPlanReplacement(
+  userId: string,
+  planId: string,
+  input: WeeklyMealPlan,
+  catalog: readonly Recipe[]
+) {
+  const ownerId = parseUserId(userId);
+  const parentId = uuidSchema.parse(planId);
+  const plan = parseWeeklyPlan(input);
+  assertBundledRecipeIds(plan, catalog);
+  const children = toWeeklyPlanChildPayload(plan);
+
+  return {
+    operation: WEEKLY_CHILD_REPLACEMENT_RPC,
+    deleteExisting: { plan_id: parentId, user_id: ownerId },
+    entries: children.entries.map((entry) => ({
+      plan_id: parentId,
+      user_id: ownerId,
+      ...entry,
+    })),
+    groceryNeeds: children.groceryNeeds.map((need) => ({
+      plan_id: parentId,
+      user_id: ownerId,
+      ...need,
     })),
   };
 }
@@ -214,7 +245,7 @@ export const onboardingProgressPersistence = {
 } as const;
 
 export const weeklyPlanPersistence = {
-  toParentInsert: toWeeklyPlanParentInsert,
+  toCreation: toWeeklyPlanCreation,
   toReplacement: toWeeklyPlanReplacement,
   toConfirmation: toWeeklyPlanConfirmation,
 } as const;

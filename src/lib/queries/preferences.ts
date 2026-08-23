@@ -237,21 +237,17 @@ export async function createWeeklyMealPlan(
   plan: WeeklyMealPlan,
   bundledCatalog: readonly Recipe[]
 ): Promise<string> {
-  const parent = weeklyPlanPersistence.toParentInsert(userId, plan);
-  const { data, error } = await supabase
-    .from('weekly_meal_plans')
-    .insert(parent)
-    .select('id')
-    .single();
+  const creation = weeklyPlanPersistence.toCreation(userId, plan, bundledCatalog);
+  const { data, error } = await supabase.rpc(creation.operation, {
+    p_week_start: creation.parent.week_start,
+    p_status: creation.parent.status,
+    p_stated_relaxations: creation.parent.stated_relaxations,
+    p_entries: creation.entries,
+    p_grocery_needs: creation.groceryNeeds,
+  });
   if (error) throw error;
-
-  try {
-    await replaceWeeklyMealPlanChildren(userId, data.id, plan, bundledCatalog);
-  } catch (replacementError) {
-    await supabase.from('weekly_meal_plans').delete().eq('id', data.id).eq('user_id', userId);
-    throw replacementError;
-  }
-  return data.id;
+  if (!data) throw new Error('Weekly plan creation returned no id');
+  return data;
 }
 
 export async function replaceWeeklyMealPlanChildren(

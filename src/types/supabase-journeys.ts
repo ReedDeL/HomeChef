@@ -294,6 +294,16 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
   public: Omit<GeneratedPublic, 'Tables' | 'Functions'> & {
     Tables: GeneratedPublic['Tables'] & JourneyTables;
     Functions: GeneratedPublic['Functions'] & {
+      create_weekly_meal_plan: {
+        Args: {
+          p_entries: Json;
+          p_grocery_needs: Json;
+          p_stated_relaxations: string[];
+          p_status: string;
+          p_week_start: string;
+        };
+        Returns: string;
+      };
       replace_weekly_plan_children: {
         Args: {
           p_entries: Json;

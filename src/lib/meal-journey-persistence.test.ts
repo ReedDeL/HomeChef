@@ -145,11 +145,20 @@ describe('weekly plan persistence', () => {
       makeRecipe({ id: 'bundled-1', source: 'tier1', instructions: 'owned instructions' }),
     ];
 
-    expect(weeklyPlanPersistence.toParentInsert(USER_ID, plan)).toEqual({
-      user_id: USER_ID,
-      week_start: '2026-08-24',
-      status: 'draft',
-      stated_relaxations: ['time'],
+    expect(weeklyPlanPersistence.toCreation(USER_ID, plan, bundledCatalog)).toMatchObject({
+      operation: 'create_weekly_meal_plan',
+      parent: {
+        week_start: '2026-08-24',
+        status: 'draft',
+        stated_relaxations: ['time'],
+      },
+      entries: expect.arrayContaining([
+        expect.objectContaining({
+          entry_date: '2026-08-24',
+          recipe_id: 'bundled-1',
+        }),
+      ]),
+      groceryNeeds: expect.arrayContaining([expect.objectContaining({ ingredient_id: 'egg' })]),
     });
 
     const replacement = weeklyPlanPersistence.toReplacement(USER_ID, PLAN_ID, plan, bundledCatalog);
@@ -201,13 +210,55 @@ describe('weekly plan persistence', () => {
     ).toThrow('bundled catalog');
   });
 
+  it('rejects a borrowed recipe referenced only by a grocery need', () => {
+    const plan = makePlan();
+    const borrowedNeedPlan: WeeklyMealPlan = {
+      ...plan,
+      groceryNeeds: [
+        {
+          ingredientId: 'egg',
+          recipeIds: ['borrowed-need'],
+          dates: [DATES[0]],
+        },
+      ],
+    };
+
+    expect(() =>
+      weeklyPlanPersistence.toReplacement(USER_ID, PLAN_ID, borrowedNeedPlan, [
+        makeRecipe({ id: 'bundled-1', source: 'tier1' }),
+        makeRecipe({ id: 'borrowed-need', source: 'tier2' }),
+      ])
+    ).toThrow('bundled catalog');
+  });
+
+  it('rejects a grocery recipe reference absent from concrete plan entries', () => {
+    const plan = makePlan();
+    const unrelatedBundledNeedPlan: WeeklyMealPlan = {
+      ...plan,
+      groceryNeeds: [
+        {
+          ingredientId: 'egg',
+          recipeIds: ['bundled-unused'],
+          dates: [DATES[0]],
+        },
+      ],
+    };
+
+    expect(() =>
+      weeklyPlanPersistence.toReplacement(USER_ID, PLAN_ID, unrelatedBundledNeedPlan, [
+        makeRecipe({ id: 'bundled-1', source: 'tier1' }),
+        makeRecipe({ id: 'bundled-unused', source: 'tier1' }),
+      ])
+    ).toThrow('concrete recipe entry');
+  });
+
   it('confirms only the parent status and exposes no child update operation', () => {
     expect(weeklyPlanPersistence.toConfirmation(USER_ID, PLAN_ID)).toEqual({
       filter: { id: PLAN_ID, user_id: USER_ID },
       update: { status: 'confirmed' },
     });
     expect(Object.keys(weeklyPlanPersistence)).toEqual([
-      'toParentInsert',
+      'toCreation',
       'toReplacement',
       'toConfirmation',
     ]);

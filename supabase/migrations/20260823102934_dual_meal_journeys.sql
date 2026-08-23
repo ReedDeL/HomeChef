@@ -81,7 +81,7 @@ create table public.weekly_meal_plan_entries (
       and recipe_id is not null and length(recipe_id) > 0
       and planned_meal_time is not null
       and planned_meal_time ~
-        '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$'
+        '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?[+-][0-9]{2}:[0-9]{2}$'
       and left(planned_meal_time, 10)::date = entry_date
       and reason is null
       and (
@@ -247,6 +247,192 @@ grant select, insert, delete on public.weekly_meal_plan_entries to authenticated
 grant select, insert, delete on public.plan_linked_grocery_needs to authenticated;
 grant select, insert, update on public.meal_reminder_preferences to authenticated;
 
+-- Validate the complete derived snapshot before replacement deletes anything.
+-- This helper stays outside the exposed API schema and runs with the caller's
+-- privileges; both public RPCs below share it.
+create function private.validate_weekly_plan_payload(
+  p_week_start date,
+  p_entries jsonb,
+  p_grocery_needs jsonb
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  entry jsonb;
+  need jsonb;
+  value jsonb;
+  entry_date date;
+  entry_kind text;
+  recipe_id text;
+  planned_meal_time text;
+  reason text;
+  portion_servings numeric;
+  portion_label text;
+  portion_disclaimer text;
+  stated_relaxations text[];
+  entry_dates date[] := array[]::date[];
+  concrete_recipe_ids text[] := array[]::text[];
+  ingredient_ids text[] := array[]::text[];
+  expected_offset int;
+begin
+  if p_week_start is null
+     or jsonb_typeof(p_entries) is distinct from 'array'
+     or jsonb_typeof(p_grocery_needs) is distinct from 'array' then
+    raise exception 'Weekly plan payloads must be JSON arrays'
+      using errcode = '22023';
+  end if;
+
+  if jsonb_array_length(p_entries) <> 7 then
+    raise exception 'Weekly plan replacement requires exactly seven entries'
+      using errcode = '22023';
+  end if;
+
+  if jsonb_array_length(p_grocery_needs) > 12 then
+    raise exception 'Weekly plan permits at most twelve grocery needs'
+      using errcode = '22023';
+  end if;
+
+  for entry in select item from jsonb_array_elements(p_entries) as items(item)
+  loop
+    if jsonb_typeof(entry) is distinct from 'object'
+       or jsonb_typeof(entry -> 'entry_date') is distinct from 'string'
+       or jsonb_typeof(entry -> 'kind') is distinct from 'string'
+       or jsonb_typeof(entry -> 'stated_relaxations') is distinct from 'array'
+       or exists (
+         select 1
+           from jsonb_array_elements(entry -> 'stated_relaxations') as elements(element)
+          where jsonb_typeof(element) <> 'string'
+       ) then
+      raise exception 'Weekly entry has malformed fields'
+        using errcode = '22023';
+    end if;
+
+    entry_date := (entry ->> 'entry_date')::date;
+    entry_kind := entry ->> 'kind';
+    if entry_date = any(entry_dates) then
+      raise exception 'Weekly entry dates must be unique'
+        using errcode = '22023';
+    end if;
+    entry_dates := array_append(entry_dates, entry_date);
+
+    select coalesce(array_agg(relaxation), array[]::text[])
+      into stated_relaxations
+      from jsonb_array_elements_text(entry -> 'stated_relaxations')
+        as relaxations(relaxation);
+    if not stated_relaxations <@ array['time', 'cuisine']::text[] then
+      raise exception 'Weekly entry has an invalid relaxation'
+        using errcode = '22023';
+    end if;
+
+    recipe_id := entry ->> 'recipe_id';
+    planned_meal_time := entry ->> 'planned_meal_time';
+    reason := entry ->> 'reason';
+    portion_label := entry ->> 'portion_label';
+    portion_disclaimer := entry ->> 'portion_disclaimer';
+    portion_servings := case
+      when entry ->> 'portion_servings' is null then null
+      else (entry ->> 'portion_servings')::numeric
+    end;
+
+    if entry_kind = 'recipe' then
+      if jsonb_typeof(entry -> 'recipe_id') is distinct from 'string'
+         or length(recipe_id) = 0
+         or jsonb_typeof(entry -> 'planned_meal_time') is distinct from 'string'
+         or planned_meal_time !~
+           '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?[+-][0-9]{2}:[0-9]{2}$'
+         or left(planned_meal_time, 10)::date <> entry_date
+         or reason is not null then
+        raise exception 'Concrete weekly entry has invalid recipe fields'
+          using errcode = '22023';
+      end if;
+
+      if portion_servings is null and portion_label is null and portion_disclaimer is null then
+        null;
+      elsif jsonb_typeof(entry -> 'portion_servings') is distinct from 'number'
+         or jsonb_typeof(entry -> 'portion_label') is distinct from 'string'
+         or jsonb_typeof(entry -> 'portion_disclaimer') is distinct from 'string'
+         or portion_servings not between 0.75 and 1.5
+         or mod(portion_servings * 4, 1) <> 0
+         or portion_label !~ '^Start with .+ servings?$'
+         or portion_disclaimer <> 'Estimate only—adjust to your hunger.' then
+        raise exception 'Concrete weekly entry has invalid portion guidance'
+          using errcode = '22023';
+      end if;
+
+      concrete_recipe_ids := array_append(concrete_recipe_ids, recipe_id);
+    elsif entry_kind = 'day_of_decision' then
+      if recipe_id is not null
+         or planned_meal_time is not null
+         or jsonb_typeof(entry -> 'reason') is distinct from 'string'
+         or reason not in ('no_safe_recipe', 'grocery_need_cap')
+         or cardinality(stated_relaxations) <> 0
+         or portion_servings is not null
+         or portion_label is not null
+         or portion_disclaimer is not null then
+        raise exception 'Day-of-decision entry has invalid fields'
+          using errcode = '22023';
+      end if;
+    else
+      raise exception 'Weekly entry has an invalid kind'
+        using errcode = '22023';
+    end if;
+  end loop;
+
+  for expected_offset in 0 .. 6 loop
+    if not ((p_week_start + expected_offset) = any(entry_dates)) then
+      raise exception 'Weekly entries must match seven consecutive plan dates'
+        using errcode = '22023';
+    end if;
+  end loop;
+
+  for need in select item from jsonb_array_elements(p_grocery_needs) as needs(item)
+  loop
+    if jsonb_typeof(need) is distinct from 'object'
+       or jsonb_typeof(need -> 'ingredient_id') is distinct from 'string'
+       or length(need ->> 'ingredient_id') = 0
+       or jsonb_typeof(need -> 'recipe_ids') is distinct from 'array'
+       or jsonb_typeof(need -> 'dates') is distinct from 'array'
+       or jsonb_array_length(need -> 'recipe_ids') = 0
+       or jsonb_array_length(need -> 'dates') = 0 then
+      raise exception 'Grocery need has malformed fields'
+        using errcode = '22023';
+    end if;
+
+    if (need ->> 'ingredient_id') = any(ingredient_ids) then
+      raise exception 'Grocery ingredient ids must be unique'
+        using errcode = '22023';
+    end if;
+    ingredient_ids := array_append(ingredient_ids, need ->> 'ingredient_id');
+
+    for value in select item from jsonb_array_elements(need -> 'recipe_ids') as refs(item)
+    loop
+      if jsonb_typeof(value) <> 'string'
+         or not ((value #>> '{}') = any(concrete_recipe_ids)) then
+        raise exception 'Grocery recipe ids must reference concrete plan entries'
+          using errcode = '22023';
+      end if;
+    end loop;
+
+    for value in select item from jsonb_array_elements(need -> 'dates') as refs(item)
+    loop
+      if jsonb_typeof(value) <> 'string'
+         or not (((value #>> '{}')::date) = any(entry_dates)) then
+        raise exception 'Grocery dates must reference plan entry dates'
+          using errcode = '22023';
+      end if;
+    end loop;
+  end loop;
+end;
+$$;
+
+revoke all on function private.validate_weekly_plan_payload(date, jsonb, jsonb)
+  from public, anon;
+grant execute on function private.validate_weekly_plan_payload(date, jsonb, jsonb)
+  to authenticated;
+
 -- PostgREST sends one RPC statement, so deleting both derived snapshots and
 -- inserting their complete replacements commits or rolls back as one unit.
 -- SECURITY INVOKER intentionally keeps the caller's grants and RLS active.
@@ -262,15 +448,21 @@ set search_path = ''
 as $$
 declare
   caller_id uuid := (select auth.uid());
+  parent_week_start date;
 begin
-  if caller_id is null or not exists (
-    select 1
-      from public.weekly_meal_plans
-     where id = p_plan_id and user_id = caller_id
-  ) then
+  select week_start
+    into parent_week_start
+    from public.weekly_meal_plans
+   where id = p_plan_id and user_id = caller_id;
+
+  if caller_id is null or parent_week_start is null then
     raise exception 'Weekly plan is not owned by the caller'
       using errcode = '42501';
   end if;
+
+  perform private.validate_weekly_plan_payload(
+    parent_week_start, p_entries, p_grocery_needs
+  );
 
   delete from public.weekly_meal_plan_entries
    where plan_id = p_plan_id and user_id = caller_id;
@@ -313,6 +505,53 @@ $$;
 revoke all on function public.replace_weekly_plan_children(uuid, jsonb, jsonb)
   from public, anon;
 grant execute on function public.replace_weekly_plan_children(uuid, jsonb, jsonb)
+  to authenticated;
+
+-- Plan creation and its complete derived snapshots share one transaction. A
+-- validation or child insert failure rolls the parent insert back as well.
+create function public.create_weekly_meal_plan(
+  p_week_start date,
+  p_status text,
+  p_stated_relaxations text[],
+  p_entries jsonb,
+  p_grocery_needs jsonb
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  caller_id uuid := (select auth.uid());
+  new_plan_id uuid;
+begin
+  if caller_id is null then
+    raise exception 'Weekly plan requires an authenticated caller'
+      using errcode = '42501';
+  end if;
+
+  perform private.validate_weekly_plan_payload(
+    p_week_start, p_entries, p_grocery_needs
+  );
+
+  insert into public.weekly_meal_plans (
+    user_id, week_start, status, stated_relaxations
+  ) values (
+    caller_id, p_week_start, p_status, p_stated_relaxations
+  )
+  returning id into new_plan_id;
+
+  perform public.replace_weekly_plan_children(
+    new_plan_id, p_entries, p_grocery_needs
+  );
+
+  return new_plan_id;
+end;
+$$;
+
+revoke all on function public.create_weekly_meal_plan(date, text, text[], jsonb, jsonb)
+  from public, anon;
+grant execute on function public.create_weekly_meal_plan(date, text, text[], jsonb, jsonb)
   to authenticated;
 
 -- A plan-linked grocery need is not a reusable shopping-list row. Normalize
