@@ -11,12 +11,12 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
-class RightsSource(BaseModel):
-    """One auditable archive candidate.
+class ReleaseSource(BaseModel):
+    """One auditable source record emitted with a catalog release.
 
-    Only approved entries are eligible for download or ingestion. Keeping all
-    rights fields mandatory makes missing legal context a build failure instead
-    of an accidental release decision.
+    This is broader than a downloadable archive: the protected loader maps
+    these fields directly to ``catalog_release_sources``, including
+    HomeChef-authored source material.
     """
 
     model_config = {"extra": "forbid", "populate_by_name": True}
@@ -26,7 +26,6 @@ class RightsSource(BaseModel):
     title: str
     archive_url: str = Field(alias="archiveUrl")
     sha256: str
-    archive_format: Literal["jsonl"] = Field(alias="archiveFormat")
     license_name: str = Field(alias="licenseName")
     license_url: str = Field(alias="licenseUrl")
     attribution: str
@@ -54,6 +53,31 @@ class RightsSource(BaseModel):
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("must be an HTTPS URL")
         return value
+
+
+class RightsSource(ReleaseSource):
+    """One auditable archive candidate.
+
+    Only approved entries are eligible for download or ingestion. Keeping all
+    rights fields mandatory makes missing legal context a build failure instead
+    of an accidental release decision.
+    """
+
+    archive_format: Literal["jsonl"] = Field(alias="archiveFormat")
+
+    def to_release_source(self) -> ReleaseSource:
+        """Remove archive-ingestion-only metadata at the release handoff boundary."""
+        return ReleaseSource(
+            id=self.id,
+            version=self.version,
+            title=self.title,
+            archiveUrl=self.archive_url,
+            sha256=self.sha256,
+            licenseName=self.license_name,
+            licenseUrl=self.license_url,
+            attribution=self.attribution,
+            status=self.status,
+        )
 
 
 class RightsManifest(BaseModel):

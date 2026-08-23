@@ -8,11 +8,10 @@ element is accessible, and colors and spacing come from `src/theme/tokens.ts`.
 
 ## Candidate experience
 
-Today the app shows candidates from the transitional bundled catalog immediately
-after a time choice. After roadmap Task 4, it will also merge bounded hosted
-candidates quietly by stable HomeChef ID before the pure engine calculates the
-final bucket. Until that target path lands, there is no hosted merge; the
-transitional bundle remains the only candidate source.
+The app shows candidates from the transitional bundled catalog immediately after
+a time choice and merges bounded hosted candidates quietly by stable HomeChef ID
+before the pure engine calculates the final bucket. A hosted error or absence
+retains offline results without a failure screen or provider explanation.
 
 Hard constraints are visible and inviolable:
 
@@ -32,23 +31,19 @@ Hard constraints are visible and inviolable:
 3. **Home:** present time as the primary choice and a quiet pantry link.
 4. **Results:** show one bucket, at most 3-4 recipe cards, required equipment,
    missing ingredients, and an accessible explanation for soft relaxation.
-5. **Recipe and cook mode:** today resolve recipe detail from the transitional
-   bundled catalog. After roadmap Tasks 3-4, resolve bounded detail through the
-   protected hosted catalog with the offline catalog as the fallback. If detail
-   cannot load, keep the user on useful offline alternatives rather than
-   exposing a dead end.
-6. **Settings/About:** today show the required transitional attribution. After
-   the active-release path in roadmap Tasks 2-3 lands, also show attribution
-   returned by that release until approved cutover.
+5. **Recipe and cook mode:** resolve bounded detail through the protected hosted
+   catalog with the offline catalog as the fallback. If detail cannot load, keep
+   the user on useful offline alternatives rather than exposing a dead end.
+6. **Settings/About:** show active-release attribution alongside the required
+   transitional attribution until approved cutover.
 
 ## Attribution and state
 
 The UI does not label recipes by provider or use provider-tier language.
-Attribution is a rights requirement. Today it comes from the transitional
-bundle's required attribution; after the active-release path lands, it will be
-returned by active catalog data in the appropriate About/Settings and recipe
-context. Loading and empty states must not imply that the transitional artifact
-has already been replaced.
+Attribution is a rights requirement. Settings/About displays active catalog data
+alongside the transitional bundle's required attribution until approved cutover;
+recipe context does not display active attribution. Loading and empty states
+must not imply that the transitional artifact has already been replaced.
 
 ## Accessibility and copy
 

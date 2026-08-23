@@ -108,7 +108,9 @@ def test_activate_validates_before_stopping_at_hosted_boundary(
     release = write_release_fixture(tmp_path)
 
     assert main(["activate", "--release", str(release)]) == 2
-    assert "not connected" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "target-authorized operator loader" in error
+    assert "does not mutate Supabase" in error
 
 
 def test_activate_rejects_incomplete_release_before_hosted_boundary(

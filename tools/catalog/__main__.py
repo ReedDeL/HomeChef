@@ -45,7 +45,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"local handoff validated: {args.release}")
             return 0
         load_release(args.release)
-        print("activation is not connected to hosted state until Task 3", file=sys.stderr)
+        print(
+            "hosted activation requires a target-authorized operator loader; "
+            "this local CLI intentionally does not mutate Supabase",
+            file=sys.stderr,
+        )
         return 2
     except (OSError, json.JSONDecodeError, ValidationError, ValueError) as error:
         print(f"catalog command failed: {error}", file=sys.stderr)

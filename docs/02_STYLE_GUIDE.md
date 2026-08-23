@@ -475,7 +475,10 @@ Types: `feat` · `fix` · `chore` · `docs` · `refactor` · `test`
 - Commented-out code.
 - Personal editor config beyond the committed `.vscode/settings.json`.
 
-`src/data/recipes.json` **is** committed, despite being generated. It is the product catalog, it must be reproducible at any commit, and it must build without running the Python pipeline.
+`src/data/recipes.json` and `src/data/ingredients.json` are committed
+transitional artifacts. They are frozen and non-rebuildable from the retired
+provider, so their checksums protect them from drift. Source-neutral catalog
+release artifacts are reproducible from approved, checksum-pinned archives.
 
 ---
 

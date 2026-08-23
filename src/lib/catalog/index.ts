@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
 import { isRecipeHardConstraintSatisfied } from '@/engine/filter-hard';
+import { TIME_TIERS } from '@/engine/relax';
 import { DIETARY_TAGS, EQUIPMENT } from '@/engine/types';
 import type { DietaryTag, Equipment, Recipe, UserPreferences } from '@/engine/types';
 import { getSupabase } from '@/lib/supabase';
 import type { Database } from '@/types/supabase-generated';
 
 export const CATALOG_RPC_LIMIT = 100;
+export const HOSTED_RECOVERY_REQUESTED_MINUTES = Math.max(...TIME_TIERS);
 const DEFAULT_CATALOG_RPC_LIMIT = 20;
 
 export interface CatalogCandidateRequest {
@@ -29,6 +31,30 @@ export interface NormalizedCatalogCandidateRequest {
   cuisine: string | null;
   excludedRecipeIds: string[];
   limit: number;
+}
+
+/**
+ * Hosted candidates cover every soft-recovery rung in one bounded request.
+ * The engine remains the sole authority for the user's selected time/cuisine
+ * and for any visible relaxation.
+ */
+export function buildHostedCatalogCandidateRequest({
+  pantryIngredientIds,
+  preferences,
+}: {
+  pantryIngredientIds: readonly string[];
+  preferences: Pick<UserPreferences, 'equipment' | 'allergens' | 'dietary' | 'dislikedRecipeIds'>;
+}): CatalogCandidateRequest {
+  return {
+    pantryIngredientIds,
+    ownedEquipment: preferences.equipment,
+    allergens: preferences.allergens,
+    dietaryRestrictions: preferences.dietary,
+    requestedMinutes: HOSTED_RECOVERY_REQUESTED_MINUTES,
+    cuisine: null,
+    excludedRecipeIds: [...preferences.dislikedRecipeIds],
+    limit: CATALOG_RPC_LIMIT,
+  };
 }
 
 export interface CatalogAttribution {

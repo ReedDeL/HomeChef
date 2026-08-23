@@ -19,11 +19,10 @@ from tools.catalog.models import (
     VocabularyEntry,
 )
 from tools.catalog.normalize import allergen_groups_for, canonical_id, display_name, is_staple
-from tools.catalog.rights import RightsManifest, RightsSource
+from tools.catalog.rights import ReleaseSource, RightsManifest, RightsSource
 from tools.catalog.seed_loader import (
-    AUTHORED_ARCHIVE_SHA256,
     AUTHORED_SOURCE_ID,
-    AUTHORED_SOURCE_VERSION,
+    authored_release_source,
     load_seed_recipes,
     merge_seed,
 )
@@ -54,7 +53,7 @@ class ReleaseBuild(BaseModel):
     recipes: list[CatalogRecipe]
     offline_recipes: list[CatalogRecipe] = Field(alias="offlineRecipes")
     vocabulary: list[VocabularyEntry]
-    sources: list[RightsSource]
+    sources: list[ReleaseSource]
     quarantine: list[QuarantineEntry]
     counts: dict[str, int]
 
@@ -143,11 +142,20 @@ def build_release(manifest: RightsManifest, archives: Mapping[str, Path]) -> Rel
     recipes = sorted(recipes, key=lambda recipe: recipe.id)
     offline = _build_offline_subset(recipes)
     vocabulary = _build_vocabulary(recipes)
+    authored_source = authored_release_source()
+    if any(source.id == authored_source.id for source in approved):
+        raise ValueError(
+            f"approved source {authored_source.id!r} conflicts with HomeChef-authored seeds"
+        )
+    release_sources = sorted(
+        [*(source.to_release_source() for source in approved), authored_source],
+        key=lambda source: (source.id, source.version),
+    )
     return ReleaseBuild(
         recipes=recipes,
         offlineRecipes=offline,
         vocabulary=vocabulary,
-        sources=approved,
+        sources=release_sources,
         quarantine=_sorted_quarantine(quarantine),
         counts={
             "recipes": len(recipes),
@@ -183,7 +191,12 @@ def validate_release(release: ReleaseBuild) -> None:
         raise ValueError("release sources must not be empty")
     if any(source.status != "approved" for source in release.sources):
         raise ValueError("release sources must all be approved")
-    RightsManifest(schemaVersion=1, sources=release.sources)
+    identities = [(source.id, source.version) for source in release.sources]
+    if len(identities) != len(set(identities)):
+        raise ValueError("release sources contain duplicate source/version entries")
+    source_ids = [source.id for source in release.sources]
+    if len(source_ids) != len(set(source_ids)):
+        raise ValueError("release sources contain duplicate source ids")
 
     recipe_by_id = {recipe.id: recipe for recipe in release.recipes}
     if len(recipe_by_id) != len(release.recipes):
@@ -230,7 +243,7 @@ def validate_release(release: ReleaseBuild) -> None:
 
 
 def _validate_recipe_provenance(
-    recipe: CatalogRecipe, source_by_identity: Mapping[tuple[str, str], RightsSource]
+    recipe: CatalogRecipe, source_by_identity: Mapping[tuple[str, str], ReleaseSource]
 ) -> None:
     if not recipe.provenance:
         raise ValueError(f"recipe {recipe.id!r} has no provenance")
@@ -241,14 +254,6 @@ def _validate_recipe_provenance(
     if len(identities) != len(recipe.provenance):
         raise ValueError(f"recipe {recipe.id!r} has duplicate provenance")
     for provenance in recipe.provenance:
-        if provenance.source_id == AUTHORED_SOURCE_ID:
-            if (
-                provenance.source_recipe_id != recipe.id
-                or provenance.source_version != AUTHORED_SOURCE_VERSION
-                or provenance.archive_sha256 != AUTHORED_ARCHIVE_SHA256
-            ):
-                raise ValueError(f"recipe {recipe.id!r} has incoherent authored provenance")
-            continue
         source = source_by_identity.get((provenance.source_id, provenance.source_version))
         if source is None or source.sha256 != provenance.archive_sha256:
             raise ValueError(f"recipe {recipe.id!r} provenance does not match a release source")

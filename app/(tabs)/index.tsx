@@ -13,7 +13,11 @@ import { OFFLINE_TRANSITIONAL_CATALOG } from '@/data/catalog';
 import { decide } from '@/engine/decide';
 import { decideWithRelaxation } from '@/engine/relax';
 import type { Bucket, Minutes } from '@/engine/types';
-import { catalogRecipeCache, mergeCatalogCandidates } from '@/lib/catalog';
+import {
+  buildHostedCatalogCandidateRequest,
+  catalogRecipeCache,
+  mergeCatalogCandidates,
+} from '@/lib/catalog';
 import { CUISINE_OPTIONS } from '@/lib/cuisines';
 import { formatDuration } from '@/lib/format';
 import { useCatalogCandidates } from '@/lib/queries/catalog';
@@ -69,16 +73,7 @@ export default function HomeScreen() {
     () =>
       timeLimit === null
         ? null
-        : {
-            pantryIngredientIds: pantry,
-            ownedEquipment: preferences.equipment,
-            allergens: preferences.allergens,
-            dietaryRestrictions: preferences.dietary,
-            requestedMinutes: timeLimit,
-            cuisine: preferences.preferredCuisine,
-            excludedRecipeIds: [...preferences.dislikedRecipeIds],
-            limit: 100,
-          },
+        : buildHostedCatalogCandidateRequest({ pantryIngredientIds: pantry, preferences }),
     [pantry, preferences, timeLimit]
   );
   const hostedCandidates = useCatalogCandidates(catalogRequest);

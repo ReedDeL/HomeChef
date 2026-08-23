@@ -220,6 +220,42 @@ def test_release_includes_homechef_authored_seeds_in_offline_and_vocabulary(tmp_
     assert all(recipe.provenance[0].source_id == "homechef-authored" for recipe in seeds)
 
 
+def test_release_emits_checksum_pinned_source_rows_for_every_recipe_provenance(
+    tmp_path: Path,
+) -> None:
+    """Would fail if an authored seed could not map to catalog_release_sources."""
+    archive = tmp_path / "source.jsonl"
+    write_jsonl(archive, record())
+    item = source(archive=archive)
+    manifest = RightsManifest.model_validate(
+        {"schemaVersion": 1, "sources": [item.model_dump(by_alias=True)]}
+    )
+
+    release = build_release(manifest, {item.id: archive})
+    release_sources = {
+        (release_source.id, release_source.version, release_source.sha256): release_source
+        for release_source in release.sources
+    }
+
+    for recipe in release.recipes:
+        for provenance in recipe.provenance:
+            assert (
+                provenance.source_id,
+                provenance.source_version,
+                provenance.archive_sha256,
+            ) in release_sources
+
+    authored = release_sources[
+        (
+            "homechef-authored",
+            "microwave-seed-1",
+            "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        )
+    ]
+    assert authored.license_name == "HomeChef-authored original content"
+    assert authored.attribution == "HomeChef-authored microwave seed catalog."
+
+
 def test_release_rejects_when_approved_archives_have_no_valid_external_recipes(
     tmp_path: Path,
 ) -> None:
@@ -374,7 +410,7 @@ def test_deduplication_keeps_distinct_full_provenance_rows() -> None:
 
 
 def test_release_validation_rejects_forged_homechef_authored_provenance(tmp_path: Path) -> None:
-    """Would fail if a seed row could claim a different locally known archive pin."""
+    """Would fail if a seed row could cite no emitted checksum-pinned source."""
     archive = tmp_path / "source.jsonl"
     write_jsonl(archive, record())
     item = source(archive=archive)
@@ -385,7 +421,7 @@ def test_release_validation_rejects_forged_homechef_authored_provenance(tmp_path
     seed = next(recipe for recipe in release.recipes if recipe.id.startswith("hc-mw-"))
     seed.provenance[0].archive_sha256 = "e" * 64
 
-    with pytest.raises(ValueError, match="authored provenance"):
+    with pytest.raises(ValueError, match="does not match a release source"):
         validate_release(release)
 
 

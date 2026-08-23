@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from tools.catalog.measurements import parse_measure
 from tools.catalog.models import CatalogIngredient, CatalogRecipe, Equipment, Provenance
 from tools.catalog.normalize import allergen_groups_for
+from tools.catalog.rights import ReleaseSource
 
 SEED_DIR = Path(__file__).resolve().parent / "seed"
 
@@ -20,6 +21,26 @@ SEED_EQUIPMENT: tuple[Equipment, ...] = ("microwave",)
 AUTHORED_SOURCE_ID = "homechef-authored"
 AUTHORED_SOURCE_VERSION = "microwave-seed-1"
 AUTHORED_ARCHIVE_SHA256 = "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc"
+
+
+def authored_release_source() -> ReleaseSource:
+    """Return the stable release-source record for the HomeChef seed material.
+
+    These are HomeChef records, not a borrowed archive or external license.
+    They retain the source/version/checksum/rights/attribution fields the
+    protected loader maps into ``catalog_release_sources``.
+    """
+    return ReleaseSource(
+        id=AUTHORED_SOURCE_ID,
+        version=AUTHORED_SOURCE_VERSION,
+        title="HomeChef-authored microwave seed catalog",
+        archiveUrl="https://homechef.app/catalog/authored/microwave-seed-1",
+        sha256=AUTHORED_ARCHIVE_SHA256,
+        licenseName="HomeChef-authored original content",
+        licenseUrl="https://homechef.app/catalog/rights",
+        attribution="HomeChef-authored microwave seed catalog.",
+        status="approved",
+    )
 
 
 class SeedIngredient(BaseModel):

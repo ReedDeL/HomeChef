@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { ingredient, makePrefs, makeRecipe } from '@/engine/__fixtures__';
+import { decideWithRelaxation, TIME_TIERS } from '@/engine/relax';
 import {
+  buildHostedCatalogCandidateRequest,
   CatalogContractError,
   CatalogRecipeCache,
   fetchAndCacheCatalogRecipeDetail,
@@ -84,6 +86,91 @@ describe('normalizeCandidateRequest', () => {
       ).toBe(20);
     }
   );
+});
+
+describe('hosted recovery candidates', () => {
+  it('covers soft recovery while the engine still enforces hard constraints', () => {
+    const preferences = makePrefs({
+      equipment: ['microwave'],
+      allergens: ['nut'],
+      dietary: ['vegan'],
+      dislikedRecipeIds: new Set(['disliked']),
+      preferredCuisine: 'thai',
+    });
+    const request = buildHostedCatalogCandidateRequest({
+      pantryIngredientIds: ['rice', 'salt'],
+      preferences,
+    });
+    const hosted = [
+      makeRecipe({
+        id: 'recovered',
+        cuisine: 'italian',
+        totalTimeMinutes: 60,
+        equipmentRequired: ['microwave'],
+        dietaryTags: ['vegan'],
+        ingredients: [ingredient('rice'), ingredient('salt')],
+      }),
+      makeRecipe({
+        id: 'wrong-equipment',
+        cuisine: 'italian',
+        totalTimeMinutes: 60,
+        equipmentRequired: ['oven'],
+        dietaryTags: ['vegan'],
+        ingredients: [ingredient('rice')],
+      }),
+      makeRecipe({
+        id: 'allergen',
+        cuisine: 'italian',
+        totalTimeMinutes: 60,
+        equipmentRequired: ['microwave'],
+        dietaryTags: ['vegan'],
+        ingredients: [ingredient('peanut', ['nut'])],
+      }),
+      makeRecipe({
+        id: 'wrong-dietary',
+        cuisine: 'italian',
+        totalTimeMinutes: 60,
+        equipmentRequired: ['microwave'],
+        dietaryTags: [],
+        ingredients: [ingredient('rice')],
+      }),
+      makeRecipe({
+        id: 'disliked',
+        cuisine: 'italian',
+        totalTimeMinutes: 60,
+        equipmentRequired: ['microwave'],
+        dietaryTags: ['vegan'],
+        ingredients: [ingredient('rice')],
+      }),
+    ];
+
+    expect(request).toMatchObject({
+      pantryIngredientIds: ['rice', 'salt'],
+      ownedEquipment: ['microwave'],
+      allergens: ['nut'],
+      dietaryRestrictions: ['vegan'],
+      excludedRecipeIds: ['disliked'],
+      requestedMinutes: Math.max(...TIME_TIERS),
+      cuisine: null,
+      limit: 100,
+    });
+
+    const result = decideWithRelaxation(hosted, new Set(['rice', 'salt']), preferences, 15);
+    const resultIds = Object.values(result.buckets)
+      .flat()
+      .map((scored) => scored.recipe.id);
+
+    expect(resultIds).toContain('recovered');
+    for (const invalidRecipeId of ['wrong-equipment', 'allergen', 'wrong-dietary', 'disliked']) {
+      expect(resultIds).not.toContain(invalidRecipeId);
+    }
+    expect(result.appliedRelaxations).toEqual(
+      expect.arrayContaining([
+        { kind: 'time_widened', from: 15, to: 60 },
+        { kind: 'cuisine_dropped', cuisine: 'thai' },
+      ])
+    );
+  });
 });
 
 describe('catalog candidate query keys', () => {
