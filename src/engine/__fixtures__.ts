@@ -8,6 +8,7 @@ import type {
   ContinuousOnboardingPromptState,
 } from '@/contracts/meal-journeys';
 import type {
+  DailyPlanPreference,
   DietaryTag,
   Equipment,
   IngredientId,
@@ -15,6 +16,17 @@ import type {
   RecipeIngredient,
   UserPreferences,
 } from '@/engine/types';
+
+export function makeDailyPlanPreference(
+  overrides: Partial<DailyPlanPreference> = {}
+): DailyPlanPreference {
+  return {
+    date: '2026-08-24',
+    selectedLimit: 30,
+    mealTime: '18:30:00-07:00',
+    ...overrides,
+  };
+}
 
 export function makeBodyProfile(overrides: Partial<BodyProfile> = {}): BodyProfile {
   return {

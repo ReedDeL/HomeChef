@@ -108,6 +108,14 @@ export interface UserPreferences {
   preferredCuisine: string | null;
 }
 
+export interface DailyPlanPreference {
+  /** ISO local calendar date supplied by the caller. */
+  date: string;
+  selectedLimit: Minutes;
+  /** Local wall-clock time with seconds and a numeric UTC offset. */
+  mealTime: string;
+}
+
 export type Bucket = 'ready' | 'missing_few' | 'missing_some' | 'grocery_run';
 
 export interface ScoredRecipe {

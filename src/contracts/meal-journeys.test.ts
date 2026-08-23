@@ -90,6 +90,7 @@ type MutableFixture = {
       kind: string;
       date: string;
       plannedMealTime?: string;
+      reason?: string;
     }>;
     groceryNeeds: Array<{
       ingredientId: string;
@@ -397,12 +398,19 @@ describe('cross-platform artifacts', () => {
     if (plannedEntry) plannedEntry.plannedMealTime = '2026-08-25T18:30:00-07:00';
 
     const invalidDates = structuredClone(validFixture);
-    const datedEntry = invalidDates.weeklyMealPlan.entries[3];
-    if (datedEntry) datedEntry.date = '2026-08-26';
+    invalidDates.weeklyMealPlan.entries[3] = {
+      kind: 'day_of_decision',
+      date: '2026-08-26',
+      reason: 'no_safe_recipe',
+    };
 
     const invalidNeeds = structuredClone(validFixture);
-    const firstNeed = invalidNeeds.weeklyMealPlan.groceryNeeds[0];
-    if (firstNeed) invalidNeeds.weeklyMealPlan.groceryNeeds.push(structuredClone(firstNeed));
+    const duplicateNeed = {
+      ingredientId: 'fixture-missing',
+      recipeIds: ['recipe-1'],
+      dates: ['2026-08-24'],
+    };
+    invalidNeeds.weeklyMealPlan.groceryNeeds = [duplicateNeed, structuredClone(duplicateNeed)];
 
     const invalidProvenance = structuredClone(validFixture) as MutableFixture & {
       nutritionProvenance: { usdaFdcIds: number[] };

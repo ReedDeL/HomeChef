@@ -21,7 +21,7 @@
   },
   "tasteSignal": {
     "kind": "photo_selected",
-    "recipeId": "recipe-1",
+    "recipeId": "taste-only-recipe",
     "journey": "week",
     "recordedAt": "2026-08-23T12:00:00Z"
   },
@@ -73,7 +73,7 @@
         "date": "2026-08-25",
         "recipeId": "recipe-2",
         "plannedMealTime": "2026-08-25T18:30:00-07:00",
-        "statedRelaxations": ["time"],
+        "statedRelaxations": [],
         "portionGuidance": null
       },
       {
@@ -81,18 +81,21 @@
         "date": "2026-08-26",
         "recipeId": "recipe-3",
         "plannedMealTime": "2026-08-26T18:30:00-07:00",
-        "statedRelaxations": ["cuisine"],
+        "statedRelaxations": [],
         "portionGuidance": null
       },
       {
-        "kind": "day_of_decision",
+        "kind": "recipe",
         "date": "2026-08-27",
-        "reason": "no_safe_recipe"
+        "recipeId": "recipe-4",
+        "plannedMealTime": "2026-08-27T18:30:00-07:00",
+        "statedRelaxations": [],
+        "portionGuidance": null
       },
       {
         "kind": "recipe",
         "date": "2026-08-28",
-        "recipeId": "recipe-4",
+        "recipeId": "recipe-5",
         "plannedMealTime": "2026-08-28T18:30:00-07:00",
         "statedRelaxations": [],
         "portionGuidance": null
@@ -100,28 +103,22 @@
       {
         "kind": "recipe",
         "date": "2026-08-29",
-        "recipeId": "recipe-5",
+        "recipeId": "recipe-6",
         "plannedMealTime": "2026-08-29T18:30:00-07:00",
-        "statedRelaxations": ["time", "cuisine"],
+        "statedRelaxations": [],
         "portionGuidance": null
       },
       {
         "kind": "recipe",
         "date": "2026-08-30",
-        "recipeId": "recipe-6",
+        "recipeId": "recipe-7",
         "plannedMealTime": "2026-08-30T18:30:00-07:00",
         "statedRelaxations": [],
         "portionGuidance": null
       }
     ],
     "status": "draft",
-    "groceryNeeds": [
-      {
-        "ingredientId": "chickpea",
-        "recipeIds": ["recipe-1", "recipe-3"],
-        "dates": ["2026-08-24", "2026-08-26"]
-      }
-    ],
-    "statedRelaxations": ["time", "cuisine"]
+    "groceryNeeds": [],
+    "statedRelaxations": []
   }
 }
