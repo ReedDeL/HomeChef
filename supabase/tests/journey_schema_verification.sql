@@ -151,6 +151,24 @@ select format('%s has no direct PUBLIC table privilege', table_name),
        )
   from _journey_tables expected;
 
+insert into _journey_schema_results values
+  ('private schema usage is authenticated-only',
+    has_schema_privilege('authenticated', 'private', 'USAGE')
+    and not has_schema_privilege('anon', 'private', 'USAGE')
+    and not exists (
+      select 1
+        from pg_namespace namespace_row
+        cross join lateral aclexplode(
+          coalesce(
+            namespace_row.nspacl,
+            acldefault('n', namespace_row.nspowner)
+          )
+        ) acl
+       where namespace_row.nspname = 'private'
+         and acl.grantee = 0
+         and acl.privilege_type = 'USAGE'
+    ));
+
 create temp table _expected_policies (
   table_name text,
   command text,
@@ -218,29 +236,55 @@ select format('%s has no extra journey policies', table_name),
    and policy_row.tablename = journey_table.table_name
  group by journey_table.table_name;
 
--- Compare the actual ordered index definition and uniqueness, not an index
--- name that could survive while its columns drift.
+-- Exact catalog shape rejects extra key/INCLUDE columns, predicates, changed
+-- order or method, and a renamed index while avoiding formatting assumptions
+-- about the complete CREATE INDEX rendering.
 insert into _journey_schema_results
-select format('%s has index definition %s', table_name, columns),
+select format('%s has exact index %s', table_name, index_name),
        exists (
          select 1
            from pg_index index_row
+           join pg_class index_class
+             on index_class.oid = index_row.indexrelid
+           join pg_am access_method
+             on access_method.oid = index_class.relam
           where index_row.indrelid = to_regclass(
                   format('public.%I', expected.table_name)
                 )
+            and index_class.relname = expected.index_name
+            and access_method.amname = 'btree'
             and index_row.indisunique = expected.is_unique
-            and pg_get_indexdef(index_row.indexrelid) like
-                '% USING btree ' || expected.columns
+            and index_row.indisvalid
+            and index_row.indisready
+            and index_row.indnkeyatts = cardinality(expected.expressions)
+            and index_row.indnatts = index_row.indnkeyatts
+            and index_row.indpred is null
+            and index_row.indexprs is null
+            and (
+              select array_agg(
+                       pg_get_indexdef(index_row.indexrelid, key_position, true)
+                       order by key_position
+                     )
+                from generate_series(1, index_row.indnkeyatts)
+                  positions(key_position)
+            ) = expected.expressions
        )
   from (values
-    ('taste_signals', '(user_id, recorded_at DESC)', false),
-    ('meal_satiety', '(user_id, recorded_at DESC)', false),
-    ('weekly_meal_plans', '(user_id, week_start)', true),
-    ('weekly_meal_plan_entries', '(user_id, plan_id)', false),
-    ('weekly_meal_plan_entries', '(plan_id, user_id)', false),
-    ('plan_linked_grocery_needs', '(user_id, plan_id)', false),
-    ('plan_linked_grocery_needs', '(plan_id, user_id)', false)
-  ) as expected(table_name, columns, is_unique);
+    ('taste_signals', 'taste_signals_user_recorded_at_idx',
+     array['user_id', 'recorded_at DESC'], false),
+    ('meal_satiety', 'meal_satiety_user_recorded_at_idx',
+     array['user_id', 'recorded_at DESC'], false),
+    ('weekly_meal_plans', 'weekly_meal_plans_user_week_idx',
+     array['user_id', 'week_start'], true),
+    ('weekly_meal_plan_entries', 'weekly_meal_plan_entries_user_plan_idx',
+     array['user_id', 'plan_id'], false),
+    ('weekly_meal_plan_entries', 'weekly_meal_plan_entries_plan_owner_idx',
+     array['plan_id', 'user_id'], false),
+    ('plan_linked_grocery_needs', 'plan_linked_grocery_needs_user_plan_idx',
+     array['user_id', 'plan_id'], false),
+    ('plan_linked_grocery_needs', 'plan_linked_grocery_needs_plan_owner_idx',
+     array['plan_id', 'user_id'], false)
+  ) as expected(table_name, index_name, expressions, is_unique);
 
 insert into _journey_schema_results
 select format('%s is security invoker and authenticated-only', signature),
@@ -254,9 +298,37 @@ select format('%s is security invoker and authenticated-only', signature),
        )
   from (values
     ('public.replace_weekly_plan_children(uuid,jsonb,jsonb)'),
-    ('public.create_weekly_meal_plan(date,text,text[],jsonb,jsonb)'),
-    ('private.validate_weekly_plan_payload(date,jsonb,jsonb)')
+    ('public.create_weekly_meal_plan(date,text,text[],jsonb,jsonb)')
   ) as expected(signature);
+
+insert into _journey_schema_results values
+  ('private payload validator is invoker with exact helper execution access', exists (
+    select 1
+      from pg_proc p
+     where p.oid = to_regprocedure(
+             'private.validate_weekly_plan_payload(date,jsonb,jsonb)'
+           )
+       and not p.prosecdef
+       and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+       and not has_function_privilege('anon', p.oid, 'EXECUTE')
+       and (
+         select count(*) = 1
+           from aclexplode(
+             coalesce(p.proacl, acldefault('f', p.proowner))
+           ) acl
+           join pg_roles role_row on role_row.oid = acl.grantee
+          where role_row.rolname = 'authenticated'
+            and acl.privilege_type = 'EXECUTE'
+       )
+       and not exists (
+         select 1
+           from aclexplode(
+             coalesce(p.proacl, acldefault('f', p.proowner))
+           ) acl
+          where acl.grantee = 0
+            and acl.privilege_type = 'EXECUTE'
+       )
+  ));
 
 select assertion, case when pass then 'PASS' else 'FAIL' end as result
   from _journey_schema_results

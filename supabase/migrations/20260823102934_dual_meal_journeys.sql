@@ -430,6 +430,7 @@ $$;
 
 revoke all on function private.validate_weekly_plan_payload(date, jsonb, jsonb)
   from public, anon;
+grant usage on schema private to authenticated;
 grant execute on function private.validate_weekly_plan_payload(date, jsonb, jsonb)
   to authenticated;
 

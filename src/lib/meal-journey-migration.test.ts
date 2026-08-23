@@ -25,4 +25,35 @@ describe('meal journey SQL safety guards', () => {
 
     expect(verification.trimStart()).toMatch(/^\\set ON_ERROR_STOP on$/m);
   });
+
+  it('makes private helper schema access explicit and auditable', () => {
+    const migration = readFileSync(
+      repositoryFile('supabase/migrations/20260823102934_dual_meal_journeys.sql'),
+      'utf8'
+    );
+    const verification = readFileSync(
+      repositoryFile('supabase/tests/journey_schema_verification.sql'),
+      'utf8'
+    );
+
+    expect(migration).toMatch(
+      /grant usage on schema private to authenticated;[\s\S]*grant execute on function private\.validate_weekly_plan_payload/
+    );
+    expect(verification).toContain("has_schema_privilege('authenticated', 'private', 'USAGE')");
+    expect(verification).toContain('acl.grantee = 0');
+  });
+
+  it('proves exact index shape instead of accepting prefixes', () => {
+    const verification = readFileSync(
+      repositoryFile('supabase/tests/journey_schema_verification.sql'),
+      'utf8'
+    );
+
+    expect(verification).not.toMatch(/pg_get_indexdef\([^\n]+\) like/i);
+    expect(verification).toContain('index_row.indnkeyatts = cardinality(expected.expressions)');
+    expect(verification).toContain('index_row.indnatts = index_row.indnkeyatts');
+    expect(verification).toContain('index_row.indpred is null');
+    expect(verification).toContain('index_class.relname = expected.index_name');
+    expect(verification).toContain("access_method.amname = 'btree'");
+  });
 });
