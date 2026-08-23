@@ -1,21 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Image, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { Header } from '@/components/ui/Header';
 import { IngredientChip } from '@/components/ui/IngredientChip';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { TIER1_CATALOG, lookupIngredient } from '@/data/catalog';
+import { BUNDLED_CATALOG, lookupIngredient } from '@/data/catalog';
+import { trackRecipeOpened } from '@/lib/analytics';
 import { formatCuisine, formatDuration, formatEquipment } from '@/lib/format';
-import {
-  trackCookModeStarted,
-  trackPantryItemAdded,
-  trackPantryItemRemoved,
-  trackRecipeDisliked,
-  trackRecipeViewed,
-} from '@/lib/analytics';
 import { recordDislike, useKitchenStore } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -32,34 +28,30 @@ export default function RecipeScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { color } = useTheme();
+  const { width } = useWindowDimensions();
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
 
   const pantry = useKitchenStore((state) => state.pantry);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
 
-  const recipe = useMemo(() => TIER1_CATALOG.find((candidate) => candidate.id === id), [id]);
+  const recipe = useMemo(() => BUNDLED_CATALOG.find((candidate) => candidate.id === id), [id]);
+  const openedRecipeId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (recipe) trackRecipeViewed({ recipe_id: recipe.id, source: 'results' });
-  }, [recipe]);
+    if (!recipe || openedRecipeId.current === recipe.id) return;
 
-  const toggleIngredient = (ingredientId: (typeof pantry)[number]) => {
-    const adding = !pantry.includes(ingredientId);
-    togglePantryItem(ingredientId);
-    if (adding) {
-      trackPantryItemAdded({ source: 'recipe', item_count: 1 });
-    } else {
-      trackPantryItemRemoved({ source: 'recipe', item_count: 1 });
-    }
-  };
+    openedRecipeId.current = recipe.id;
+    trackRecipeOpened({ recipe_id: recipe.id });
+  }, [recipe]);
 
   if (!recipe) {
     return (
-      <Screen>
+      <Screen header={<Header backLabel="Home" fallbackHref="/" />}>
         <Text variant="title">That recipe isn&apos;t here.</Text>
         <PrimaryButton
-          label="Back to results"
-          onPress={() => router.back()}
-          accessibilityHint="Returns to the previous screen"
+          label="Back to home"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          accessibilityHint="Returns to the meal recommendations or home screen"
         />
       </Screen>
     );
@@ -75,120 +67,127 @@ export default function RecipeScreen() {
 
   return (
     <Screen
+      header={
+        <Header backLabel="Results" backHint="Returns to meal recommendations" fallbackHref="/" />
+      }
       footer={
         <PrimaryButton
           label="👨‍🍳 Start cooking"
-          onPress={() => {
-            trackCookModeStarted({ recipe_id: recipe.id, step_count: steps.length });
-            router.push(`/cook/${recipe.id}`);
-          }}
+          onPress={() => router.push(`/cook/${recipe.id}`)}
           accessibilityHint="Enters step-by-step cook mode"
         />
       }
     >
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        accessibilityHint="Returns to results"
-        onPress={() => router.back()}
-        style={styles.backRow}
+      <View
+        style={[
+          styles.recipeLayout,
+          responsive.isDesktop && styles.desktopRecipeLayout,
+          responsive.isDesktop && { columnGap: responsive.columnGap },
+        ]}
       >
-        <Text variant="heading" tone="accent">
-          ‹ Back
-        </Text>
-      </Pressable>
+        <View style={styles.recipePrimary}>
+          {recipe.imageUrl ? (
+            <Image
+              source={{ uri: recipe.imageUrl }}
+              style={[styles.hero, responsive.isDesktop && styles.desktopHero]}
+              accessibilityIgnoresInvertColors
+              accessible={false}
+            />
+          ) : null}
 
-      {recipe.imageUrl ? (
-        <Image
-          source={{ uri: recipe.imageUrl }}
-          style={styles.hero}
-          accessibilityIgnoresInvertColors
-          accessible={false}
-        />
-      ) : null}
+          <View style={styles.intro}>
+            <Text variant="title">{recipe.title}</Text>
+            <Text variant="caption" tone="muted">
+              {formatDuration(recipe.totalTimeMinutes)} ·{' '}
+              {formatEquipment(recipe.equipmentRequired)}
+              {recipe.cuisine ? ` · ${formatCuisine(recipe.cuisine)}` : ''}
+            </Text>
+          </View>
 
-      <View style={styles.intro}>
-        <Text variant="title">{recipe.title}</Text>
-        <Text variant="caption" tone="muted">
-          {formatDuration(recipe.totalTimeMinutes)} · {formatEquipment(recipe.equipmentRequired)}
-          {recipe.cuisine ? ` · ${formatCuisine(recipe.cuisine)}` : ''}
-        </Text>
-      </View>
+          {missing.length > 0 ? (
+            <Card variant="alt">
+              <Text variant="heading" tone="near">
+                You&apos;re missing {missing.length}
+              </Text>
+              <View style={styles.chipRow}>
+                {missing.map((ingredient) => (
+                  <IngredientChip
+                    key={ingredient.id}
+                    id={ingredient.id}
+                    onToggle={togglePantryItem}
+                  />
+                ))}
+              </View>
+              <Text variant="caption" tone="muted">
+                Tap one if you actually have it.
+              </Text>
+            </Card>
+          ) : (
+            <Card variant="alt">
+              <Text variant="heading" tone="ready">
+                You have everything.
+              </Text>
+            </Card>
+          )}
+        </View>
 
-      {missing.length > 0 ? (
-        <Card variant="alt">
-          <Text variant="heading" tone="near">
-            You&apos;re missing {missing.length}
-          </Text>
-          <View style={styles.chipRow}>
-            {missing.map((ingredient) => (
-              <IngredientChip key={ingredient.id} id={ingredient.id} onToggle={toggleIngredient} />
+        <View style={styles.recipeDetails}>
+          <View style={styles.group}>
+            <Text variant="heading">Ingredients</Text>
+            {recipe.ingredients.map((ingredient) => (
+              <View key={ingredient.id} style={styles.ingredientRow}>
+                <Text variant="body" style={styles.ingredientName}>
+                  {lookupIngredient(ingredient.id)?.displayName ?? ingredient.id}
+                </Text>
+                <Text variant="caption" tone="muted">
+                  {ingredient.measure}
+                </Text>
+              </View>
             ))}
           </View>
-          <Text variant="caption" tone="muted">
-            Tap one if you actually have it.
-          </Text>
-        </Card>
-      ) : (
-        <Card variant="alt">
-          <Text variant="heading" tone="ready">
-            You have everything.
-          </Text>
-        </Card>
-      )}
 
-      <View style={styles.group}>
-        <Text variant="heading">Ingredients</Text>
-        {recipe.ingredients.map((ingredient) => (
-          <View key={ingredient.id} style={styles.ingredientRow}>
-            <Text variant="body" style={styles.ingredientName}>
-              {lookupIngredient(ingredient.id)?.displayName ?? ingredient.id}
-            </Text>
+          <View style={styles.group}>
+            <Text variant="heading">Steps</Text>
+            {steps.map((step, index) => (
+              <View key={`${index}-${step.slice(0, 12)}`} style={styles.step}>
+                <Text variant="caption" tone="accent">
+                  {index + 1}
+                </Text>
+                <Text variant="body" style={styles.stepBody}>
+                  {step}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Not for me"
+            accessibilityHint="Stops suggesting this recipe"
+            onPress={() => {
+              recordDislike(recipe.id);
+              router.back();
+            }}
+            style={[styles.dislike, { borderColor: color.border }]}
+          >
             <Text variant="caption" tone="muted">
-              {ingredient.measure}
+              Not for me — don&apos;t suggest this again
             </Text>
-          </View>
-        ))}
+          </Pressable>
+        </View>
       </View>
-
-      <View style={styles.group}>
-        <Text variant="heading">Steps</Text>
-        {steps.map((step, index) => (
-          <View key={`${index}-${step.slice(0, 12)}`} style={styles.step}>
-            <Text variant="caption" tone="accent">
-              {index + 1}
-            </Text>
-            <Text variant="body" style={styles.stepBody}>
-              {step}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="Not for me"
-        accessibilityHint="Stops suggesting this recipe"
-        onPress={() => {
-          trackRecipeDisliked({ recipe_id: recipe.id });
-          recordDislike(recipe.id);
-          router.back();
-        }}
-        style={[styles.dislike, { borderColor: color.border }]}
-      >
-        <Text variant="caption" tone="muted">
-          Not for me — don&apos;t suggest this again
-        </Text>
-      </Pressable>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  backRow: { minHeight: 44, justifyContent: 'center' },
+  recipeLayout: { gap: space.lg },
+  desktopRecipeLayout: { flexDirection: 'row', alignItems: 'flex-start' },
+  recipePrimary: { flex: 1, gap: space.lg },
+  recipeDetails: { flex: 1, gap: space.lg },
   hero: { width: '100%', height: 200, borderRadius: radius.md },
+  desktopHero: { height: 300 },
   intro: { gap: space.xs },
   group: { gap: space.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },

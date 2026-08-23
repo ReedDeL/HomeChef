@@ -691,13 +691,13 @@ begin
   perform set_config('request.jwt.claims',
                      json_build_object('sub', user_b, 'role', 'authenticated')::text, true);
   results := results || format('22|Roommate budget independent|true|%s',
-                               private.claim_pantry_scan(2));
+                               case when private.claim_pantry_scan(2) then 'true' else 'false' end);
 
   -- No JWT claims, no identity, no scan. This is the branch that keeps the
   -- function safe even if it were ever called without forwarding auth.
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
   results := results || format('23|Anonymous claim refused|false|%s',
-                               private.claim_pantry_scan(2));
+                               case when private.claim_pantry_scan(2) then 'true' else 'false' end);
 
   insert into _rls_results (n, assertion, expected, actual, pass)
   select split_part(r, '|', 1)::int,

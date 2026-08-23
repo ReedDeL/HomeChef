@@ -135,7 +135,7 @@ describe('toRecipe', () => {
     dietaryTags: ['vegetarian'],
     ingredients: [{ id: 'egg', measure: '2', allergenGroups: ['egg'] }],
     instructions: 'Bake.',
-    source: 'tier1',
+    source: 'bundled',
   };
 
   const nutritionProvenance = {

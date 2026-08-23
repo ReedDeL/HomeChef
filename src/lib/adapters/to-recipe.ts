@@ -39,7 +39,7 @@ export function toRecipe(raw: unknown): Recipe | null {
     ingredients,
     instructions: asString(raw.instructions) ?? '',
     ...nutrition,
-    source: raw.source === 'tier2' ? 'tier2' : 'tier1',
+    source: raw.source === 'spoonacular' || raw.source === 'tier2' ? 'spoonacular' : 'bundled',
   };
 }
 

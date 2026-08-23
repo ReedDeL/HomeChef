@@ -10,35 +10,41 @@
     "android:test:build": "bash scripts/android-test.sh build",
     "android:test:emulator": "bash scripts/android-test.sh emulator",
     "ios": "expo run:ios",
-    "web": "expo start --web",
+    "web": "BROWSER=none expo start --web",
     "web:build": "rm -rf dist && expo export --platform web",
     "web:serve": "node scripts/serve-web.mjs",
     "web:beta": "npm run web:build && npm run web:serve",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:discord-status",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "check": "npm run lint && npm run typecheck && npm test && npm run format:check",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "status:discord": "node scripts/discord-status.mjs",
+    "test:discord-status": "node --test scripts/discord-status.test.mjs"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.110.8",
     "@tanstack/react-query": "^5.90.2",
     "expo": "^57.0.11",
     "expo-application": "~57.0.2",
+    "expo-auth-session": "~57.0.6",
     "expo-constants": "~57.0.7",
     "expo-dev-client": "~57.0.10",
     "expo-device": "~57.0.1",
-    "expo-file-system": "~57.0.2",
+    "expo-file-system": "~57.0.5",
     "expo-image-manipulator": "~57.0.8",
     "expo-image-picker": "~57.0.8",
     "expo-linking": "~57.0.5",
     "expo-localization": "~57.0.1",
+    "expo-notifications": "~57.0.10",
     "expo-router": "~57.0.11",
     "expo-secure-store": "~57.0.1",
     "expo-status-bar": "~57.0.1",
-    "posthog-react-native": "^4.63.0",
+    "expo-web-browser": "~57.0.2",
+    "posthog-react-native": "^4.63.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "^0.86.2",
@@ -56,6 +62,7 @@
     "@eslint/js": "^9.39.5",
     "@types/react": "~19.2.2",
     "eslint": "^9.37.0",
+    "eslint-plugin-react-native-a11y": "^3.5.1",
     "prettier": "^3.6.2",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.45.0",
@@ -64,6 +71,9 @@
   "overrides": {
     "xcode": {
       "uuid": "^11.1.0"
+    },
+    "eslint-plugin-react-native-a11y": {
+      "eslint": "$eslint"
     }
   }
 }

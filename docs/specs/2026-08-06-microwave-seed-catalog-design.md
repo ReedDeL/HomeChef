@@ -55,7 +55,7 @@ next rebuild — the merge is what makes this durable.
 | Decision | Value | Reason |
 |---|---|---|
 | ID scheme | `hc-mw-01` … `hc-mw-20` | Cannot collide with TheMealDB's numeric IDs; greppable provenance |
-| `source` | `"tier1"` | These *are* Tier 1: bundled, offline, owned. No engine change needed |
+| `source` | `"bundled"` | These are bundled, offline, and owned. No engine change needed |
 | Validation | Same Pydantic models as TheMealDB data | Malformed content fails the build, not the user |
 | Ingredient IDs | Must already exist in the vocabulary | Otherwise `eggs` is silently created next to `egg` and pantry matching breaks |
 

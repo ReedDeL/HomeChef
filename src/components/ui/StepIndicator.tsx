@@ -17,6 +17,8 @@ export function StepIndicator({ currentStep, totalSteps, label }: StepIndicatorP
   const { color } = useTheme();
 
   return (
+    // Structural progress marker, not a control — there is no action to hint.
+    // eslint-disable-next-line react-native-a11y/has-accessibility-hint
     <View
       style={styles.container}
       accessible

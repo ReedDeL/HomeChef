@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { RecipeCard } from '@/components/ui/RecipeCard';
+import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { Text } from '@/components/ui/Text';
 import type { Bucket, ScoredRecipe } from '@/engine/types';
 import { space } from '@/theme/tokens';
 
 /**
- * Truncation is the product (spec §5.1). A "show more" link inside the top
+ * Truncation is the product (Technical Spec §4.1, B4). A "show more" link inside the top
  * buckets would rebuild the paralysis this app exists to remove, so the cap is
  * enforced here — at the only place buckets are rendered — rather than trusted
  * to each caller.
@@ -18,7 +19,7 @@ interface BucketMeta {
   title: string;
   marker: string;
   tone: 'ready' | 'near' | 'far';
-  /** The bottom two exist for completeness, not for browsing (spec §5.1). */
+  /** The bottom two exist for completeness, not for browsing (Technical Spec §4.1). */
   collapsedByDefault: boolean;
 }
 
@@ -38,9 +39,11 @@ interface BucketSectionProps {
 export function BucketSection({ bucket, recipes, onSelectRecipe }: BucketSectionProps) {
   const meta = BUCKET_META[bucket];
   const [expanded, setExpanded] = useState(!meta.collapsedByDefault);
+  const { width } = useWindowDimensions();
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
 
   // An empty bucket is not a dead end, it is simply not shown — the screen as a
-  // whole is guaranteed non-empty by the relaxation ladder (spec §5.3).
+  // whole is guaranteed non-empty by the relaxation ladder (Technical Spec §4.3).
   if (recipes.length === 0) return null;
 
   const visible = expanded ? recipes.slice(0, MAX_CARDS_PER_BUCKET) : [];
@@ -66,15 +69,28 @@ export function BucketSection({ bucket, recipes, onSelectRecipe }: BucketSection
         </Text>
       </Pressable>
 
-      {visible.map((scored) => (
-        <RecipeCard key={scored.recipe.id} scored={scored} onPress={onSelectRecipe} />
-      ))}
+      <View
+        style={[
+          styles.cards,
+          responsive.isDesktop && styles.desktopCards,
+          responsive.isDesktop && { columnGap: responsive.columnGap },
+        ]}
+      >
+        {visible.map((scored) => (
+          <View key={scored.recipe.id} style={responsive.isDesktop && styles.desktopCard}>
+            <RecipeCard scored={scored} onPress={onSelectRecipe} />
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: { gap: space.sm },
+  cards: { gap: space.sm },
+  desktopCards: { flexDirection: 'row', flexWrap: 'wrap', rowGap: space.md },
+  desktopCard: { width: '48%' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

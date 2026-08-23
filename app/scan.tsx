@@ -6,6 +6,7 @@ import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-
 import { CameraCapture } from '@/components/CameraCapture';
 import { CandidateRow } from '@/components/ui/CandidateRow';
 import { Card } from '@/components/ui/Card';
+import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -18,12 +19,7 @@ import {
   correctCandidate,
   type PantryCandidate,
 } from '@/lib/pantry-photo';
-import {
-  trackPantryItemAdded,
-  trackPantryScanCompleted,
-  trackPantryScanFailed,
-  trackPantryScanStarted,
-} from '@/lib/analytics';
+import { trackVisionScanFailed, trackVisionScanSucceeded } from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -56,7 +52,6 @@ export default function ScanScreen() {
   );
 
   const pick = useCallback(async (source: 'camera' | 'library') => {
-    trackPantryScanStarted({ source });
     setError(null);
 
     if (source === 'camera' && Platform.OS === 'web') {
@@ -106,14 +101,14 @@ export default function ScanScreen() {
     try {
       const result = await analyzePantryPhotos(uris);
       setCandidates(result);
-      trackPantryScanCompleted({
+      trackVisionScanSucceeded({
         photo_count: uris.length,
         candidate_count: result.length,
         accepted_count: acceptedIngredientIds(result).length,
       });
       setPhase('review');
     } catch (caught) {
-      trackPantryScanFailed({ photo_count: uris.length, failure_stage: 'analyze' });
+      trackVisionScanFailed({ photo_count: uris.length, failure_stage: 'analyze' });
       // Manual entry is a complete fallback (§2.4), so a failure here is a
       // detour rather than a dead end — and it says so.
       setError(
@@ -127,7 +122,6 @@ export default function ScanScreen() {
 
   const confirm = useCallback(() => {
     const acceptedIds = acceptedIngredientIds(candidates);
-    trackPantryItemAdded({ source: 'photo_scan', item_count: acceptedIds.length });
     addPantryItems(acceptedIds);
     router.back();
   }, [candidates, addPantryItems, router]);
@@ -144,6 +138,18 @@ export default function ScanScreen() {
   if (phase === 'review') {
     return (
       <Screen
+        header={
+          <Header
+            backLabel="Photos"
+            backHint="Returns to photo capture to add or retake photos"
+            onBack={() => {
+              setPhase('capture');
+              setUris([]);
+              setCandidates([]);
+            }}
+            fallbackHref="/pantry"
+          />
+        }
         footer={
           <View style={styles.footer}>
             <PrimaryButton
@@ -199,6 +205,9 @@ export default function ScanScreen() {
   return (
     <>
       <Screen
+        header={
+          <Header backLabel="Back" backHint="Returns to previous screen" fallbackHref="/pantry" />
+        }
         footer={
           <View style={styles.footer}>
             <PrimaryButton

@@ -1,57 +1,57 @@
-export type AnalyticsProperty = string | number | boolean | null;
+import type { Relaxation } from '@/engine/types';
+
+export const ANALYTICS_EVENTS = {
+  onboardingCompleted: 'onboarding_completed',
+  pantryFilterSubmitted: 'pantry_filter_submitted',
+  recommendationsShown: 'recommendations_shown',
+  recipeOpened: 'recipe_opened',
+  cookModeStarted: 'cook_mode_started',
+  cookModeCompleted: 'cook_mode_completed',
+  constraintRelaxed: 'constraint_relaxed',
+  visionScanSucceeded: 'vision_scan_succeeded',
+  visionScanFailed: 'vision_scan_failed',
+  settingsUpdated: 'settings_updated',
+} as const;
+
+export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
+export type AnalyticsProperty = string | number | boolean;
 export type AnalyticsProperties = Record<string, AnalyticsProperty>;
 
 export interface AnalyticsClient {
-  capture(event: string, properties?: AnalyticsProperties): void;
+  capture(event: AnalyticsEventName, properties?: AnalyticsProperties): void;
+  identify(userId: string): void;
+  reset(): void;
 }
 
-export interface OnboardingCompletedProperties extends AnalyticsProperties {
-  pantry_count: number;
-  equipment_tier: string;
-  allergen_count: number;
-  dietary_restriction_count: number;
+export interface PantryFilterSubmittedProperties extends AnalyticsProperties {
+  time_limit_minutes: number;
 }
 
-export interface PantryScanStartedProperties extends AnalyticsProperties {
-  source: 'camera' | 'library';
+export interface RecommendationsShownProperties extends AnalyticsProperties {
+  recommendation_count: number;
 }
 
-export interface PantryScanCompletedProperties extends AnalyticsProperties {
+export interface RecipeEventProperties extends AnalyticsProperties {
+  recipe_id: string;
+}
+
+export interface CookModeStartedProperties extends RecipeEventProperties {
+  step_count: number;
+}
+
+export interface ConstraintRelaxedProperties extends AnalyticsProperties {
+  constraint: Relaxation['kind'];
+}
+
+export interface VisionScanSucceededProperties extends AnalyticsProperties {
   photo_count: number;
   candidate_count: number;
   accepted_count: number;
 }
 
-export interface PantryScanFailedProperties extends AnalyticsProperties {
+export interface VisionScanFailedProperties extends AnalyticsProperties {
   photo_count: number;
-  failure_stage: string;
-}
-
-export interface PantryItemChangedProperties extends AnalyticsProperties {
-  source: string;
-  item_count: number;
-}
-
-export interface RecipeViewedProperties extends AnalyticsProperties {
-  recipe_id: string;
-  source: string;
-}
-
-export interface RecipeProperties extends AnalyticsProperties {
-  recipe_id: string;
-}
-
-export interface CookModeStartedProperties extends RecipeProperties {
-  step_count: number;
-}
-
-export interface CookModeCompletedProperties extends RecipeProperties {
-  liked: boolean;
-  removed_ingredients: number;
-}
-
-export interface RecipeFeedbackSubmittedProperties extends RecipeProperties {
-  liked: boolean;
+  failure_stage: 'analyze';
 }
 
 export interface SettingsUpdatedProperties extends AnalyticsProperties {
@@ -59,17 +59,22 @@ export interface SettingsUpdatedProperties extends AnalyticsProperties {
   value: AnalyticsProperty;
 }
 
+const approvedEventNames = new Set<string>(Object.values(ANALYTICS_EVENTS));
 let analyticsClient: AnalyticsClient | null = null;
 
 export function isAnalyticsConfigured(apiKey: string): boolean {
   return apiKey.trim().length > 0;
 }
 
+export function isApprovedAnalyticsEvent(event: string): event is AnalyticsEventName {
+  return approvedEventNames.has(event);
+}
+
 export function setAnalyticsClient(client: AnalyticsClient | null): void {
   analyticsClient = client;
 }
 
-function capture(event: string, properties: AnalyticsProperties): void {
+function capture(event: AnalyticsEventName, properties?: AnalyticsProperties): void {
   try {
     analyticsClient?.capture(event, properties);
   } catch {
@@ -77,89 +82,61 @@ function capture(event: string, properties: AnalyticsProperties): void {
   }
 }
 
-export function trackPageView(route: string): void {
-  capture('page_view', { route });
+export function identifyAuthenticatedUser(userId: string): void {
+  if (userId.trim().length === 0) return;
+
+  try {
+    // The stable auth ID is the only person property sent to PostHog.
+    analyticsClient?.identify(userId);
+  } catch {
+    // Identity linkage is best-effort and must not affect authentication.
+  }
 }
 
-export function trackOnboardingCompleted(properties: OnboardingCompletedProperties): void {
-  capture('onboarding_completed', properties);
+export function resetAnalyticsIdentity(): void {
+  try {
+    analyticsClient?.reset();
+  } catch {
+    // Logout must succeed even if analytics persistence cannot be cleared.
+  }
 }
 
-export function trackPantryScanStarted(properties: PantryScanStartedProperties): void {
-  capture('pantry_scan_started', properties);
+export function trackOnboardingCompleted(): void {
+  capture(ANALYTICS_EVENTS.onboardingCompleted);
 }
 
-export function trackPantryScanCompleted(properties: PantryScanCompletedProperties): void {
-  capture('pantry_scan_completed', properties);
+export function trackPantryFilterSubmitted(properties: PantryFilterSubmittedProperties): void {
+  capture(ANALYTICS_EVENTS.pantryFilterSubmitted, properties);
 }
 
-export function trackPantryScanFailed(properties: PantryScanFailedProperties): void {
-  capture('pantry_scan_failed', properties);
+export function trackRecommendationsShown(properties: RecommendationsShownProperties): void {
+  capture(ANALYTICS_EVENTS.recommendationsShown, properties);
 }
 
-export function trackPantryItemAdded(properties: PantryItemChangedProperties): void {
-  capture('pantry_item_added', properties);
-}
-
-export function trackPantryItemRemoved(properties: PantryItemChangedProperties): void {
-  capture('pantry_item_removed', properties);
-}
-
-export function trackRecipeViewed(properties: RecipeViewedProperties): void {
-  capture('recipe_viewed', properties);
-}
-
-export function trackRecipeDisliked(properties: RecipeProperties): void {
-  capture('recipe_disliked', properties);
+export function trackRecipeOpened(properties: RecipeEventProperties): void {
+  capture(ANALYTICS_EVENTS.recipeOpened, properties);
 }
 
 export function trackCookModeStarted(properties: CookModeStartedProperties): void {
-  capture('cook_mode_started', properties);
+  capture(ANALYTICS_EVENTS.cookModeStarted, properties);
 }
 
-export function trackCookModeCompleted(properties: CookModeCompletedProperties): void {
-  capture('cook_mode_completed', properties);
+export function trackCookModeCompleted(properties: RecipeEventProperties): void {
+  capture(ANALYTICS_EVENTS.cookModeCompleted, properties);
 }
 
-export function trackRecipeFeedbackSubmitted(properties: RecipeFeedbackSubmittedProperties): void {
-  capture('recipe_feedback_submitted', properties);
+export function trackConstraintRelaxed(properties: ConstraintRelaxedProperties): void {
+  capture(ANALYTICS_EVENTS.constraintRelaxed, properties);
+}
+
+export function trackVisionScanSucceeded(properties: VisionScanSucceededProperties): void {
+  capture(ANALYTICS_EVENTS.visionScanSucceeded, properties);
+}
+
+export function trackVisionScanFailed(properties: VisionScanFailedProperties): void {
+  capture(ANALYTICS_EVENTS.visionScanFailed, properties);
 }
 
 export function trackSettingsUpdated(properties: SettingsUpdatedProperties): void {
-  capture('settings_updated', properties);
-}
-
-export function normalizeRoute(segments: readonly string[]): string {
-  const visibleSegments = segments.flatMap((segment) => {
-    if (segment === '(onboarding)') return ['onboarding'];
-    return segment.startsWith('(') ? [] : [segment];
-  });
-
-  if (
-    visibleSegments.length === 0 ||
-    (visibleSegments.length === 1 && visibleSegments[0] === 'index')
-  ) {
-    return '/';
-  }
-
-  const routeSegments = [...visibleSegments];
-  if (routeSegments[0] === 'index') {
-    routeSegments.shift();
-  }
-
-  if ((routeSegments[0] === 'recipe' || routeSegments[0] === 'cook') && routeSegments.length > 1) {
-    routeSegments[1] = ':id';
-  }
-
-  return routeSegments.length === 0 ? '/' : `/${routeSegments.join('/')}`;
-}
-
-export function createRouteChangeGuard(): (route: string) => boolean {
-  let previousRoute: string | null = null;
-
-  return (route: string) => {
-    if (route === previousRoute) return false;
-    previousRoute = route;
-    return true;
-  };
+  capture(ANALYTICS_EVENTS.settingsUpdated, properties);
 }

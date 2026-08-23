@@ -8,8 +8,8 @@
 -- household_id (shared with roommates); preferences, allergens, and feedback
 -- join to user_id (structurally unreachable by household members).
 --
--- Recipes are deliberately absent. Tier 1 is bundled JSON versioned with the
--- app; Tier 2 is fetched live and discarded.
+-- Recipes are deliberately absent. The bundled catalog is versioned with the
+-- app; Spoonacular results are fetched live and discarded.
 -- ---------------------------------------------------------------------------
 
 -- Helper functions live here so they are not exposed through PostgREST.
@@ -46,7 +46,7 @@ create table household_members (
 
 create table user_preferences (
   user_id          uuid primary key references profiles(id) on delete cascade,
-  -- Closed enum from docs/01_TECHNICAL_SPEC.md:534, enforced below.
+  -- Closed enum from docs/01_TECHNICAL_SPEC.md §5.2 step 4, enforced below.
   equipment        text[] not null default '{}',
   -- Canonical ingredient ids from src/data/ingredients.json.
   allergens        text[] not null default '{}',

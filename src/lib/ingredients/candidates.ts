@@ -23,6 +23,9 @@ export const CONFIDENCE_THRESHOLD = 0.7;
 
 export type DetectedUnit = 'grams' | 'milliliters' | 'pieces' | 'cups' | 'unknown';
 
+/** Why a detection could not be mapped to a pantry ingredient. */
+export type UnmatchedReason = 'out_of_catalog' | 'misread' | null;
+
 /** The Edge Function's response shape, mirroring the schema in §2.4. */
 export interface DetectedItem {
   name: string;
@@ -43,6 +46,11 @@ export interface PantryCandidate {
   ingredientId: IngredientId | null;
   displayName: string | null;
   match: MatchKind;
+  /**
+   * A confident, correctly named food can be absent from the recipe-derived
+   * vocabulary. It must not be presented as a recognition failure.
+   */
+  unmatchedReason: UnmatchedReason;
   /**
    * Pre-ticked in the sheet. True only when the model was confident AND the
    * name resolved cleanly — the two failure modes are independent, so both
@@ -71,6 +79,7 @@ export function toCandidates(items: readonly DetectedItem[]): PantryCandidate[] 
       ingredientId: resolved.id,
       displayName: resolved.displayName,
       match: resolved.match,
+      unmatchedReason: classifyUnmatchedReason(resolved.id, item.confidence),
       accepted: item.confidence >= CONFIDENCE_THRESHOLD && isTrustedMatch(resolved.match),
       corrected: false,
     };
@@ -91,6 +100,14 @@ export function toCandidates(items: readonly DetectedItem[]): PantryCandidate[] 
   });
 
   return sortForReview(candidates);
+}
+
+function classifyUnmatchedReason(
+  ingredientId: IngredientId | null,
+  confidence: number
+): UnmatchedReason {
+  if (ingredientId !== null) return null;
+  return confidence >= CONFIDENCE_THRESHOLD ? 'out_of_catalog' : 'misread';
 }
 
 /** Keep the better-evidenced reading, and sum what was counted. */
@@ -114,12 +131,17 @@ function merge(existing: PantryCandidate, incoming: PantryCandidate): PantryCand
  */
 function sortForReview(candidates: readonly PantryCandidate[]): PantryCandidate[] {
   return [...candidates].sort((a, b) => {
-    if (a.accepted !== b.accepted) return a.accepted ? 1 : -1;
-    if ((a.ingredientId === null) !== (b.ingredientId === null)) {
-      return a.ingredientId === null ? -1 : 1;
-    }
+    const priorityDifference = reviewPriority(a) - reviewPriority(b);
+    if (priorityDifference !== 0) return priorityDifference;
     return a.confidence - b.confidence;
   });
+}
+
+function reviewPriority(candidate: PantryCandidate): number {
+  // There is no useful correction for a food the catalog cannot cook with, so
+  // it belongs after items the user can genuinely decide or correct.
+  if (candidate.unmatchedReason === 'out_of_catalog') return 2;
+  return candidate.accepted ? 1 : 0;
 }
 
 /** Apply a user's correction, which is always trusted over the model. */
@@ -133,6 +155,7 @@ export function correctCandidate(
     ingredientId,
     displayName,
     match: 'exact',
+    unmatchedReason: null,
     corrected: true,
     accepted: true,
   };

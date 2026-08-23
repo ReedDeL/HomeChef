@@ -5,7 +5,7 @@ import type { IngredientId, Minutes, Recipe, ScoredRecipe, UserPreferences } fro
  * Scoring weights.
  *
  * The spec declares `ScoredRecipe.score` but never defines its terms
- * (docs/01_TECHNICAL_SPEC.md:419), and the AI playbook says to write this by
+ * (Technical Spec §4.1), and the AI playbook says to write this by
  * hand. These weights are reasoned, not fitted — revisit after the Aug 18-22
  * user-testing round.
  *

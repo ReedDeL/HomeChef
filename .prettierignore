@@ -20,4 +20,3 @@ src/types/supabase-generated.ts
 # Specification documents. Their formatting is deliberate and reviewed by
 # humans; Prettier reflowing tables and line breaks would churn the diff.
 docs/
-CLAUDE.md

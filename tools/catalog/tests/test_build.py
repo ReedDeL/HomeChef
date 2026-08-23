@@ -106,7 +106,7 @@ class TestToCatalogRecipe:
         assert recipe.id == "52959"
         assert recipe.title == "Baked Eggs"
         assert recipe.cuisine == "american"
-        assert recipe.source == "tier1"
+        assert recipe.source == "bundled"
 
     def test_equipment_is_inside_the_closed_enum(self) -> None:
         recipe = to_catalog_recipe(make_meal())

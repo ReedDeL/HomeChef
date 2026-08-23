@@ -47,7 +47,7 @@ policy is needed for launch, keeping submitted tracking records immutable.
 
 This is personal data: it joins to `user_id`, never `household_id`, and is not
 visible to household members. It records only the canonical recipe identifier
-and the three-state signal; it does not persist any borrowed Tier 2 recipe
+and the three-state signal; it does not persist any borrowed Spoonacular recipe
 content.
 
 ## Client design

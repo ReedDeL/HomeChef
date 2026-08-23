@@ -17,8 +17,8 @@ points at — a summary that drifts from its source is worse than no summary.
 | 04 | [UI/UX Specification](04_UIUX_SPEC.md) | Building a screen |
 | 05 | [AI Tooling Playbook](05_AI_TOOLING_PLAYBOOK.md) | Using AI to build faster |
 | 06 | [API Keys & Environment](06_API_KEYS_AND_ENV.md) | Setting up any third-party service — **read before coding** |
-| — | [iPhone Web Testing Guide](HOW_TO_TEST_IPHONE_WEB.md) | Testing on iOS Safari |
-| — | [`../AGENTS.md`](../AGENTS.md) | A coding agent (loaded automatically; `CLAUDE.md` symlinks to it) |
+| 07 | [Cloudflare Web Launch](07_WEB_LAUNCH.md) | Publishing the free web launch and verifying privacy |
+| — | [`../AGENTS.md`](../AGENTS.md) | A coding agent (loaded automatically) |
 
 **RJ, read first:** 03 (process, roles, critical path) → 01 §8 (risk register)
 → 04 (product surface).
@@ -36,7 +36,7 @@ prompt you own).
 | [`plans/`](plans/) | Task-by-task implementation plans for work in flight. | **Delete on merge.** A plan for shipped code is scaffolding left standing. |
 
 [`RESEARCH_spoonacular_evaluation.md`](RESEARCH_spoonacular_evaluation.md) is a
-retained decision record for the two-tier catalog choice (Aug 3, 2026).
+retained decision record for the bundled-catalog and optional-expansion choice (Aug 3, 2026).
 
 ---
 
@@ -49,11 +49,6 @@ retained decision record for the two-tier catalog choice (Aug 3, 2026).
 | What are the risks? | Technical Spec §8 (twelve, in full) |
 | What is closed and must not be reopened? | [`../AGENTS.md`](../AGENTS.md) — the "Don't" list |
 | What is done right now? | [`../README.md`](../README.md) — milestones and known gaps |
-
-[`HomeChef_Executive_Summary.md`](HomeChef_Executive_Summary.md) is a
-**point-in-time snapshot from August 3, 2026**, kept as a record of what was
-decided at kickoff. Several of its decisions have since changed. Do not read it
-for current state.
 
 ---
 

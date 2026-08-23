@@ -12,7 +12,7 @@ interface IngredientChipProps {
 }
 
 /**
- * The one ingredient chip in the app (spec §5.1).
+ * The one ingredient chip in the app (Technical Spec B7).
  *
  * This exists as a single shared component on purpose. Pantry drift (risk R3)
  * is the failure mode that quietly rots recommendations: the pantry is always
