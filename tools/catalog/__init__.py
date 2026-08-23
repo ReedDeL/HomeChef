@@ -1,6 +1,5 @@
-"""HomeChef catalog build tooling.
+"""HomeChef's build-time, rights-first catalog tooling.
 
-Build-time only. Python is not a runtime service in this project: this package
-runs manually, its output is committed to ``src/data/``, and the app ships that
-JSON. See docs/01_TECHNICAL_SPEC.md 5.2.
+Artifacts default to ``build/catalog/``. The transitional ``src/data/`` bundle
+is deliberately not a rebuild target.
 """

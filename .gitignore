@@ -38,6 +38,7 @@ android/
 
 # Build + test output
 build/android-test/
+build/catalog/
 coverage/
 *.tsbuildinfo
 .vitest/

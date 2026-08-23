@@ -6,7 +6,21 @@
  * microwave-only user destroys trust on the first use the whole product rests
  * on. Both failure modes are one-way doors, so both filter rather than rank.
  */
-import type { DietaryTag, Equipment, IngredientId, Recipe } from '@/engine/types';
+import type { DietaryTag, Equipment, IngredientId, Recipe, UserPreferences } from '@/engine/types';
+
+/**
+ * The single reusable hard-constraint gate for decisions and direct detail
+ * rendering. Rechecking it at a detail route protects against preferences
+ * changing after a candidate was cached.
+ */
+export function isRecipeHardConstraintSatisfied(recipe: Recipe, prefs: UserPreferences): boolean {
+  return (
+    recipe.ingredients.length > 0 &&
+    isEquipmentSatisfied(recipe.equipmentRequired, prefs.equipment) &&
+    !hasAllergen(recipe, prefs.allergens) &&
+    satisfiesDietary(recipe, prefs.dietary)
+  );
+}
 
 /**
  * A recipe survives only if every item it requires is owned.
@@ -29,6 +43,11 @@ export function isEquipmentSatisfied(
   required: readonly Equipment[],
   owned: readonly Equipment[]
 ): boolean {
+  if (required.length === 0) return false;
+  if (required.includes('none') && !(required.length === 1 && required[0] === 'none')) {
+    return false;
+  }
+
   const ownedSet = new Set(owned);
   return required.every((item) => {
     if (item === 'unclassified') return false;

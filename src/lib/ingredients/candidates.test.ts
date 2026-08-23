@@ -26,7 +26,8 @@ describe('toCandidates', () => {
   });
 
   it('does not pre-accept a low-confidence item even when the name matches exactly', () => {
-    // §2.4: below 0.7 goes to the confirmation sheet rather than the pantry.
+    // Below the confidence threshold, the item goes to the confirmation sheet
+    // rather than the pantry.
     const [candidate] = toCandidates([
       detected({ name: 'milk', confidence: CONFIDENCE_THRESHOLD - 0.01 }),
     ]);

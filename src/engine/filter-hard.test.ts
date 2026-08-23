@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { hasAllergen, isEquipmentSatisfied, satisfiesDietary } from '@/engine/filter-hard';
-import { ALL_EQUIPMENT, ingredient, makeRecipe } from '@/engine/__fixtures__';
+import {
+  hasAllergen,
+  isEquipmentSatisfied,
+  isRecipeHardConstraintSatisfied,
+  satisfiesDietary,
+} from '@/engine/filter-hard';
+import { ALL_EQUIPMENT, ingredient, makePrefs, makeRecipe } from '@/engine/__fixtures__';
 import type { Equipment } from '@/engine/types';
 
 describe('isEquipmentSatisfied', () => {
@@ -25,13 +30,17 @@ describe('isEquipmentSatisfied', () => {
     expect(isEquipmentSatisfied(['oven', 'stove', 'blender'], ALL_EQUIPMENT)).toBe(true);
   });
 
-  it('treats "none" as always satisfied even alongside real equipment', () => {
-    expect(isEquipmentSatisfied(['none', 'microwave'], ['microwave'])).toBe(true);
+  it('rejects no-equipment when it is mixed with real equipment', () => {
+    expect(isEquipmentSatisfied(['none', 'microwave'], ['microwave'])).toBe(false);
     expect(isEquipmentSatisfied(['none', 'oven'], ['microwave'])).toBe(false);
   });
 
-  it('admits a recipe that requires nothing at all', () => {
-    expect(isEquipmentSatisfied([], [])).toBe(true);
+  it('rejects an empty equipment list as unknown', () => {
+    expect(isEquipmentSatisfied([], [])).toBe(false);
+  });
+
+  it('rejects duplicate no-equipment claims', () => {
+    expect(isEquipmentSatisfied(['none', 'none'], [])).toBe(false);
   });
 
   // The microwave-wedge regression. `unclassified` means tagging failed, so the
@@ -128,5 +137,30 @@ describe('satisfiesDietary', () => {
 
   it('filters an untagged recipe when any restriction is selected', () => {
     expect(satisfiesDietary(makeRecipe({ dietaryTags: [] }), ['vegetarian'])).toBe(false);
+  });
+});
+
+describe('isRecipeHardConstraintSatisfied', () => {
+  it('rejects empty ingredients before a detail reaches a screen', () => {
+    expect(isRecipeHardConstraintSatisfied(makeRecipe({ ingredients: [] }), makePrefs())).toBe(
+      false
+    );
+  });
+
+  it('rechecks changed equipment, allergen, and dietary preferences', () => {
+    const recipe = makeRecipe({
+      equipmentRequired: ['oven'],
+      dietaryTags: ['vegan'],
+      ingredients: [ingredient('peanut', ['nut'])],
+    });
+
+    expect(isRecipeHardConstraintSatisfied(recipe, makePrefs())).toBe(true);
+    expect(isRecipeHardConstraintSatisfied(recipe, makePrefs({ equipment: ['microwave'] }))).toBe(
+      false
+    );
+    expect(isRecipeHardConstraintSatisfied(recipe, makePrefs({ allergens: ['nut'] }))).toBe(false);
+    expect(isRecipeHardConstraintSatisfied(recipe, makePrefs({ dietary: ['vegetarian'] }))).toBe(
+      false
+    );
   });
 });

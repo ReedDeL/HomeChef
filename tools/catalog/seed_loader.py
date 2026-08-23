@@ -19,8 +19,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from tools.catalog.models import CatalogIngredient, CatalogRecipe, Equipment
+from tools.catalog.models import CatalogIngredient, CatalogRecipe, Equipment, Provenance
 from tools.catalog.normalize import allergen_groups_for
+from tools.catalog.rights import ReleaseSource
 
 SEED_DIR = Path(__file__).resolve().parent / "seed"
 
@@ -28,6 +29,24 @@ SEED_DIR = Path(__file__).resolve().parent / "seed"
 # That is the point of the file, so it is asserted here rather than repeated
 # twenty times in the JSON where one copy could drift from the rest.
 SEED_EQUIPMENT: tuple[Equipment, ...] = ("microwave",)
+AUTHORED_SOURCE_ID = "homechef-authored"
+AUTHORED_SOURCE_VERSION = "microwave-seed-1"
+AUTHORED_ARCHIVE_SHA256 = "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc"
+
+
+def authored_release_source() -> ReleaseSource:
+    """Return the stable release-source record for the HomeChef seed material."""
+    return ReleaseSource(
+        id=AUTHORED_SOURCE_ID,
+        version=AUTHORED_SOURCE_VERSION,
+        title="HomeChef-authored microwave seed catalog",
+        archiveUrl="https://homechef.app/catalog/authored/microwave-seed-1",
+        sha256=AUTHORED_ARCHIVE_SHA256,
+        licenseName="HomeChef-authored original content",
+        licenseUrl="https://homechef.app/catalog/rights",
+        attribution="HomeChef-authored microwave seed catalog.",
+        status="approved",
+    )
 
 
 class SeedIngredient(BaseModel):
@@ -84,6 +103,14 @@ class SeedRecipe(BaseModel):
                 for item in self.ingredients
             ],
             instructions=self.instructions,
+            provenance=[
+                Provenance(
+                    source_id=AUTHORED_SOURCE_ID,
+                    source_version=AUTHORED_SOURCE_VERSION,
+                    source_recipe_id=self.id,
+                    archive_sha256=AUTHORED_ARCHIVE_SHA256,
+                )
+            ],
             # Each curated entry describes one complete single-meal preparation.
             base_servings=1,
         )
