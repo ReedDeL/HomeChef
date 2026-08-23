@@ -1,7 +1,7 @@
 # HomeChef Discord status reporting
 
 `discord-status.yml` posts a concise status update whenever a change is pushed
-to `main`. It uses the pushed commit subjects as the feature/update summary and
+to `master`. It uses the pushed commit subjects as the feature/update summary and
 lists at most ten commits, so Discord stays readable.
 
 ## One-time setup
