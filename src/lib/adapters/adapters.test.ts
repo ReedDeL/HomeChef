@@ -155,9 +155,22 @@ describe('toRecipe', () => {
     expect(recipe?.equipmentRequired).toEqual(['oven']);
   });
 
-  it('falls back to "none" when no valid equipment survives', () => {
+  it('fails closed when equipment contains only unknown values', () => {
     const recipe = toRecipe({ ...raw, equipmentRequired: ['sous_vide'] });
-    expect(recipe?.equipmentRequired).toEqual(['none']);
+    expect(recipe?.equipmentRequired).toEqual(['unclassified']);
+  });
+
+  it('fails closed when equipment metadata is missing or empty', () => {
+    expect(toRecipe({ ...raw, equipmentRequired: undefined })?.equipmentRequired).toEqual([
+      'unclassified',
+    ]);
+    expect(toRecipe({ ...raw, equipmentRequired: [] })?.equipmentRequired).toEqual([
+      'unclassified',
+    ]);
+  });
+
+  it('preserves explicit verified none equipment', () => {
+    expect(toRecipe({ ...raw, equipmentRequired: ['none'] })?.equipmentRequired).toEqual(['none']);
   });
 
   it('returns null for a record missing required fields', () => {

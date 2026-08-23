@@ -130,3 +130,8 @@ export interface DecisionResult {
   buckets: Record<Bucket, ScoredRecipe[]>;
   appliedRelaxations: Relaxation[];
 }
+
+export interface VisibleDecision {
+  buckets: Partial<Record<Bucket, ScoredRecipe[]>>;
+  appliedRelaxations: Relaxation[];
+}

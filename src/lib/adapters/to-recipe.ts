@@ -71,16 +71,12 @@ function toIngredients(raw: unknown): RecipeIngredient[] {
   return ingredients;
 }
 
-/**
- * `none` rather than an empty list when nothing is recognised: the engine reads
- * `none` as always-satisfied, which cannot wrongly exclude a user. Silently
- * passing an unknown appliance through would.
- */
+/** Unknown metadata cannot make a claim that no equipment is required. */
 function toEquipment(raw: unknown): Equipment[] {
   const known = keepKnown(raw, EQUIPMENT);
   const real = known.filter((item) => item !== 'none');
   if (real.length > 0) return real;
-  return known.length > 0 ? ['none'] : ['none'];
+  return known.length > 0 ? ['none'] : ['unclassified'];
 }
 
 function keepKnown<T extends Equipment | DietaryTag>(raw: unknown, allowed: readonly T[]): T[] {

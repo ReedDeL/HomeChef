@@ -4,7 +4,7 @@ import type { Bucket } from '@/engine/types';
  * Truncation is the product (docs/01_TECHNICAL_SPEC.md:452). Comprehensiveness
  * is our competitors' value proposition and the thing we deliberately do not do.
  */
-export const BUCKET_CAP = 4;
+export const PER_BUCKET_RESULT_CAP = 4;
 
 export const BUCKET_ORDER: readonly Bucket[] = [
   'ready',
