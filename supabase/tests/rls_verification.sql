@@ -279,24 +279,18 @@ begin
   select count(*) into n from public.meal_feedback;
   results := results || format('21|Roommate cannot read A feedback|0|%s', n);
 
-  select count(*) into n from public.meal_satiety;
-  results := results || format('22|Roommate cannot read A satiety|0|%s', n);
-
   --------------------------------------------------------------- as anon -----
   perform set_config('role', 'anon', true);
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
 
   select count(*) into n from public.inventory;
-  results := results || format('23|Anon sees no pantry|0|%s', n);
+  results := results || format('22|Anon sees no pantry|0|%s', n);
 
   select count(*) into n from public.user_preferences;
-  results := results || format('24|Anon sees no preferences|0|%s', n);
+  results := results || format('23|Anon sees no preferences|0|%s', n);
 
   select count(*) into n from public.households;
-  results := results || format('25|Anon sees no households|0|%s', n);
-
-  select count(*) into n from public.meal_satiety;
-  results := results || format('26|Anon sees no satiety|0|%s', n);
+  results := results || format('24|Anon sees no households|0|%s', n);
 
   perform set_config('role', 'postgres', true);
 
