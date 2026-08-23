@@ -41,6 +41,12 @@ describe('runGoogleOAuthFlow', () => {
     expect(dependencies.setSession).not.toHaveBeenCalled();
   });
 
+  it('does not store a session after consent denial', async () => {
+    const dependencies = flow({ readSessionTokens: vi.fn(() => null) });
+    await expect(runGoogleOAuthFlow(dependencies)).resolves.toEqual({ type: 'cancelled' });
+    expect(dependencies.setSession).not.toHaveBeenCalled();
+  });
+
   it('rejects a callback missing either token', async () => {
     const dependencies = flow({
       readSessionTokens: vi.fn(() => ({ accessToken: null, refreshToken: null })),

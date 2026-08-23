@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const platformState = vi.hoisted(() => ({ os: 'web' }));
 
@@ -26,9 +26,17 @@ vi.mock('react-native', () => ({
 }));
 
 import { makeRedirectUri } from 'expo-auth-session';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import * as WebBrowser from 'expo-web-browser';
 
 import { createGoogleOAuthDependencies, signInWithGoogle, signOut } from '@/lib/auth/google';
 import { supabase } from '@/lib/supabase';
+
+afterEach(() => {
+  platformState.os = 'web';
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('createGoogleOAuthDependencies', () => {
   it('uses a regular Supabase redirect on web', async () => {
@@ -89,7 +97,7 @@ describe('createGoogleOAuthDependencies', () => {
     });
   });
 
-  it('rejects a callback containing an OAuth error code', () => {
+  it('maps an access_denied OAuth error code to cancellation', () => {
     const dependencies = createGoogleOAuthDependencies({
       platform: 'android',
       redirectTo: 'homechef://auth/callback',
@@ -99,12 +107,10 @@ describe('createGoogleOAuthDependencies', () => {
       getQueryParams: vi.fn(() => ({ errorCode: 'access_denied', params: {} })),
     });
 
-    expect(() => dependencies.readSessionTokens('homechef://auth/callback')).toThrow(
-      'Google sign-in failed.'
-    );
+    expect(dependencies.readSessionTokens('homechef://auth/callback')).toBeNull();
   });
 
-  it('rejects a Supabase callback containing an OAuth error parameter', () => {
+  it('maps Supabase access_denied callback parameters to cancellation', () => {
     const dependencies = createGoogleOAuthDependencies({
       platform: 'android',
       redirectTo: 'homechef://auth/callback',
@@ -114,6 +120,22 @@ describe('createGoogleOAuthDependencies', () => {
       getQueryParams: vi.fn(() => ({
         errorCode: null,
         params: { error: 'access_denied', error_code: 'access_denied' },
+      })),
+    });
+
+    expect(dependencies.readSessionTokens('homechef://auth/callback')).toBeNull();
+  });
+
+  it('rejects a callback containing another OAuth error', () => {
+    const dependencies = createGoogleOAuthDependencies({
+      platform: 'android',
+      redirectTo: 'homechef://auth/callback',
+      signInWithOAuth: vi.fn(async () => ({ data: {}, error: null })),
+      setSession: vi.fn(async () => ({ error: null })),
+      openAuthSessionAsync: vi.fn(),
+      getQueryParams: vi.fn(() => ({
+        errorCode: null,
+        params: { error: 'server_error', error_code: 'unexpected_failure' },
       })),
     });
 
@@ -139,6 +161,59 @@ describe('createGoogleOAuthDependencies', () => {
     });
 
     expect(setSession).toHaveBeenCalledWith({
+      access_token: 'session-access',
+      refresh_token: 'session-refresh',
+    });
+  });
+
+  it('wires the public entry point to the web redirect flow', async () => {
+    const signInWithOAuthMock = vi.mocked(supabase.auth.signInWithOAuth);
+    const openAuthSessionAsyncMock = vi.mocked(WebBrowser.openAuthSessionAsync);
+    vi.stubGlobal('location', { origin: 'https://homechef.example.com' });
+    platformState.os = 'web';
+    signInWithOAuthMock.mockResolvedValue({
+      data: { provider: 'google', url: 'https://project.supabase.co/auth/v1/authorize' },
+      error: null,
+    });
+
+    await expect(signInWithGoogle()).resolves.toEqual({ type: 'redirecting' });
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: 'https://homechef.example.com' },
+    });
+    expect(openAuthSessionAsyncMock).not.toHaveBeenCalled();
+  });
+
+  it('wires the public entry point through the Android auth return', async () => {
+    const makeRedirectUriMock = vi.mocked(makeRedirectUri);
+    const signInWithOAuthMock = vi.mocked(supabase.auth.signInWithOAuth);
+    const openAuthSessionAsyncMock = vi.mocked(WebBrowser.openAuthSessionAsync);
+    const getQueryParamsMock = vi.mocked(QueryParams.getQueryParams);
+    const setSessionMock = vi.mocked(supabase.auth.setSession);
+    platformState.os = 'android';
+    makeRedirectUriMock.mockReturnValue('homechef://auth/callback');
+    signInWithOAuthMock.mockResolvedValue({
+      data: { provider: 'google', url: 'https://project.supabase.co/auth/v1/authorize' },
+      error: null,
+    });
+    openAuthSessionAsyncMock.mockResolvedValue({
+      type: 'success',
+      url: 'homechef://auth/callback#access_token=session-access&refresh_token=session-refresh',
+    });
+    getQueryParamsMock.mockReturnValue({
+      errorCode: null,
+      params: { access_token: 'session-access', refresh_token: 'session-refresh' },
+    });
+    setSessionMock.mockResolvedValue({ data: { session: null, user: null }, error: null });
+
+    await expect(signInWithGoogle()).resolves.toEqual({ type: 'signed-in' });
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: 'homechef://auth/callback', skipBrowserRedirect: true },
+    });
+    expect(setSessionMock).toHaveBeenCalledWith({
       access_token: 'session-access',
       refresh_token: 'session-refresh',
     });

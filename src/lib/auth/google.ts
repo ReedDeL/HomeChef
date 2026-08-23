@@ -69,7 +69,9 @@ export function createGoogleOAuthDependencies(
     openNativeSession: adapter.openAuthSessionAsync,
     readSessionTokens: (url) => {
       const { errorCode, params } = adapter.getQueryParams(url);
-      if (errorCode || params.error || params.error_code) {
+      const errors = [errorCode, params.error, params.error_code];
+      if (errors.includes('access_denied')) return null;
+      if (errors.some((error) => Boolean(error))) {
         throw new Error('Google sign-in failed.');
       }
       return {

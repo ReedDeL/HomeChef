@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+import { createSupabaseAuthStorage } from '@/lib/auth/session-storage';
 import { storage } from '@/lib/storage';
 import type { Database } from '@/types/supabase-journeys';
 
@@ -25,18 +26,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-/** MMKV is synchronous; Supabase expects promises. */
-const mmkvAuthStorage = {
-  getItem: (key: string): Promise<string | null> => Promise.resolve(storage.getString(key) ?? null),
-  setItem: (key: string, value: string): Promise<void> => {
-    storage.set(key, value);
-    return Promise.resolve();
-  },
-  removeItem: (key: string): Promise<void> => {
-    storage.remove(key);
-    return Promise.resolve();
-  },
-};
+const authStorage = createSupabaseAuthStorage(storage);
 
 /**
  * Parameterised by the generated schema plus the temporary journey overlay,
@@ -45,7 +35,7 @@ const mmkvAuthStorage = {
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: mmkvAuthStorage,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     // Native has no URL to parse a session from. The web build does — OAuth
