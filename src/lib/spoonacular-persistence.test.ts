@@ -13,6 +13,17 @@ describe('toPersistableSpoonacularRecipe', () => {
       equipmentRequired: ['stove'],
       servings: 2,
       nutrition: { calories: 500 },
+      baseServings: 4,
+      energyKcalPerServing: 512.5,
+      nutritionProvenance: {
+        usdaFdcIds: [171287],
+        cacheChecksum: 'a'.repeat(64),
+        matchMethod: 'exact',
+        sourceVersion: 'FoodData Central 2026-08',
+        calculatedAt: '2026-08-22T12:00:00-07:00',
+        confidence: 0.9,
+      },
+      nutritionConfidence: 'high',
     });
 
     expect(persistable).toEqual({

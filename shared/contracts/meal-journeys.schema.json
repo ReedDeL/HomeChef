@@ -10,6 +10,58 @@
       "type": "string",
       "enum": ["high", "medium", "low", "unavailable"]
     },
+    "nutritionProvenance": {
+      "type": "object",
+      "properties": {
+        "usdaFdcIds": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "uniqueItems": true
+        },
+        "cacheChecksum": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "matchMethod": {
+          "type": "string",
+          "enum": ["exact", "alias"]
+        },
+        "sourceVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calculatedAt": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            },
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?[+-]\\d{2}:\\d{2}$"
+            }
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "usdaFdcIds",
+        "cacheChecksum",
+        "matchMethod",
+        "sourceVersion",
+        "calculatedAt",
+        "confidence"
+      ],
+      "additionalProperties": false
+    },
     "bodyProfile": {
       "type": "object",
       "properties": {
@@ -259,7 +311,7 @@
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
                       },
                       {
-                        "pattern": "[+-]\\d{2}:\\d{2}$"
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?[+-]\\d{2}:\\d{2}$"
                       }
                     ]
                   },
@@ -278,7 +330,8 @@
                           "servings": {
                             "type": "number",
                             "minimum": 0.75,
-                            "maximum": 1.5
+                            "maximum": 1.5,
+                            "multipleOf": 0.25
                           },
                           "label": {
                             "type": "string",
@@ -382,6 +435,7 @@
   "required": [
     "mealJourney",
     "nutritionConfidence",
+    "nutritionProvenance",
     "bodyProfile",
     "tasteSignal",
     "mealSatietyInput",
@@ -391,5 +445,48 @@
     "reminderPreferences",
     "weeklyMealPlan"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "x-homechef-semanticValidation": {
+    "version": 1,
+    "validator": "homechef.dual-meal-journeys.v1",
+    "rules": [
+      {
+        "id": "prompt_state_lifecycle",
+        "kind": "conditional_null",
+        "path": "/onboardingPromptState",
+        "whenField": "shownThisSession",
+        "whenEquals": false,
+        "nullField": "activePrompt"
+      },
+      {
+        "id": "planned_time_local_date",
+        "kind": "matching_local_date",
+        "path": "/weeklyMealPlan/entries",
+        "discriminatorField": "kind",
+        "discriminatorEquals": "recipe",
+        "dateField": "date",
+        "timestampField": "plannedMealTime"
+      },
+      {
+        "id": "seven_consecutive_dates",
+        "kind": "consecutive_dates",
+        "path": "/weeklyMealPlan",
+        "startField": "weekStart",
+        "entriesField": "entries",
+        "dateField": "date",
+        "count": 7
+      },
+      {
+        "id": "unique_grocery_ingredient_ids",
+        "kind": "unique_by",
+        "path": "/weeklyMealPlan/groceryNeeds",
+        "keyField": "ingredientId"
+      },
+      {
+        "id": "ascending_usda_fdc_ids",
+        "kind": "strictly_ascending_numbers",
+        "path": "/nutritionProvenance/usdaFdcIds"
+      }
+    ]
+  }
 }

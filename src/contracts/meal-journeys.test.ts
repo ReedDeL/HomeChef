@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
   bodyProfileSchema,
   continuousOnboardingProgressSchema,
@@ -11,8 +11,15 @@ import {
   mealSatietyInputSchema,
   mealSatietyRecordSchema,
   mealJourneysJsonSchema,
+  nutritionProvenanceSchema,
   tasteSignalSchema,
+  validatePortableMealJourneysSemantics,
   weeklyMealPlanSchema,
+} from '@/contracts/meal-journeys';
+import type {
+  PlanLinkedGroceryNeed,
+  RecipeWeeklyEntry,
+  WeeklyMealPlan,
 } from '@/contracts/meal-journeys';
 
 const validBodyProfile = {
@@ -24,6 +31,15 @@ const validBodyProfile = {
   goal: 'maintain',
   pregnant: false,
   breastfeeding: false,
+};
+
+const validNutritionProvenance = {
+  usdaFdcIds: [171287, 173424],
+  cacheChecksum: 'a'.repeat(64),
+  matchMethod: 'alias',
+  sourceVersion: 'FoodData Central 2026-08',
+  calculatedAt: '2026-08-22T12:00:00-07:00',
+  confidence: 0.82,
 };
 
 const recipeEntry = {
@@ -63,6 +79,32 @@ const validWeeklyPlan = {
   statedRelaxations: ['time'],
 };
 
+type MutableFixture = {
+  onboardingPromptState: {
+    shownThisSession: boolean;
+    activePrompt: string | null;
+  };
+  weeklyMealPlan: {
+    weekStart: string;
+    entries: Array<{
+      kind: string;
+      date: string;
+      plannedMealTime?: string;
+    }>;
+    groceryNeeds: Array<{
+      ingredientId: string;
+      recipeIds: string[];
+      dates: string[];
+    }>;
+  };
+};
+
+type IsReadonlyArray<Value> = Value extends readonly unknown[]
+  ? Value extends unknown[]
+    ? false
+    : true
+  : false;
+
 describe('closed domains', () => {
   it('accepts only the two meal journeys', () => {
     expect(mealJourneySchema.parse('now')).toBe('now');
@@ -93,6 +135,31 @@ describe('bodyProfileSchema', () => {
     expect(bodyProfileSchema.safeParse({ ...validBodyProfile, breastfeeding: true }).success).toBe(
       true
     );
+  });
+});
+
+describe('nutritionProvenanceSchema', () => {
+  it('parses complete deterministic USDA provenance', () => {
+    expect(nutritionProvenanceSchema.parse(validNutritionProvenance)).toEqual(
+      validNutritionProvenance
+    );
+  });
+
+  it.each([
+    { usdaFdcIds: [] },
+    { usdaFdcIds: [2, 1] },
+    { usdaFdcIds: [1, 1] },
+    { usdaFdcIds: [0] },
+    { cacheChecksum: 'A'.repeat(64) },
+    { matchMethod: 'fuzzy' },
+    { sourceVersion: '' },
+    { calculatedAt: '2026-08-22T12:00-07:00' },
+    { confidence: -0.01 },
+    { confidence: 1.01 },
+  ])('rejects malformed USDA provenance %#', (override) => {
+    expect(
+      nutritionProvenanceSchema.safeParse({ ...validNutritionProvenance, ...override }).success
+    ).toBe(false);
   });
 });
 
@@ -209,6 +276,14 @@ describe('weeklyMealPlanSchema', () => {
     );
   });
 
+  it('requires seconds in an RFC 3339 planned meal time', () => {
+    const entries = [
+      { ...weeklyEntries[0], plannedMealTime: '2026-08-24T18:30-07:00' },
+      ...weeklyEntries.slice(1),
+    ];
+    expect(weeklyMealPlanSchema.safeParse({ ...validWeeklyPlan, entries }).success).toBe(false);
+  });
+
   it('rejects more than 12 unique plan-linked grocery needs', () => {
     const groceryNeeds = Array.from({ length: 13 }, (_, index) => ({
       ingredientId: `ingredient-${index}`,
@@ -235,6 +310,17 @@ describe('weeklyMealPlanSchema', () => {
   });
 });
 
+describe('public readonly array contracts', () => {
+  it('exposes weekly collections as readonly without freezing parsed JSON', () => {
+    expectTypeOf<IsReadonlyArray<RecipeWeeklyEntry['statedRelaxations']>>().toEqualTypeOf<true>();
+    expectTypeOf<IsReadonlyArray<PlanLinkedGroceryNeed['recipeIds']>>().toEqualTypeOf<true>();
+    expectTypeOf<IsReadonlyArray<PlanLinkedGroceryNeed['dates']>>().toEqualTypeOf<true>();
+    expectTypeOf<IsReadonlyArray<WeeklyMealPlan['entries']>>().toEqualTypeOf<true>();
+    expectTypeOf<IsReadonlyArray<WeeklyMealPlan['groceryNeeds']>>().toEqualTypeOf<true>();
+    expectTypeOf<IsReadonlyArray<WeeklyMealPlan['statedRelaxations']>>().toEqualTypeOf<true>();
+  });
+});
+
 describe('cross-platform artifacts', () => {
   const sharedPath = (relativePath: string) =>
     fileURLToPath(new URL(`../../shared/${relativePath}`, import.meta.url));
@@ -243,11 +329,110 @@ describe('cross-platform artifacts', () => {
     const fixture = JSON.parse(
       readFileSync(sharedPath('fixtures/dual-meal-journeys.json'), 'utf8')
     );
+    const checkedIn = JSON.parse(
+      readFileSync(sharedPath('contracts/meal-journeys.schema.json'), 'utf8')
+    ) as Record<string, unknown>;
     expect(dualMealJourneysFixtureSchema.parse(fixture)).toEqual(fixture);
+    expect(
+      validatePortableMealJourneysSemantics(fixture, checkedIn['x-homechef-semanticValidation'])
+        .success
+    ).toBe(true);
   });
 
   it('keeps checked-in JSON Schema generation stable', () => {
     const checkedIn = readFileSync(sharedPath('contracts/meal-journeys.schema.json'), 'utf8');
     expect(JSON.stringify(JSON.parse(checkedIn))).toBe(JSON.stringify(mealJourneysJsonSchema));
   });
+
+  it('expresses quarter-serving increments with JSON Schema multipleOf', () => {
+    const checkedIn = JSON.parse(
+      readFileSync(sharedPath('contracts/meal-journeys.schema.json'), 'utf8')
+    );
+    expect(collectValuesForKey(checkedIn, 'multipleOf')).toContain(0.25);
+  });
+
+  it('embeds the portable semantic-validation rule contract', () => {
+    const checkedIn = JSON.parse(
+      readFileSync(sharedPath('contracts/meal-journeys.schema.json'), 'utf8')
+    ) as Record<string, unknown>;
+    const semanticContract = checkedIn['x-homechef-semanticValidation'];
+
+    expect(semanticContract).toMatchObject({
+      version: 1,
+      validator: 'homechef.dual-meal-journeys.v1',
+      rules: [
+        { id: 'prompt_state_lifecycle' },
+        { id: 'planned_time_local_date' },
+        { id: 'seven_consecutive_dates' },
+        { id: 'unique_grocery_ingredient_ids' },
+        { id: 'ascending_usda_fdc_ids' },
+      ],
+    });
+  });
+
+  it('expresses unique USDA FDC IDs with a JSON Schema primitive', () => {
+    const checkedIn = JSON.parse(
+      readFileSync(sharedPath('contracts/meal-journeys.schema.json'), 'utf8')
+    );
+    expect(collectValuesForKey(checkedIn, 'uniqueItems')).toContain(true);
+  });
+
+  it('rejects cross-field violations through runtime and portable validation', () => {
+    const checkedIn = JSON.parse(
+      readFileSync(sharedPath('contracts/meal-journeys.schema.json'), 'utf8')
+    ) as Record<string, unknown>;
+    const semanticContract = checkedIn['x-homechef-semanticValidation'];
+    const validFixture = JSON.parse(
+      readFileSync(sharedPath('fixtures/dual-meal-journeys.json'), 'utf8')
+    ) as MutableFixture;
+
+    const invalidPrompt = structuredClone(validFixture);
+    invalidPrompt.onboardingPromptState = {
+      shownThisSession: false,
+      activePrompt: 'safety',
+    };
+
+    const invalidPlannedDate = structuredClone(validFixture);
+    const plannedEntry = invalidPlannedDate.weeklyMealPlan.entries[0];
+    if (plannedEntry) plannedEntry.plannedMealTime = '2026-08-25T18:30:00-07:00';
+
+    const invalidDates = structuredClone(validFixture);
+    const datedEntry = invalidDates.weeklyMealPlan.entries[3];
+    if (datedEntry) datedEntry.date = '2026-08-26';
+
+    const invalidNeeds = structuredClone(validFixture);
+    const firstNeed = invalidNeeds.weeklyMealPlan.groceryNeeds[0];
+    if (firstNeed) invalidNeeds.weeklyMealPlan.groceryNeeds.push(structuredClone(firstNeed));
+
+    const invalidProvenance = structuredClone(validFixture) as MutableFixture & {
+      nutritionProvenance: { usdaFdcIds: number[] };
+    };
+    invalidProvenance.nutritionProvenance.usdaFdcIds = [173424, 171287];
+
+    for (const invalidFixture of [
+      invalidPrompt,
+      invalidPlannedDate,
+      invalidDates,
+      invalidNeeds,
+      invalidProvenance,
+    ]) {
+      expect(dualMealJourneysFixtureSchema.safeParse(invalidFixture).success).toBe(false);
+      expect(validatePortableMealJourneysSemantics(invalidFixture, semanticContract).success).toBe(
+        false
+      );
+    }
+  });
 });
+
+function collectValuesForKey(value: unknown, key: string): unknown[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectValuesForKey(entry, key));
+  }
+  if (typeof value !== 'object' || value === null) return [];
+
+  const record = value as Record<string, unknown>;
+  return [
+    ...(key in record ? [record[key]] : []),
+    ...Object.values(record).flatMap((entry) => collectValuesForKey(entry, key)),
+  ];
+}

@@ -7,6 +7,7 @@
  * is the house rule.
  */
 import { DIETARY_TAGS, EQUIPMENT } from '@/engine/types';
+import { nutritionConfidenceSchema, nutritionProvenanceSchema } from '@/contracts/meal-journeys';
 import type { DietaryTag, Equipment, Recipe, RecipeIngredient } from '@/engine/types';
 
 const FALLBACK_MINUTES = 30;
@@ -36,6 +37,12 @@ export function toRecipe(raw: unknown): Recipe | null {
     dietaryTags: keepKnown(raw.dietaryTags, DIETARY_TAGS),
     ingredients,
     instructions: asString(raw.instructions) ?? '',
+    baseServings: asPositiveNumber(raw.baseServings),
+    energyKcalPerServing: asPositiveNumber(raw.energyKcalPerServing),
+    nutritionProvenance: toNutritionProvenance(raw.nutritionProvenance),
+    nutritionConfidence: nutritionConfidenceSchema
+      .catch('unavailable')
+      .parse(raw.nutritionConfidence),
     source: raw.source === 'tier2' ? 'tier2' : 'tier1',
   };
 }
@@ -95,4 +102,14 @@ function asString(value: unknown): string | null {
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asPositiveNumber(value: unknown): number | null {
+  const number = asNumber(value);
+  return number !== null && number > 0 ? number : null;
+}
+
+function toNutritionProvenance(raw: unknown): Recipe['nutritionProvenance'] {
+  const result = nutritionProvenanceSchema.safeParse(raw);
+  return result.success ? result.data : null;
 }

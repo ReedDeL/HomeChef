@@ -5,6 +5,7 @@
  * The data layer converts into these types (src/lib/adapters/) and the engine
  * never learns where a recipe came from — bundled Tier 1 or live Tier 2.
  */
+import type { NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
 
 /**
  * Canonical ingredient identifier from src/data/ingredients.json.
@@ -82,6 +83,10 @@ export interface Recipe {
   dietaryTags: DietaryTag[];
   ingredients: RecipeIngredient[];
   instructions: string;
+  baseServings: number | null;
+  energyKcalPerServing: number | null;
+  nutritionProvenance: NutritionProvenance | null;
+  nutritionConfidence: NutritionConfidence;
   /**
    * Which tier supplied this recipe. The engine ignores it entirely; it exists
    * so the persistence layer can enforce the Spoonacular field whitelist and

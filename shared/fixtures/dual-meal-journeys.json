@@ -1,6 +1,14 @@
 {
   "mealJourney": "week",
   "nutritionConfidence": "medium",
+  "nutritionProvenance": {
+    "usdaFdcIds": [171287, 173424],
+    "cacheChecksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "matchMethod": "alias",
+    "sourceVersion": "FoodData Central 2026-08",
+    "calculatedAt": "2026-08-22T12:00:00-07:00",
+    "confidence": 0.82
+  },
   "bodyProfile": {
     "ageYears": 32,
     "heightCentimeters": 168,
