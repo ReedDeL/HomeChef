@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseAuthStorage } from '@/lib/auth/session-storage';
 import { storage } from '@/lib/storage';
-import type { Database } from '@/types/supabase-generated';
+import type { Database } from '@/types/supabase-journeys';
 
 /**
  * The Supabase client.
@@ -29,9 +29,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const authStorage = createSupabaseAuthStorage(storage);
 
 /**
- * Parameterised by the generated schema, so a table or column name that does
- * not exist is a compile error at the call site rather than a runtime
- * PostgREST 400.
+ * Parameterised by the generated schema plus the temporary journey overlay,
+ * so a table or column name that does not exist remains a compile error rather
+ * than a runtime PostgREST 400.
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {

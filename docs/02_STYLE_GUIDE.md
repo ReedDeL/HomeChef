@@ -1,7 +1,7 @@
 # HomeChef — Shared Style Guide
 
 **Company:** Application42 · **Product:** HomeChef
-**Version:** 1.0 · **Date:** August 3, 2026
+**Version:** 0.1.0 · **Date:** August 3, 2026
 **Applies to:** every line of code, every commit, every pull request.
 
 ---
@@ -30,20 +30,10 @@ These hold in every language.
 
 ### 1.1 Formatting is automated and never discussed
 
-Formatters run on save and in CI. A pull request is never blocked on whitespace, because whitespace cannot be wrong — the formatter already fixed it.
-
-```jsonc
-// .vscode/settings.json — committed to the repo, not personal config
-{
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" },
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
-  }
-}
-```
+The live configuration is authoritative: `.prettierrc`, `eslint.config.mjs`,
+`tsconfig.json`, `pyproject.toml`, and `.github/workflows/ci.yml`.
+Do not duplicate option snapshots here. TypeScript and Python both use a
+100-character line limit, UTF-8, LF endings, and a final newline.
 
 ### 1.2 Comment policy — sparse and meaningful
 
@@ -122,38 +112,10 @@ Using a synonym for any of these in code, a commit, or a ticket is a review comm
 
 ### 2.1 Tooling
 
-| Tool | Role | Config |
-|---|---|---|
-| Prettier | Formatting — the only authority | `.prettierrc` |
-| ESLint | Correctness, `typescript-eslint` strict | `eslint.config.js` |
-| TypeScript | `strict: true`, **non-negotiable** | `tsconfig.json` |
-
-```jsonc
-// .prettierrc
-{
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "all",
-  "printWidth": 100,
-  "tabWidth": 2,
-  "arrowParens": "always"
-}
-```
-
-```jsonc
-// tsconfig.json — the parts that matter
-{
-  "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true
-  }
-}
-```
-
-`noUncheckedIndexedAccess` is worth the friction it causes. `recipes[0]` types as `Recipe | undefined`, which is the truth, and it catches the empty-catalog bug before it reaches a user.
+TypeScript strictness comes from `tsconfig.json`; formatting from
+`.prettierrc`; lint rules from `eslint.config.mjs`; enforcement from
+`.github/workflows/ci.yml`. Change those files first, then update this guide
+only when the team rule changes.
 
 ### 2.2 Naming conventions
 
@@ -293,32 +255,9 @@ Applies to `tools/catalog/` and any future scripts. **PEP 8 is the baseline; eve
 
 ### 3.1 Tooling
 
-| Tool | Role |
-|---|---|
-| **Ruff** | Formatter *and* linter. Replaces Black + isort + Flake8, and is fast enough to run on save. |
-| **mypy** | Static type checking, `strict` mode |
-| **pytest** | Testing |
-
-```toml
-# tools/catalog/pyproject.toml
-[project]
-name = "homechef-catalog"
-requires-python = ">=3.12"
-
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "ANN"]
-# E/W: pycodestyle (PEP 8)   F: pyflakes      I: import sorting
-# N:   PEP 8 naming          UP: pyupgrade    B: bugbear
-# SIM: simplify              ANN: require annotations
-
-[tool.mypy]
-strict = true
-warn_return_any = true
-```
+`pyproject.toml` is the source of truth for Ruff, mypy, pytest, Python
+version, and enabled lint families. Run `ruff format --check tools/`,
+`ruff check tools/`, `mypy --strict tools/catalog`, and `pytest tools/`.
 
 ### 3.2 Layout (PEP 8)
 
@@ -356,18 +295,10 @@ Never use `l`, `O`, or `I` as single-character names — indistinguishable from 
 
 ### 3.4 Type hints — required
 
-Every function signature is fully annotated. Enforced by Ruff `ANN` and mypy `strict`.
-
-```python
-def enrich_equipment(instructions: str, client: LLMClient) -> list[Equipment]:
-    """Extract required equipment from free-text cooking instructions.
-
-    Returns an empty list when the model cannot determine equipment, which the
-    decision engine treats as "no special equipment" rather than as a failure.
-    """
-```
-
-Modern generics: `list[str]`, `dict[str, int]`, `str | None`. Not `List`, `Dict`, `Optional`.
+Every function signature is fully annotated. Use modern generics such as
+`list[str]`, `dict[str, int]`, and `str | None`. Validate external data
+at the boundary. Unknown equipment remains `unclassified`; it must never be
+treated as requiring no equipment.
 
 ### 3.5 Docstrings vs comments
 
@@ -492,4 +423,4 @@ This is a living document. To change a rule: open a PR against this file, state 
 
 ---
 
-*Application42 · HomeChef · Shared Style Guide v1.0 · August 3, 2026*
+*Application42 · HomeChef · Shared Style Guide v0.1.0 · August 3, 2026*

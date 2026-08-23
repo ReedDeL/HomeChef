@@ -63,7 +63,7 @@ def coerce_equipment(values: object) -> list[Equipment]:
     so falling back to it meant "we could not classify this" was indistinguishable
     from "anyone can cook this", and 76 unclassified recipes were served to
     microwave-only users as though confirmed. Unknown excludes; it does not
-    admit. See docs/superpowers/specs/2026-08-06-microwave-seed-catalog-design.md.
+    admit. See docs/specs/2026-08-06-microwave-seed-catalog-design.md.
     """
     if not isinstance(values, list):
         return ["unclassified"]
@@ -100,8 +100,17 @@ def tag_from_text(*texts: str | None) -> list[Equipment]:
     """
     haystack = " ".join(t.lower() for t in texts if t)
     found: list[Equipment] = []
+
+    # The table is ordered most-specific first, so a longer keyword is always
+    # tested before any keyword it contains. Masking each match's span keeps
+    # the contained keyword from tagging too: without it, "toaster oven" also
+    # fired plain "oven", and because the engine requires EVERY tagged item,
+    # a recipe mentioning only a toaster oven demanded a full-size one.
+    masked = haystack
     for keyword, equipment in _KEYWORDS:
-        if keyword in haystack and equipment not in found:
-            found.append(equipment)
+        if keyword in masked:
+            if equipment not in found:
+                found.append(equipment)
+            masked = masked.replace(keyword, " " * len(keyword))
 
     return coerce_equipment(found)

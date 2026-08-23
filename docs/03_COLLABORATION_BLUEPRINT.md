@@ -1,7 +1,7 @@
 # HomeChef — Collaborative Tools & Workflow Blueprint
 
 **Company:** Application42 · **Product:** HomeChef
-**Version:** 1.0 · **Date:** August 3, 2026
+**Version:** 0.1.0 · **Date:** August 3, 2026
 **Launch:** August 24, 2026 · **Go/No-Go:** August 9, 2026
 
 ---
@@ -27,7 +27,7 @@ Clear ownership prevents the two failure modes of a small founding team: duplica
 | **Owns** | Business development, marketing engineering, agentic engineering, tech sales, product & project management, overall planning and context | Software engineering, prompt engineering, iOS/Xcode, technical architecture, code correctness | To be assigned at kickoff — see §1.2 |
 | **Decides alone** | Scope cuts, launch date, positioning, pricing, vendor purchases, ticket priority | Architecture, library choices, data model, code structure, merge approval | — |
 | **Cannot decide alone** | Architecture, data model | Scope, launch date, anything with a recurring cost | — |
-| **Launch-blocking tasks** | API keys into Supabase (Aug 4), TheMealDB supporter payment (Aug 17), App Store submission (Aug 17), Supabase keep-alive (Aug 20) | Tier 1 catalog pipeline + equipment enrichment (Aug 9), photo→pantry pipeline, decision engine, Spoonacular Tier 2 + quota guard | — |
+| **Launch-blocking tasks** | API keys into Supabase (Aug 4), TheMealDB supporter payment (Aug 17), App Store submission (Aug 17), Supabase keep-alive (Aug 20) | bundled catalog pipeline + equipment enrichment (Aug 9), photo→pantry pipeline, decision engine, Spoonacular expansion + quota guard | — |
 
 ### 1.1 Escalation
 
@@ -64,56 +64,27 @@ GitHub Flow is the right middle: **`main` is always deployable, and everything e
 
 ### 2.1 The loop
 
-```
-  main (always deployable, always green)
-    │
-    ├──● branch          feat/equipment-filter
-    │   │
-    │   ├──● commit      imperative, <50 chars
-    │   ├──● commit
-    │   │
-    │   ├──● push        early — a pushed branch is visible work
-    │   │
-    │   ├──◆ Pull Request opened
-    │   │     ├─ CI: format · lint · types · tests · a11y
-    │   │     └─ Peer review
-    │   │
-    │   └──◆ Merge (squash) ──▶ main ──▶ auto-deploy preview
-    │
-    └──● branch          fix/bucket-boundary
-```
+1. Start from the repository's default branch (currently `master`).
+2. Create one focused branch and keep unrelated worktree changes separate.
+3. Open a draft pull request early when collaboration requires visibility.
+4. Keep reviews small, require CI, and squash on merge.
+5. Delete merged branches.
+
+Branch naming and commit subjects follow the Style Guide. Repository settings,
+not this document, are authoritative when they differ.
 
 ### 2.2 Rules
 
-1. **`main` is always deployable.** If `main` is red, fixing it is the highest-priority task for whoever broke it. Everything else stops.
-2. **Never commit directly to `main`.** Branch protection enforces this. It applies to founders too — especially to founders, at 1am, three days before launch.
-3. **Branch from `main`, name it per the Style Guide** (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`).
-4. **Push early.** Open a draft PR on the first push. A branch nobody can see is a branch nobody can help with — and in an async team, invisible work gets duplicated.
-5. **Keep PRs small.** Target under 400 changed lines. Review quality falls off a cliff past that; large PRs get rubber-stamped, which is worse than no review at all. If a feature is inherently large, land it in stacked PRs behind an unexported module.
-6. **One approval required to merge.** From the other founder.
-7. **Squash on merge.** `main` history stays one-commit-per-change and readable. The squash commit message follows the Style Guide subject rules.
-8. **Delete the branch on merge.** Automatic.
-9. **Rebase on `main` before merging** if the branch is more than a day old.
+- One task per branch and one intentional change per commit.
+- Never commit secrets, generated local state, or unrelated edits.
+- Rebase before merge when the branch has drifted.
+- Require another founder's approval for launch code.
 
-### 2.3 Pull request template
+### 2.3 Pull request content
 
-```markdown
-## What
-One sentence. Same imperative mood as a commit subject.
-
-## Why
-The problem this solves. Link the Notion ticket.
-
-## How to verify
-Exact steps a reviewer follows to confirm it works.
-
-## Checklist
-- [ ] Definition of Done met (see §4)
-- [ ] Tests added or updated
-- [ ] Accessibility props on new interactive elements
-- [ ] No secrets, no commented-out code
-- [ ] Self-reviewed the diff
-```
+Every pull request states what changed, why, exact verification steps, and any
+remaining risk. The checklist is the Definition of Done in §4; do not maintain
+a second embedded template.
 
 ### 2.4 Review standard
 
@@ -132,13 +103,9 @@ Comment conventions — prefix every comment so the author knows what is binding
 
 ### 2.5 Repository settings
 
-| Setting | Value |
-|---|---|
-| Default branch | `main` |
-| Branch protection on `main` | Require PR · require 1 approval · require CI green · no force push |
-| Secret scanning + push protection | Enabled |
-| Auto-delete merged branches | Enabled |
-| Merge method | Squash only (rebase and merge-commit disabled) |
+The repository currently uses `master` as its default branch. Branch
+protection, required checks, merge method, and secret scanning must be verified
+in GitHub rather than copied into this document.
 
 ---
 
@@ -252,7 +219,7 @@ The `Status Reports` table already exists and is in use (entries on Aug 1 and Au
 
 **Third-party data — for anything touching Spoonacular**
 - [ ] No Spoonacular field beyond `id`, `title`, `imageUrl` is written to Postgres
-- [ ] Source attribution rendered on any Tier 2 recipe shown
+- [ ] Source attribution rendered on any Spoonacular recipe shown
 - [ ] HTTP 402 handled as normal degradation, not an error screen
 - [ ] Quota impact of the change estimated and noted in the PR
 
@@ -279,50 +246,10 @@ Amend by PR against this file with both founders' approval. Expected amendment a
 
 ## 5. CI/CD
 
-GitHub Actions on every PR and every push to `main`:
-
-```yaml
-name: ci
-on: [pull_request, push]
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - run: npm run check
-      - run: npx eslint .
-      - run: npx tsc --noEmit
-      - run: npm test -- --coverage
-
-  rls-verification:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - run: npx supabase start --workdir supabase --yes
-      - run: npx supabase db reset --workdir supabase --local --no-seed --yes
-      - run: npx supabase db query --workdir supabase --local --file supabase/tests/rls_verification.sql
-
-  python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install ruff mypy pytest
-      - run: ruff format --check tools/
-      - run: ruff check tools/
-      - run: mypy --strict tools/catalog
-      - run: pytest tools/
-```
-
-**Deployment:** Expo EAS builds on merge to `main`. Web deploys automatically; iOS and Android go to internal test channels. OTA updates for JS-only fixes post-launch — this is our launch-day insurance policy (Technical Spec §2.1).
+`.github/workflows/ci.yml` is the executable source of truth. It runs the
+TypeScript quality suite, local Supabase RLS verification, Python formatting,
+linting, typing, tests, and tracked-secret checks. Update the workflow and this
+summary together when the gate changes.
 
 ---
 
@@ -340,36 +267,11 @@ jobs:
 
 ---
 
-## 7. The 21-Day Critical Path
+## 7. Schedule and status
 
-```
-Aug 3   ─┬─ Specs approved · repo initialized · board populated
-         │
-Aug 4-8 ─┼─ Harshal: Tier 1 catalog pipeline + equipment enrichment  ◀── R2
-         │  RJ: onboarding flow · Supabase schema + RLS · API keys
-         │
-Aug 9   ─┼─ ★ GO / NO-GO ── does a real dorm pantry bucket correctly
-         │     using TIER 1 ALONE? (Tier 2 is best-effort, can't be the test)
-         │     GO    → build cook mode with voice
-         │     NO-GO → plain recipe page, protect Aug 24
-         │
-Aug 10-16┼─ Photo→pantry pipeline · decision engine · results screen
-         │  Spoonacular Tier 2 Edge Function + quota guard
-         │  Recipe page · pantry management · like/dislike · attribution
-         │
-Aug 17  ─┼─ ★ TheMealDB supporter payment  (R4, hard blocker)
-         │  ★ App Store submission          (R6, review latency)
-         │
-Aug 18-22┼─ Accessibility audit · bug fixes · real-user testing
-         │
-Aug 20  ─┼─ ★ Supabase keep-alive or Pro upgrade  (R5)
-         │
-Aug 23  ─┼─ Feature freeze. Fixes only.
-         │
-Aug 24  ─┴─ ★ LAUNCH
-```
-
-**Feature freeze on August 23 is absolute.** The last day before launch is for verification, not for one more feature. Anything not merged by end of day August 22 ships in the first OTA update instead.
+The live Feature Gantt in Notion is the only daily status source. This document
+defines process, not a dated second schedule. Launch remains August 24, 2026;
+feature freeze and submission decisions belong on the board.
 
 ---
 
@@ -388,4 +290,4 @@ Aug 24  ─┴─ ★ LAUNCH
 
 ---
 
-*Application42 · HomeChef · Collaborative Tools & Workflow Blueprint v1.0 · August 3, 2026*
+*Application42 · HomeChef · Collaborative Tools & Workflow Blueprint v0.1.0 · August 3, 2026*

@@ -1,6 +1,7 @@
 import type { AuthRoute } from './session-route';
 
 export { authRoute, type AuthRoute, type AuthRouteInput } from './session-route';
+export { useAuthSession, type AuthSessionState } from './useAuthSession';
 
 type RouteGroup = '(auth)' | '(onboarding)';
 export type AppGatePhase = 'loading' | 'redirecting' | 'ready';

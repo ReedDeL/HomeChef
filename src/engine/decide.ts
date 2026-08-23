@@ -1,4 +1,4 @@
-import { BUCKET_CAP, BUCKET_ORDER } from '@/engine/bucket';
+import { BUCKET_ORDER, PER_BUCKET_RESULT_CAP } from '@/engine/bucket';
 import { hasAllergen, isEquipmentSatisfied, satisfiesDietary } from '@/engine/filter-hard';
 import { scoreRecipe } from '@/engine/score-recipe';
 import type {
@@ -15,7 +15,7 @@ import type {
  * The decision engine.
  *
  * Pure and synchronous over plain data. It takes a `Recipe[]` and does not know
- * or care whether Tier 1 bundled JSON or a Tier 2 live fetch supplied it —
+ * or care whether bundled JSON or a live Spoonacular fetch supplied it —
  * which is what lets the whole suite run in milliseconds with no device, no
  * network, and no API quota.
  *
@@ -47,7 +47,7 @@ export function decide(
   }
 
   for (const bucket of BUCKET_ORDER) {
-    buckets[bucket] = buckets[bucket].sort(byScoreThenId).slice(0, BUCKET_CAP);
+    buckets[bucket] = buckets[bucket].sort(byScoreThenId).slice(0, PER_BUCKET_RESULT_CAP);
   }
 
   return { buckets, appliedRelaxations: [] };

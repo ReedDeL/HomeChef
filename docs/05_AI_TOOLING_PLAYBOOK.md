@@ -1,7 +1,7 @@
 # HomeChef — AI Tooling Playbook
 
 **Company:** Application42 · **Product:** HomeChef
-**Version:** 1.0 · **Date:** August 3, 2026
+**Version:** 0.1.0 · **Date:** August 3, 2026
 
 ---
 
@@ -41,7 +41,7 @@ The single largest quality difference between useful AI output and slop is **how
 
 ### 2.1 The repo context file
 
-`CLAUDE.md` at the repository root is loaded automatically by coding agents. It is the highest-leverage file in the project — it converts our written standards into an automatic constraint on every generation.
+`AGENTS.md` at the repository root is loaded automatically by coding agents. It is the highest-leverage file in the project — it converts our written standards into an automatic constraint on every generation.
 
 **Keep it under 200 lines.** A context file that grows unbounded dilutes itself; the important rules get lost among the trivia. When it grows, cut rather than append.
 
@@ -68,65 +68,13 @@ Models match surrounding idiom well when shown it, and badly when asked to infer
 
 ---
 
-## 3. Prompting Patterns That Work Here
+## 3. Prompting patterns that work here
 
-### 3.1 Specify the constraint, not just the goal
-
-```
-❌ "Write a function to filter recipes"
-
-✅ "Write `filterByEquipment(recipes, userEquipment)` in src/engine/.
-   Pure — no imports from lib/ or React. Recipe.equipmentRequired is a
-   closed enum: microwave | stove | oven | air_fryer | kettle | blender |
-   rice_cooker | toaster_oven | none. A recipe survives only if every
-   required item is in userEquipment; 'none' always survives.
-   Return a new array. Include Vitest cases for the empty-equipment
-   and all-equipment boundaries."
-```
-
-The second prompt takes forty seconds to write and produces mergeable code. The first produces something you will rewrite.
-
-### 3.2 Ask for the tradeoff before the code
-
-For any non-trivial decision:
-
-```
-"Three options for handling pantry sync conflicts between roommates.
-For each: the failure mode, and the cost at our scale (3-person
-households, ~30 items). Recommend one. Don't write code yet."
-```
-
-This is where AI is genuinely strongest — surfacing the option you had not considered. Taking the code first skips the thinking.
-
-### 3.3 Make it argue against itself
-
-```
-"What's wrong with this approach? What breaks at 10x the pantry size?
-What did I not ask about?"
-```
-
-Models are agreeable by default. You have to explicitly ask for the objection. The third question — *what did I not ask about* — has the highest yield.
-
-### 3.4 Demand the terse version
-
-Models default to verbose: defensive try/catch around everything, comments on obvious lines, extracted helpers used once, three layers of abstraction where one would do.
-
-```
-"Rewrite this at half the length. Remove comments that restate the code.
-Inline any helper used exactly once."
-```
-
-Run this on anything generated that feels long. It usually is.
-
-### 3.5 Generate the test first
-
-```
-"Write Vitest cases for bucketRecipes() covering: zero missing,
-the 2/3 boundary, the 4/5 boundary, an empty catalog, and a recipe
-with no ingredients. Just the tests."
-```
-
-Then implement against them. This inverts the usual failure — tests generated *after* code tend to assert whatever the code already does, including its bugs.
+- Name the governing constraint and the exact source file.
+- Ask for tradeoffs before requesting code.
+- Ask what breaks and what the prompt omitted.
+- Require tests from the specification, not from the implementation.
+- Request a terse second pass that removes commentary and single-use abstractions.
 
 ---
 
@@ -155,50 +103,14 @@ Ranked by leverage against our actual 21-day critical path:
 
 ---
 
-## 5. The Equipment Enrichment Prompt
+## 5. Equipment enrichment
 
-This is a production component, not a convenience — it generates the metadata our third product wedge depends on. Treat it as code: version it, test it, review changes to it.
-
-> ⚠️ **Runs on TheMealDB (Tier 1) recipes only.** Spoonacular supplies equipment natively, and running this pipeline over their data would produce "derived data," which their Terms of Use prohibit. If you find yourself pointing this script at a Spoonacular response, stop.
-
-**Location:** `tools/catalog/src/catalog/prompts/equipment.py`
-
-```python
-EQUIPMENT_PROMPT = """\
-You are extracting required cooking equipment from a recipe's instructions.
-
-Return ONLY equipment that is REQUIRED to complete the recipe.
-Do not include optional conveniences, serving dishes, or utensils
-(bowls, spoons, knives, plates).
-
-Allowed values — use no others:
-microwave, stove, oven, air_fryer, kettle, blender, rice_cooker,
-toaster_oven, none
-
-Rules:
-- "none" means no heat source or powered appliance is required
-  (for example, a salad or a sandwich).
-- If instructions say "bake", the oven is required.
-- If instructions say "fry", "sauté", "simmer", or "boil" in a pan
-  or pot, the stove is required.
-- A recipe may require multiple items. List every one.
-- When genuinely ambiguous, choose the MORE demanding equipment.
-  A false "microwave-only" tag is far worse than a false "stove" tag:
-  it surfaces an impossible recipe to a dorm user and destroys trust
-  on first use.
-
-Instructions:
-{instructions}
-"""
-```
-
-**Why the last rule matters, and why it is written down:** the asymmetry of the error is the whole design. Over-tagging costs a user one missed suggestion. Under-tagging shows a microwave-only student a recipe they cannot cook — which is the exact failure the equipment wedge exists to prevent.
-
-**Validation is mandatory:**
-
-1. Structured output with a closed enum — the model cannot invent `"instant_pot"`.
-2. Pydantic validation on every response.
-3. **Human spot-check of 30 recipes before the catalog is committed.** Non-negotiable, and the accuracy rate gets logged in the Notion status report so we know what we shipped.
+Equipment enrichment applies only to owned bundled recipes. Spoonacular data is
+borrowed and must never enter the enrichment pipeline. The prompt and validation
+belong with the catalog tooling when implemented; until then this playbook does
+not carry a copy that can drift from source. Unknown results remain
+`unclassified`, and a 30-recipe human spot-check is required before shipping
+generated tags.
 
 ---
 
@@ -238,65 +150,11 @@ We do **not** mark AI-generated code in comments or commits. Reasons: it dates i
 
 ---
 
-## 9. Repository Context File
+## 9. Repository context file
 
-**`CLAUDE.md` exists at the repo root — [read it there](../CLAUDE.md).** It is the single source of truth for agent context; the outline below is illustrative only, and if the two ever disagree, `CLAUDE.md` wins. Do not maintain a second copy.
-
-Keep it under 200 lines. When it grows, cut rather than append — a context file that grows unbounded dilutes itself, and the important rules get lost among the trivia.
-
-<details>
-<summary>Shape of the file (illustrative)</summary>
-
-```markdown
-# HomeChef
-
-Photo-based meal decision engine. Application42.
-Launch: Aug 24, 2026. Full specs in `docs/`.
-
-## What this is
-Not a recipe search engine — a decision engine. It consumes constraints
-(time, equipment, pantry, allergens) and emits 3-4 answers. Showing more
-options is a regression, not a feature.
-
-## Stack
-Expo 57 · React Native 0.86 · React 19.2 · TypeScript 6.0 (strict)
-expo-router · TanStack Query (server state) · Zustand (client state)
-Supabase — Postgres, Auth, RLS, Edge Functions
-Recipes: Tier 1 = TheMealDB bundled in `src/data/` (offline, owned)
-         Tier 2 = Spoonacular live (borrowed — only id/title/imageUrl stored)
-Vision: `gemini-3.6-flash` via Edge Function, structured outputs
-
-## Architecture rules
-- `src/engine/` is PURE. No React, no imports from `src/lib/`, no I/O.
-  It is the product logic and must be testable without a device.
-- Third-party API keys live only in Edge Functions. Never in the client.
-- Every table has RLS. Inventory joins to household; preferences join to user.
-- Hard constraints (equipment, allergens, dietary) are NEVER relaxed.
-  Soft constraints (time, cuisine) may be — and relaxation is always
-  stated in the UI, never silent.
-- No hardcoded colors or spacing. Use `src/theme/tokens.ts`.
-
-## Style — see docs/02_STYLE_GUIDE.md
-- No `any`. Use `unknown` and narrow.
-- Named exports (except expo-router route files).
-- Comments explain WHY. Never comment what the code already says.
-- Accessibility props required on every interactive element — CI enforces this.
-- Commits: imperative, <50 chars. "Add equipment filter", not "added filter".
-- Python (`tools/`): PEP 8 via Ruff, mypy strict, full type hints.
-
-## Vocabulary — use these exact words
-pantry · catalog · bucket · equipment tier · household · drift
-
-## Don't
-- Don't add pgvector or hybrid search. ~320 recipes ranks client-side in <10ms.
-- Don't persist Spoonacular ingredients or instructions. Only id/title/imageUrl.
-- Don't add a Python service layer. Python is build-time tooling only.
-- Don't suggest MongoDB or Firebase. That decision is closed.
-- Don't build: shopping list, barcode scanning, wake-word voice,
-  macro tracking. Out of scope for launch.
-```
-
-</details>
+[`AGENTS.md`](../AGENTS.md) is the single source of truth for coding-agent
+context. Keep it concise and update it directly; never maintain a second copy in
+this playbook.
 
 ---
 
@@ -312,4 +170,4 @@ Three questions, thirty seconds. They are the difference between AI making this 
 
 ---
 
-*Application42 · HomeChef · AI Tooling Playbook v1.0 · August 3, 2026*
+*Application42 · HomeChef · AI Tooling Playbook v0.1.0 · August 3, 2026*

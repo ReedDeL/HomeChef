@@ -11,29 +11,29 @@ import type {
 /** The time tiers offered on the home screen. Widening moves up one at a time. */
 export const TIME_TIERS: readonly Minutes[] = [15, 30, 60, 120];
 
-/** Below this many fully-ready recipes, Tier 1 counts as thin (§4.2). */
+/** Below this many fully-ready recipes, the bundled catalog counts as thin (§4.2). */
 export const TARGET_READY_COUNT = 3;
 
 export interface RelaxedDecision extends DecisionResult {
   /**
-   * Tier 1 was still thin after the soft concessions. The caller — which is
+   * The bundled catalog was still thin after the soft concessions. The caller — which is
    * allowed to do I/O — decides whether the other three §4.2 conditions hold,
-   * fetches Tier 2, and calls back in with a merged catalog.
+   * fetches Spoonacular, and calls back in with a merged catalog.
    *
    * The engine cannot do this itself without becoming async, which would cost
    * the property that makes it testable.
    */
-  shouldEscalateTier2: boolean;
+  shouldFetchSpoonacular: boolean;
 }
 
 /**
  * Relaxation is a first-class code path with its own tests, not an error
- * handler (docs/01_TECHNICAL_SPEC.md:470). Order is fixed and deliberate —
+ * handler (Technical Spec §4.3). Order is fixed and deliberate —
  * cheapest concession first:
  *
  *   1. Expand the time limit by one tier.
  *   2. Drop the cuisine preference.
- *   3. Escalate to Tier 2 (reported, executed by the caller).
+ *   3. Fetch Spoonacular when permitted (reported, executed by the caller).
  *   4. Surface `missing_few` as the primary result.
  *   5. Widen to `missing_some`.
  *
@@ -50,7 +50,7 @@ export function decideWithRelaxation(
 ): RelaxedDecision {
   const base = decide(catalog, pantry, prefs, timeLimit);
   if (base.buckets.ready.length >= TARGET_READY_COUNT) {
-    return { ...base, shouldEscalateTier2: false };
+    return { ...base, shouldFetchSpoonacular: false };
   }
 
   const chosen = findFirstNonEmpty(catalog, pantry, prefs, timeLimit) ?? {
@@ -84,7 +84,7 @@ export function decideWithRelaxation(
   return {
     buckets,
     appliedRelaxations,
-    shouldEscalateTier2: buckets.ready.length < TARGET_READY_COUNT,
+    shouldFetchSpoonacular: buckets.ready.length < TARGET_READY_COUNT,
   };
 }
 

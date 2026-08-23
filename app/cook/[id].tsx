@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { TIER1_CATALOG } from '@/data/catalog';
+import { BUNDLED_CATALOG } from '@/data/catalog';
+import { trackCookModeCompleted, trackCookModeStarted } from '@/lib/analytics';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -22,7 +24,7 @@ export default function CookModeScreen() {
 
   const removePantryItem = useKitchenStore((state) => state.removePantryItem);
 
-  const recipe = useMemo(() => TIER1_CATALOG.find((candidate) => candidate.id === id), [id]);
+  const recipe = useMemo(() => BUNDLED_CATALOG.find((candidate) => candidate.id === id), [id]);
 
   const steps = useMemo(() => {
     if (!recipe) return [];
@@ -34,6 +36,15 @@ export default function CookModeScreen() {
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completed, setCompleted] = useState(false);
+  const startedRecipeId = useRef<string | null>(null);
+  const completedRecipeId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!recipe || steps.length === 0 || startedRecipeId.current === recipe.id) return;
+
+    startedRecipeId.current = recipe.id;
+    trackCookModeStarted({ recipe_id: recipe.id, step_count: steps.length });
+  }, [recipe, steps.length]);
 
   // Timer state for current step if duration detected
   const currentStepText = steps[currentStepIndex] ?? '';
@@ -63,6 +74,15 @@ export default function CookModeScreen() {
     return () => clearInterval(interval);
   }, [timerRunning, timerSecondsLeft]);
 
+  // Expired timers are one of the two legitimate assertive triggers (UIUX §9).
+  // iOS has no live regions, so it needs the imperative announce; Android and
+  // web announce the status text below via its live region.
+  useEffect(() => {
+    if (timerSecondsLeft === 0 && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility('Timer finished.');
+    }
+  }, [timerSecondsLeft]);
+
   const handleNext = useCallback(() => {
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex((prev) => prev + 1);
@@ -81,6 +101,10 @@ export default function CookModeScreen() {
 
   const handleFinishCooking = useCallback(
     (removeIngredients: boolean) => {
+      if (recipe && completedRecipeId.current !== recipe.id) {
+        completedRecipeId.current = recipe.id;
+        trackCookModeCompleted({ recipe_id: recipe.id });
+      }
       if (removeIngredients && recipe) {
         for (const ingredient of recipe.ingredients) {
           removePantryItem(ingredient.id);
@@ -93,7 +117,7 @@ export default function CookModeScreen() {
 
   if (!recipe || steps.length === 0) {
     return (
-      <Screen>
+      <Screen header={<Header backLabel="Home" fallbackHref="/" />}>
         <Text variant="title">Recipe not found.</Text>
         <PrimaryButton
           label="Back to home"
@@ -107,6 +131,14 @@ export default function CookModeScreen() {
   if (completed) {
     return (
       <Screen
+        header={
+          <Header
+            backLabel="Steps"
+            backHint="Returns to review cooking steps"
+            onBack={handleBack}
+            fallbackHref="/"
+          />
+        }
         footer={
           <View style={styles.footer}>
             <PrimaryButton
@@ -182,6 +214,23 @@ export default function CookModeScreen() {
 
   return (
     <Screen
+      header={
+        <Header
+          onBack={() =>
+            router.canGoBack() ? router.back() : router.replace(`/recipe/${recipe.id}`)
+          }
+          backLabel="Exit"
+          backHint="Exits cook mode and returns to recipe screen"
+          fallbackHref={`/recipe/${recipe.id}`}
+          rightAction={
+            <View style={styles.stepBadge}>
+              <Text variant="caption" tone="accent">
+                Step {currentStepIndex + 1} of {steps.length}
+              </Text>
+            </View>
+          }
+        />
+      }
       footer={
         <View style={styles.navigationRow}>
           <Pressable
@@ -232,27 +281,6 @@ export default function CookModeScreen() {
         </View>
       }
     >
-      <View style={styles.topHeader}>
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Close cook mode"
-          accessibilityHint="Exits cook mode and returns to recipe screen"
-          onPress={() => router.back()}
-          style={styles.closeButton}
-        >
-          <Text variant="heading" tone="muted">
-            ✕
-          </Text>
-        </Pressable>
-
-        <View style={styles.stepBadge}>
-          <Text variant="caption" tone="accent">
-            Step {currentStepIndex + 1} of {steps.length}
-          </Text>
-        </View>
-      </View>
-
       <View style={styles.stepContent} aria-live="polite">
         <Text style={[styles.cookStepText, { color: color.text }]}>{currentStepText}</Text>
       </View>
@@ -266,6 +294,12 @@ export default function CookModeScreen() {
             <Text variant="display" tone={timerSecondsLeft === 0 ? 'ready' : 'default'}>
               {formatTimer(timerSecondsLeft)}
             </Text>
+            {timerSecondsLeft === 0 ? (
+              // Rendered only at expiry so its appearance is announced once.
+              <Text variant="caption" tone="ready" aria-live="assertive">
+                Timer finished.
+              </Text>
+            ) : null}
             <View style={styles.timerControls}>
               <PrimaryButton
                 label={timerRunning ? 'Pause ⏸' : timerSecondsLeft === 0 ? 'Restart ↺' : 'Start ▶'}
@@ -334,17 +368,6 @@ function formatTimer(totalSeconds: number): string {
 }
 
 const styles = StyleSheet.create({
-  topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  closeButton: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-  },
   stepBadge: {
     paddingHorizontal: space.md,
     paddingVertical: space.xs,

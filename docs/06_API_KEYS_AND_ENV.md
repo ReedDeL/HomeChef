@@ -1,6 +1,6 @@
 # HomeChef — API Keys & Environment Setup
 
-**Version:** 1.0 · **Date:** August 3, 2026
+**Version:** 0.1.0 · **Date:** August 3, 2026
 **Read this before writing any code that touches a third-party service.**
 
 ---
@@ -11,7 +11,11 @@
 
 React Native bundles are trivially extractable — `.ipa` and `.apk` files are ZIP archives, and anyone can unzip yours and read every string in it. `EXPO_PUBLIC_` variables, `.env` files bundled at build time, and hardcoded constants are all equally exposed.
 
-**Therefore: every secret key lives in Supabase, and only Edge Functions read it.** The client never holds a third-party key — it calls our Edge Function, and the Edge Function calls the vendor.
+**Therefore: every runtime vendor secret lives in Supabase, and only Edge
+Functions read it.** The client contains only deliberately public project
+configuration: the Supabase URL and anon key, plus the PostHog project token
+and ingestion host. Personal API keys and service credentials never enter the
+repository or client bundle.
 
 ```
    ❌ WRONG                              ✅ RIGHT
@@ -34,6 +38,9 @@ React Native bundles are trivially extractable — `.ipa` and `.apk` files are Z
 | **Supabase anon key** | Supabase dashboard → Settings → API | Client `.env` | ✅ Yes — RLS protects the data |
 | **Google OAuth client ID** | Google Cloud → Google Auth Platform → Clients | Supabase Dashboard; local `supabase/.env.local` | ❌ Not needed by the app bundle |
 | **Google OAuth client secret** | Google Cloud → Google Auth Platform → Clients | Supabase Dashboard; local `supabase/.env.local` | ❌ **Never** |
+| **PostHog project token** | EAS PostHog integration | Client `.env.local` + EAS environment | ✅ Yes — ingestion only |
+| **PostHog ingestion host** | EAS PostHog integration | Client `.env.local` + EAS environment | ✅ Yes — public endpoint |
+| **PostHog personal API key** | Not used for product analytics | **Nowhere** | ❌ **Never** — account access |
 | **Supabase service_role key** | Supabase dashboard → Settings → API | **Nowhere yet** | ❌ **Never** — bypasses all RLS |
 
 ### On the two Supabase keys
@@ -55,6 +62,9 @@ They are not interchangeable, and confusing them is the single most common way a
 
 **Supabase** — dashboard → Settings → API. Copy the Project URL and the `anon` key.
 
+**PostHog** — use the EAS integration in Step 6. The project region is a
+data-residency decision and cannot be changed after connection.
+
 ### Step 2 — Put the secrets in Supabase
 
 ```bash
@@ -74,12 +84,17 @@ These are readable only from inside Edge Functions, via `Deno.env.get()`. They a
 Create `.env` at the repo root:
 
 ```bash
-# .env  — safe to ship; these two are public by design
+# .env or .env.local — these four values are public by design
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+EXPO_PUBLIC_POSTHOG_API_KEY=phc_xxxxx
+EXPO_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-**Only ever put the Supabase URL and anon key behind `EXPO_PUBLIC_`.** That prefix means "compile this into the app bundle." Anything else with that prefix is a leak.
+Only these four names belong behind `EXPO_PUBLIC_`. That prefix means
+"compile this into the app bundle." A PostHog project token is intentionally
+public and only accepts analytics ingestion; it is not a PostHog personal API
+key.
 
 ### Step 4 — Local Edge Function development
 
@@ -93,6 +108,7 @@ SPOONACULAR_API_KEY=your_key_here
 supabase functions serve --env-file supabase/.env.local
 ```
 
+<<<<<<< HEAD
 ### Step 4a — Google OAuth (web and Android)
 
 Google OAuth is brokered by Supabase Auth. Create **one Web application** OAuth
@@ -142,62 +158,44 @@ the result after that external setup is available; until then, treat live OAuth
 verification as blocked rather than simulated.
 
 ### Step 5 — `.gitignore`
+=======
+### Step 5 — verify repository-owned environment files
+>>>>>>> origin/master
 
-Verify these lines exist **before your first commit**:
+Use [`.gitignore`](../.gitignore) and [`.env.example`](../.env.example)
+as the live source of truth. The example contains names only; real values never
+enter Git.
 
-```gitignore
-.env
-.env.*
-!.env.example
-supabase/.env.local
-```
+---
 
-### Step 6 — `.env.example` (committed)
+### Step 6 — connect PostHog through EAS
 
-So a new teammate knows what to fill in without ever seeing a real value:
+From the repository root, run:
 
 ```bash
-# .env.example  — committed. Real values go in .env (gitignored).
-EXPO_PUBLIC_SUPABASE_URL=
-EXPO_PUBLIC_SUPABASE_ANON_KEY=
-
-# Secrets are NOT here. They live in Supabase:
-#   supabase secrets set GEMINI_API_KEY=...
-#   supabase secrets set SPOONACULAR_API_KEY=...
+eas integrations:posthog:connect --no-session-replay --no-error-tracking
 ```
+
+Choose the intended US or EU region when prompted. The integration reuses or
+creates the PostHog project, keeps Session Replay and error tracking disabled,
+and writes `EXPO_PUBLIC_POSTHOG_API_KEY` and
+`EXPO_PUBLIC_POSTHOG_HOST` to gitignored `.env.local` plus the EAS
+Development, Preview, and Production environments. Product analytics does not
+require a PostHog personal API key.
+
+The app also disables screen, touch, lifecycle, Session Replay, error-tracking,
+and feature-flag autocapture in code. Do not enable those features without a
+separate privacy review.
 
 ---
 
 ## 3. Reading keys in an Edge Function
 
-```ts
-// supabase/functions/analyze-pantry-photo/index.ts
-import { corsHeaders } from "../_shared/cors.ts";
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  // Reads from Supabase secrets. Never reaches the client.
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) {
-    // Fail loudly in logs, say nothing useful to the caller.
-    console.error("GEMINI_API_KEY not configured");
-    return new Response(JSON.stringify({ error: "Service unavailable" }), {
-      status: 503,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // ... call Gemini, validate with Zod, return the result
-});
-```
-
-Two habits worth keeping:
-
-- **Never echo a key into an error response or a log line.** Logs get shared in bug reports and pasted into chat.
-- **Never put a key in a URL query string.** URLs land in server logs, browser history, and analytics. Spoonacular's API does take the key as a query parameter — that is unavoidable on their side, but it is one more reason the call happens server-side where the URL is never exposed to a user agent.
+Read secrets with `Deno.env.get` inside the function, handle CORS preflight
+before authentication, and include CORS headers on every response. The current
+implementation in `supabase/functions/analyze-pantry-photo/` is the source of
+truth. Never log a secret, return it in an error, or put it into client-visible
+configuration.
 
 ---
 
@@ -232,7 +230,7 @@ GitHub push protection is enabled on the repo and will block most accidental com
 
 Before the App Store submission on **Aug 17**:
 
-- [ ] No `EXPO_PUBLIC_` variable holds anything but the Supabase URL and anon key
+- [ ] `EXPO_PUBLIC_` contains only Supabase URL/anon and PostHog project token/host
 - [ ] `grep -ri "AIza\|sk-\|service_role" src/ app/` returns nothing
 - [ ] `.env` and `supabase/.env.local` are gitignored and were never committed
 - [ ] `.env.example` is committed and current
@@ -249,21 +247,6 @@ unzip -p build.ipa | strings | grep -i "AIza\|spoonacular.*key"
 
 ---
 
-## Quick reference
-
-```
-SECRETS (Supabase only — never in the bundle)
-  GEMINI_API_KEY          → supabase secrets set
-  SPOONACULAR_API_KEY     → supabase secrets set
-
-PUBLIC (client .env, safe to bundle)
-  EXPO_PUBLIC_SUPABASE_URL
-  EXPO_PUBLIC_SUPABASE_ANON_KEY
-
-NEVER USE
-  Supabase service role key   ← bypasses RLS; no legitimate use in this app
-```
-
 ---
 
-*Application42 · HomeChef · API Keys & Environment Setup v1.0 · August 3, 2026*
+*Application42 · HomeChef · API Keys & Environment Setup v0.1.0 · August 3, 2026*

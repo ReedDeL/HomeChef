@@ -1,15 +1,16 @@
 # HomeChef — UI/UX Specification
 
 **Company:** Application42 · **Product:** HomeChef
-**Version:** 1.1 · **Date:** August 8, 2026
+**Version:** 0.1.0 · **Date:** August 8, 2026
 **Scope:** August 24 MVP
 
-**Changed in 1.1** — sequential layout. One decision per screen, enforced by the
-`DecisionScreen` primitive (§2). Onboarding leads with the fridge photo (§3).
-Results renders one bucket, not four (§5). Tab bar cut (§12). Rationale in
-`docs/superpowers/specs/2026-08-08-sequential-layout-design.md`.
+**Current implementation:** Shared routes across native and responsive web;
+onboarding uses equipment, restrictions, and staples; pantry scanning is
+optional; Home exposes time and cuisine controls; results render all decision
+buckets without relaxing hard constraints.
 
 ---
+
 
 ## 0. Design Principle
 
@@ -85,254 +86,54 @@ Elevation: subtle only — `sm` for cards, `lg` for sheets. Flat-with-borders in
 
 ---
 
-## 2. Screen Inventory
+## 2. Screen inventory
 
-Eleven screens for launch, plus one skip destination. Anything not on this list
-is out of scope.
+| Route | Purpose |
+|---|---|
+| `(onboarding)/equipment` | Choose the equipment tier |
+| `(onboarding)/restrictions` | Set dietary and allergen constraints |
+| `(onboarding)/staples` | Seed pantry staples or open the optional scan |
+| `(tabs)/index` | Choose time/cuisine and review the ranked buckets |
+| `(tabs)/pantry` | Review, add, correct, and scan pantry items |
+| `recipe/[id]` | Review ingredients and instructions |
+| `cook/[id]` | Step-by-step cook mode |
+| `scan` | Capture and confirm pantry candidates |
+| `settings` | Product settings |
 
-**One screen asks one question.** This is structural, not stylistic: screens 1–6
-are built on the shared `DecisionScreen` primitive, whose `primaryAction` prop
-is singular and required, so a second primary CTA is a type error rather than a
-review comment.
-
-**There is no tab bar.** A tab bar is a permanently visible second decision on
-every screen in the app. Everything is a stack; back is the only navigation
-affordance, and Pantry is reached from one quiet row on Home (§4).
-
-| # | Screen | Route | Purpose |
-|---|---|---|---|
-| 1 | Welcome | `(onboarding)/welcome` | One line, one button — sets expectations |
-| 2 | **Fridge photo** | `(onboarding)/photo` | Capture — the product, before the setup tax |
-| 3 | Confirm detected | `(onboarding)/confirm` | "Tap any we got wrong" |
-| — | Pantry starter | `(onboarding)/staples` | Skip destination for screen 2 — assumed staples |
-| 4 | Kitchen setup | `(onboarding)/equipment` | Declare equipment tier — asked once, ever |
-| 5 | Allergies & diet | `(onboarding)/restrictions` | Safety constraints — asked once, ever |
-| 6 | **Home** | `(main)/home` | Time input → the decision |
-| 7 | **Results** | `(main)/results` | The `ready` bucket — max 4 cards |
-| 8 | More options | `(main)/more` | The other three buckets, for completeness |
-| 9 | Recipe | `recipe/[id]` | Ingredients, steps, start cooking |
-| 10 | Cook mode | `cook/[id]` | One step at a time, hands-free-ish |
-| 11 | Pantry | `pantry/index` | View, add, correct |
-
-Onboarding runs once, gated on `user_preferences.onboarding_done`. The
-returning-user path is two screens and one tap: Home → Results.
+The tab routes are the current navigation contract. Responsive composition may
+change with viewport width; product behavior and accessibility labels do not.
 
 ---
 
-## 3. Onboarding — five screens, under 60 seconds
+## 3. Onboarding
 
-Onboarding is a tax the user pays before receiving any value. Keep it short, make each screen obviously worth it, and never ask twice.
+Onboarding asks only for launch-critical constraints:
 
-**Order:** welcome → 📸 photo → confirm → equipment → allergies → Home.
+1. choose an equipment tier;
+2. select supported dietary and allergen restrictions;
+3. accept starter staples, edit them, or optionally scan the pantry.
 
-Photo leads because it is the only onboarding step that *is* the product rather
-than a form. Everything else is a tax; the camera is the thing they downloaded
-the app for. Leading with it also means the first results screen is built from a
-real pantry instead of a preset — the difference between a demo and a product.
-
-This reverses the earlier equipment-first order. That argument was about
-differentiation (equipment is our third wedge, and no competitor has it); this
-one is about value ordering, and value ordering wins. Differentiation still
-lands — it just lands on screen 4 instead of screen 1, by which point the user
-has already seen something no competitor does.
-
-**Safety is not compromised by the reorder.** No recipe is rendered anywhere in
-the onboarding stack, so allergens are always captured before the first recipe is
-shown.
-
-**The photo step is skippable.** Declining the camera routes to §3.4, the staples
-screen, which becomes the skip destination rather than a mandatory step.
-
-### 3.0 Welcome
-
-One line, one button. `display` type, a single accent CTA, nothing else on the
-screen. Its only job is to make the camera permission prompt on the next screen
-feel like part of a sequence rather than an ambush.
-
-### 3.1 Kitchen setup
-
-```
-┌─────────────────────────────────┐
-│                                 │
-│  What's in your kitchen?        │  display
-│  We'll only suggest meals       │  body, textMuted
-│  you can actually cook.         │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ 🔲  Microwave only        │  │  ← 72pt tall cards
-│  │     Dorm room basics      │  │
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ 🔲  Microwave + kettle    │  │
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ ✅  Full kitchen          │  │  ← selected: accent border
-│  │     Stove and oven        │  │
-│  └───────────────────────────┘  │
-│                                 │
-│  Anything else?                 │  heading
-│  ( Air fryer )( Rice cooker )   │  ← toggle pills
-│  ( Blender )( Toaster oven )    │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │        Continue           │  │  accent, 56pt
-│  └───────────────────────────┘  │
-└─────────────────────────────────┘
-```
-
-**Interaction:** single-select tier, multi-select appliances. The subtitle under each tier does the explaining — no help text, no tooltip.
-
-**One decision, not two.** The tier is the decision; "Anything else?" is
-progressive disclosure below it, and a user who never scrolls past the three
-cards has answered the question correctly. Do not promote the appliance pills
-into a co-equal section.
-
-**Why this screen matters:** equipment is our third wedge and no competitor has it. It signals that this app is different from the one the user just deleted.
-
-### 3.2 Allergies & diet
-
-Searchable list of common allergens plus dietary presets (vegetarian, vegan, halal, kosher, gluten-free). Free-text add for anything missing.
-
-**Copy: "We'll never suggest a recipe with these. Promise."** Then keep it — this is a hard constraint that is never relaxed (Technical Spec §4.3).
-
-Skippable, with a clear "Add later in settings."
-
-### 3.3 Fridge photo, and confirming it
-
-Two screens, and they are the reason onboarding exists in this order.
-
-**Photo (screen 2).** Full-bleed camera with one shutter button. Copy:
-**"Take a photo of your fridge."** Up to 10 shots in one session. The secondary
-action is **"I'll add them myself"**, which routes to §3.4.
-
-**Confirm (screen 3).** The detection confirmation sheet, per §8. Everything
-under 0.7 confidence is pre-flagged "Not sure about this one." Copy: **"Tap any
-we got wrong."** Nothing is written to `inventory` until this screen is
-confirmed — a bad VLM read must never poison the pantry silently.
-
-These screens establish the app's central interaction pattern — *tap to remove
-what's wrong* — with real data, on the user's own fridge, before they have
-learned anything else about the app.
-
-### 3.4 Pantry starter — the skip destination
-
-Reached only by declining the camera on screen 2.
-
-Pre-populated with assumed staples (salt, pepper, oil, flour, sugar, butter, eggs) shown as removable chips. Copy: **"We assumed you have these. Tap any you don't."**
-
-The camera offer remains available here as a secondary link — declining once is
-not declining forever — but it never blocks progress to screen 4.
+Camera access is never required to finish onboarding. Only allergen groups the
+catalog can enforce may be offered. Every control uses design tokens, accessible
+labels, and a single clear primary action.
 
 ---
 
-## 4. Home — the decision screen
+## 4. Home and results
 
-The most important screen in the product. It exists to convert "I don't know what to eat" into three answers in under ten seconds.
+Home combines the decision inputs and result buckets on `(tabs)/index`.
+Time choices are 15, 30, and 60+ minutes; the curated cuisine list is validated
+against catalog values. Submitting produces at most four visible candidates per
+bucket.
 
-```
-┌─────────────────────────────────┐
-│  Evening, RJ                    │  caption, textMuted
-│                                 │
-│  How much time                  │  display
-│  do you have?                   │
-│                                 │
-│  ┌───────┐ ┌───────┐ ┌───────┐ │
-│  │  15   │ │  30   │ │  60+  │ │  ← 96×96, radius lg
-│  │  min  │ │  min  │ │  min  │ │
-│  └───────┘ └───────┘ └───────┘ │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │      Show me meals        │  │  accent, 56pt
-│  └───────────────────────────┘  │
-│                                 │
-│                                 │
-│  📸 Update pantry · 24 items    │  caption, tappable
-└─────────────────────────────────┘
-```
+Buckets remain ordered from immediately cookable to larger pantry gaps. Hard
+constraints—equipment, allergens, and dietary restrictions—are never relaxed.
+Time and cuisine may relax in the documented engine order, with a visible
+explanation and an undo path. Spoonacular may add options silently because it does not
+remove a constraint.
 
-**Design notes:**
-
-- **Time is the only input on this screen.** One question, three answers. This is the "time-first, not ingredient-first" wedge made literal in the layout.
-- **Three time options, not a slider.** A slider is a decision. Three buttons are a reflex.
-- **Cuisine is cut from Home** (was in v1.0, de-emphasized below a divider). Even a subordinate second control makes the 6pm user read the screen instead of tapping it, and cuisine is the first thing the relaxation ladder discards anyway (Technical Spec §4.3) — a preference the engine is designed to throw away does not earn a permanent slot on the most important screen in the product. Revisit post-launch with usage data, not before.
-- Pantry count is visible but quiet — reassurance that the app knows what you have, without demanding management. It is a link, not a decision.
-- **Tapping a time tile goes straight to results.** The "Show me meals" button is a fallback for users who expect it, not the required path. Fewer taps beats explicit confirmation here.
-
----
-
-## 5. Results — one bucket, then a door
-
-```
-┌─────────────────────────────────┐
-│  ← 30 minutes                   │  ← tap to change
-│                                 │
-│  ✅ MAKE IT NOW                 │  heading, ready
-│  ┌───────────────────────────┐  │
-│  │ [img]  Chicken Fried Rice │  │  title
-│  │        25 min · Stove     │  │  caption
-│  │        You have it all    │  │  caption, ready
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ [img]  Microwave Mug Mac  │  │
-│  │        8 min · Microwave  │  │
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ [img]  Egg Fried Toast    │  │
-│  │        10 min · Stove     │  │
-│  └───────────────────────────┘  │
-│                                 │
-│  More options (11)           →  │  ← caption, pushes (main)/more
-└─────────────────────────────────┘
-```
-
-### 5.1 Rules
-
-- **The results screen renders one bucket: `ready`. Maximum 4 cards.** `CLAUDE.md`
-  is the governing sentence — the engine "emits 3-4 answers," and *showing more
-  options is a regression, not a feature.* Four buckets stacked on one screen is
-  up to sixteen cards, which is a browsing surface, not a decision.
-- **Everything else lives behind one row.** `More options (N) →` pushes
-  `(main)/more`, where `missing_few` renders expanded and `missing_some` /
-  `grocery_run` render collapsed, all at max 4 cards each. That screen exists for
-  completeness, not for browsing, and the user reaches it deliberately.
-- **The engine still computes all four buckets.** Nothing about
-  `decideWithRelaxation` changes. This is a rule about what the first screen
-  renders, not about what the engine returns.
-- **When `ready` is empty**, the relaxation ladder has already promoted
-  `missing_few` into it (§5.3, Technical Spec §4.3), so the top bucket is
-  populated by promotion and the banner explains why. A results screen with an
-  empty top bucket means the engine has a bug.
-- **Truncation is the product.** No "show more" link inside the bucket.
-- **Every ingredient name anywhere is a chip**, and every chip is long-pressable for "I don't have this." This is the drift mitigation (R3) and it must be implemented as one shared `IngredientChip` component, never re-implemented per screen.
-- **Every card shows required equipment.** Constant proof that the app respects the constraint the user declared.
-- **Swipe left on a card to skip.** Records a `skipped` verdict — a weak negative signal, distinct from an explicit dislike.
-
-### 5.2 Recipe source — visible, never emphasized
-
-Recipes arrive from two tiers (Technical Spec §2.3). The user should never have to think about this, but attribution is contractually required for Tier 2.
-
-- **Tier 1 (bundled):** no source badge. It's just a recipe.
-- **Tier 2 (Spoonacular):** a small `caption`-sized source line on the card — *"via Simply Recipes"* — using the original publisher's name, not Spoonacular's. On the recipe page this becomes a tappable hyperlink to the source. **Required by their content terms at every tier.**
-- **No "online/offline" indicator, no tier labels, no loading distinction.** Tier 2 results either arrive within the normal loading state or they don't exist. A user who never has quota simply sees a slightly shorter list, and is none the wiser.
-
-### 5.3 Constraint relaxation — visible, never silent
-
-When the top bucket is empty, the app relaxes a soft constraint and **says so, above the results:**
-
-```
-┌─────────────────────────────────┐
-│  ┌───────────────────────────┐  │
-│  │ ℹ️  Nothing fits 20 min.   │  │  surfaceAlt
-│  │    Here's what works in   │  │
-│  │    30. [ Keep 20 min ]    │  │  ← undo is always offered
-│  └───────────────────────────┘  │
-```
-
-Relaxation order is fixed (Technical Spec §4.3): time → cuisine → escalate to Tier 2 → promote *missing a few* → widen to *missing more*. **Equipment, allergens, and dietary restrictions are never relaxed, and the banner never appears for them.**
-
-**Tier escalation is the one silent step** — it adds options without removing constraints, so there is nothing to disclose and no banner.
-
-**There is no empty state for this screen.** The bundled Tier 1 catalog ships inside the app, so an empty result is now structurally impossible. If the design ever calls for an empty state, the engine has a bug.
+Recipe source attribution is visible but secondary. A Spoonacular fetch failure or
+quota response leaves the bundled catalog standing and never becomes a user-facing error.
 
 ---
 
@@ -389,17 +190,16 @@ Full-screen, one step at a time, designed for someone whose hands are dirty and 
 │  │  Back  │  │     Next      │ │
 │  └────────┘  └───────────────┘ │
 │                                 │
-│         🎤  Tap to speak        │
 └─────────────────────────────────┘
 ```
 
 **Rules:**
 
-- **Screen never sleeps** in cook mode (`expo-keep-awake`).
 - **One step visible.** No scrolling — scrolling requires precision the user does not have.
 - **Auto-timer** when a step contains a duration, parsed at catalog build time.
-- **Voice is tap-to-listen for launch.** Wake-word is Phase 2 (Technical Spec §2.5). The mic button is enormous and reachable one-handed.
-- Recognized commands: *"next" · "back" · "repeat" · "start timer."* Five words, no grammar to learn.
+- **Voice and keep-awake are deferred post-launch** (Technical Spec §2.5, decided
+  Aug 22). Cook mode ships touch-only; the tap-to-listen mic button and the
+  `expo-keep-awake` screen lock arrive with the voice release.
 - **Step advances announce via `aria-live="polite"`.** Timer completion and allergen warnings — and nothing else — use `assertive`.
 
 **Cook mode is the conditional feature.** If the August 9 gate fails, this screen becomes a plain scrollable recipe page and the decision is already made (Technical Spec §8).
@@ -475,25 +275,45 @@ The app's voice is a competent friend who cooks, not a brand.
 
 ---
 
-## 11. Attribution & Offline States
+## 11. Attribution & Network Failure States
 
-Two requirements that come from Spoonacular's terms rather than from design.
+Two requirements that come from vendor terms rather than from design.
 
 ### 11.1 Required attribution
 
 | Where | What | Why |
 |---|---|---|
-| **Recipe card (Tier 2)** | *"via {publisher}"* in `caption`/`textMuted` | Content terms — credit the original source |
-| **Recipe page (Tier 2)** | Publisher name as a tappable link to the original page, below the instructions | Content terms — must be a hyperlink |
-| **About / Settings screen** | "Recipe data powered by [spoonacular](https://spoonacular.com/food-api)" | **Free-tier backlink requirement** |
+| **Spoonacular recipe card** | *"via {publisher}"* in `caption`/`textMuted` | Content terms — credit the original source |
+| **Spoonacular recipe page** | Publisher name as a tappable link to the original page, below the instructions | Content terms — must be a hyperlink |
+| **About / Settings screen** | "Recipe data & images from [TheMealDB](https://www.themealdb.com)" | **Required by TheMealDB's paid terms** — see below |
+| **About / Settings screen** | "Recipe data powered by [spoonacular](https://spoonacular.com/food-api)" | Free-plan backlink requirement — **only once a Spoonacular call actually ships** |
 
-The backlink goes on About/Settings, not the results screen. It satisfies the requirement without putting a competitor's brand on the screen our entire product thesis rests on.
+**TheMealDB attribution is the one that is currently required.** They supply 792
+of the 812 bundled recipes and every recipe image. Their paid terms: *"You can
+use our custom artwork in your projects but must mention us as the source of the
+data"*, and artwork *"should link back to our website where appropriate."*
+
+Spoonacular's backlink is conditional. The optional expansion is unimplemented as of Aug 12,
+2026, and crediting a vendor that supplies zero recipes while omitting the one
+that supplies all of them is worse than no attribution at all. Ship the
+Spoonacular link with the first Spoonacular call, not before.
+
+The backlinks go on About/Settings, not the results screen. That satisfies the
+requirement without putting a competitor's brand on the screen our entire
+product thesis rests on.
 
 **This ships before launch.** Missing attribution is a terms violation, and their access can be revoked without notice (Risk R11).
 
-### 11.2 Saved Tier 2 recipe, opened offline
+### 11.2 Saved Spoonacular recipe, when the re-fetch fails
 
-We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its ingredients or instructions. So a saved Tier 2 recipe opened without a connection has a title and a picture and nothing else.
+The app is online-only (Technical Spec §2.2.1), so sustained offline use is not a
+supported state. But a request can still fail — dropped connection, vendor
+outage, exhausted quota (HTTP 402) — and this screen is what the user sees when
+it does.
+
+We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its
+ingredients or instructions. So a saved Spoonacular recipe whose re-fetch fails has a
+title and a picture and nothing else.
 
 Handle it as a normal state, not an error:
 
@@ -512,12 +332,12 @@ Handle it as a normal state, not an error:
 │                                 │
 │  MAKE SOMETHING NOW             │  heading
 │  ┌───────────────────────────┐  │
-│  │ [img]  Mug Mac & Cheese   │  │  ← Tier 1, always works
+│  │ [img]  Mug Mac & Cheese   │  │  ← bundled catalog, always works
 │  └───────────────────────────┘  │
 └─────────────────────────────────┘
 ```
 
-**Always offer Tier 1 alternatives in the same view.** The rule holds: never a dead end.
+**Always offer bundled-catalog alternatives in the same view.** The rule holds: never a dead end.
 
 Copy: *"Needs a connection to load the full recipe."* Not *"Failed to fetch"*, and not an explanation of caching policy.
 
@@ -541,29 +361,28 @@ Added after the first build of these screens. Where the code departs from the
 text above, the reason is recorded here rather than left for someone to
 rediscover.
 
-### 13.1 The web build is the phone layout, letterboxed
+### 13.1 The web build is a responsive workspace — REVISED Aug 12, 2026
 
-There is one UI, shared by iOS, Android, and the web. On a browser it is
-constrained to a 430pt centred column (`MobileViewport`, `layout.mobileViewportMaxWidth`)
-with the page behind it painted `surfaceAlt`.
+> **Retracted.** This section previously specified that the web build was the
+> phone layout letterboxed into a 430pt column, and recorded that a separate
+> desktop layout "was rejected." That decision was reversed. The text is
+> replaced rather than amended because leaving it invited the letterbox back.
 
-Left unbounded, the phone layout stretched to the full width of a monitor: the
-summary tiles became 600pt wide and the ingredient chips spread into a single
-sparse row. The alternative — a separate desktop layout — was rejected because
-it would be a second design to keep in sync with no user asking for it. §0's
-premise is a tired person holding a phone in one hand, and the browser build
-exists to review that, not to replace it.
+There is one UI, shared by iOS, Android, and the web, and one set of routes,
+store state, engine behaviour, and accessibility labels. What changes across
+viewports is composition, not functionality.
 
-### 13.2 Deviations from the screens above
+`getResponsiveLayout(width)` (`src/components/ui/responsive-layout.ts`) is the
+single place a viewport width becomes a layout decision; `MobileViewport` and
+`Screen` are its only consumers. Mobile stays a single-column, edge-to-edge
+flow. Desktop renders a centred workspace capped near 1180pt with responsive
+gutters and multi-column content, on a `surfaceAlt` page canvas.
 
-| Spec | Built | Why |
-|---|---|---|
-| §4 three time tiles: 15 / 30 / 60+ | Same, and "60+" means 60 | The engine's `TIME_TIERS` has a fourth tier at 120. It is reachable only by relaxation, which is what "+" denotes. |
-| §4 cuisine chips | Curated shortlist of 8 | The catalog's cuisine values are not a vocabulary — 209 recipes have none, and the rest mix `british` with `france` and `netherlands`. Validated against the catalog at module load. |
-| §3.2 searchable allergen list with free-text add | Eight fixed chips | Only allergen groups present in `ingredients.json` are offered. An allergen the vocabulary cannot detect is worse than an omitted one: it promises protection that does not exist. Sesame has no group and so is not listed. |
-| §3.3 first photo capture | Built, optional | Offered on the staples screen and from the pantry tab. Never required — making a camera permission prompt the price of finishing setup contradicts "onboarding is a tax, keep it short". |
-| §6 "Start cooking" | Present but disabled | Cook mode (§7) is not built. |
-| §5.1 swipe left to skip | Not built | Deferred; `recordSkip` exists and the recipe screen records an explicit dislike. |
+Onboarding and cook mode stay focused single-column layouts at every width.
+§0's premise — a tired person, one hand free — governs those two regardless of
+how much room the browser has.
+
+**Governing spec:** `docs/specs/2026-08-12-responsive-web-layout-design.md`.
 
 ### 13.3 The one empty state, and why it is allowed
 
@@ -580,5 +399,6 @@ actually about.
 
 ---
 
-*Application42 · HomeChef · UI/UX Specification v1.0 · August 3, 2026*
-*§13 added August 9, 2026.*
+*Application42 · HomeChef · UI/UX Specification v0.1.0 · August 3, 2026*
+*§13 added August 9, 2026 · §13.1 retracted and rewritten August 12, 2026 ·
+§7 voice and keep-awake deferred post-launch August 22, 2026.*

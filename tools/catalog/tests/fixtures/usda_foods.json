@@ -1,0 +1,24 @@
+{
+  "foods": [
+    {
+      "aliases": [],
+      "description": "Wheat flour, white, all-purpose, enriched",
+      "energyKcalPer100g": 364.0,
+      "fdcId": 168936,
+      "ingredientId": "flour"
+    },
+    {
+      "aliases": ["egg"],
+      "description": "Egg, whole, raw, fresh",
+      "energyKcalPer100g": 143.0,
+      "fdcId": 171287,
+      "ingredientId": "eggs"
+    }
+  ],
+  "metadata": {
+    "calculatedAt": "2026-08-22T12:00:00-07:00",
+    "payloadChecksum": "d2eb78be10c98e25bfa55b0f7c11c8de11135ef5b9a3eeb0632363488de3bf3a",
+    "schemaVersion": 1,
+    "sourceVersion": "FoodData Central 2026-08"
+  }
+}
