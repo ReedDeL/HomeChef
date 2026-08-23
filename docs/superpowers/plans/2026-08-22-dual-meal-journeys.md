@@ -317,7 +317,7 @@ git commit -m "Add weekly planning engine"
 
 **Interfaces:**
 - Consumes: Task 2 contracts and authenticated user IDs.
-- Produces: current body-profile CRUD, append-only photo taste and satiety inserts, onboarding progress upsert, one weekly plan with entries/needs, confirmation update, and reminder preference persistence.
+- Produces: current body-profile CRUD, append-only photo taste and satiety inserts, onboarding progress upsert, one weekly plan whose derived entries/needs replace through delete-and-reinsert, parent-only confirmation update, and reminder preference persistence.
 
 - [ ] **Step 1: Create the migration through the Supabase CLI**
 
@@ -327,11 +327,11 @@ Do not invent a filename or modify existing migrations.
 
 - [ ] **Step 2: Write failing RLS and structure assertions**
 
-Extend A/A2/B/anon coverage before the schema. Add structural assertions for RLS enabled, personal `user_id` ownership, explicit per-table grants, composite child ownership FKs, indexes, absence of `household_id` on weekly tables, and absence of authenticated `UPDATE`/`DELETE` policies and grants on append-only taste and satiety tables.
+Extend A/A2/B/anon coverage before the schema. Add structural assertions for RLS enabled, personal `user_id` ownership, explicit per-table grants, composite child ownership FKs, indexes, absence of `household_id` on weekly tables, absence of authenticated `UPDATE`/`DELETE` policies and grants on append-only taste and satiety tables, and absence of authenticated `UPDATE` policies and grants on weekly entry and grocery-need children.
 
 - [ ] **Step 3: Implement the schema**
 
-Create `body_profiles` with `user_id` primary key; `taste_signals` and `meal_satiety` append-only; one-row `onboarding_progress`; `weekly_meal_plans`; `weekly_meal_plan_entries`; `plan_linked_grocery_needs`; and one-row `meal_reminder_preferences`. Child plan tables carry `user_id` and reference `(plan_id, user_id)` on the parent. Enable RLS in the same migration and create only these operation-specific authenticated policies and grants: `body_profiles` gets SELECT/INSERT/UPDATE/DELETE; `taste_signals` and `meal_satiety` get SELECT/INSERT only; `onboarding_progress` gets SELECT/INSERT/UPDATE; each weekly plan/entry/need table gets SELECT/INSERT/UPDATE/DELETE; and `meal_reminder_preferences` gets SELECT/INSERT/UPDATE. Every predicate uses `(select auth.uid())`; UPDATE has both `using` and `with check`, INSERT has `with check`, and SELECT/DELETE have `using`. Account and parent cascades remain database behavior, not append-only client DELETE permission. Update legacy `inventory.source='shopping_list'` rows to `manual`, then recreate its CHECK without `shopping_list`.
+Create `body_profiles` with `user_id` primary key; `taste_signals` and `meal_satiety` append-only; one-row `onboarding_progress`; `weekly_meal_plans`; `weekly_meal_plan_entries`; `plan_linked_grocery_needs`; and one-row `meal_reminder_preferences`. Child plan tables carry `user_id` and reference `(plan_id, user_id)` on the parent. Enable RLS in the same migration and create only these operation-specific authenticated policies and grants: `body_profiles` gets SELECT/INSERT/UPDATE/DELETE; `taste_signals` and `meal_satiety` get SELECT/INSERT only; `onboarding_progress` gets SELECT/INSERT/UPDATE; `weekly_meal_plans` gets SELECT/INSERT/UPDATE/DELETE; `weekly_meal_plan_entries` and `plan_linked_grocery_needs` get SELECT/INSERT/DELETE only; and `meal_reminder_preferences` gets SELECT/INSERT/UPDATE. Every predicate uses `(select auth.uid())`; UPDATE has both `using` and `with check`, INSERT has `with check`, and SELECT/DELETE have `using`. Entries and needs are immutable derived snapshots: plan creation inserts complete child sets, replanning/replacement deletes existing children and inserts the complete replacement sets in one operation boundary, and confirmation updates only the parent status. Account and parent cascades remain database behavior, not append-only client DELETE permission. Update legacy `inventory.source='shopping_list'` rows to `manual`, then recreate its CHECK without `shopping_list`.
 
 - [ ] **Step 4: Verify RLS locally**
 
@@ -349,7 +349,7 @@ Expected: every assertion reports `PASS` and both commands exit zero.
 
 - [ ] **Step 5: Write failing persistence-mapper tests**
 
-Assert only contract fields reach inserts, satiety input cannot carry generated ownership/record fields, append-only mappers expose no update/delete operation, body delete removes the current profile, plan replacement deletes stale child rows in one operation boundary, only bundled recipe IDs enter durable entries, reminder/onboarding mappers accept only their mutable current-state fields, and Spoonacular extra content cannot cross the mapper.
+Assert only contract fields reach inserts, satiety input cannot carry generated ownership/record fields, append-only mappers expose no update/delete operation, body delete removes the current profile, child mappers expose no update operation, plan replacement deletes existing entry/need rows and inserts complete replacement sets in one operation boundary, confirmation updates only the parent status, only bundled recipe IDs enter durable entries, reminder/onboarding mappers accept only their mutable current-state fields, and Spoonacular extra content cannot cross the mapper.
 
 - [ ] **Step 6: Implement queries and regenerate types**
 

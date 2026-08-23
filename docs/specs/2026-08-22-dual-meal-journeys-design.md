@@ -98,8 +98,8 @@ Policy and grant verbs are frozen per table:
 | `meal_satiety` | `SELECT`, `INSERT` only |
 | `onboarding_progress` | `SELECT`, `INSERT`, `UPDATE` |
 | `weekly_meal_plans` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
-| `weekly_meal_plan_entries` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
-| `plan_linked_grocery_needs` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| `weekly_meal_plan_entries` | `SELECT`, `INSERT`, `DELETE` only |
+| `plan_linked_grocery_needs` | `SELECT`, `INSERT`, `DELETE` only |
 | `meal_reminder_preferences` | `SELECT`, `INSERT`, `UPDATE` |
 
 Each allowed verb has its own operation-specific policy. `UPDATE` policies use both `using`
@@ -107,6 +107,12 @@ and `with check`; `INSERT` policies use `with check`; `SELECT` and `DELETE` use 
 There are no authenticated `UPDATE` or `DELETE` policies or grants on append-only
 `taste_signals` or `meal_satiety`. Parent/account cascades are database behavior and do not
 make those records client-mutable.
+
+Weekly entries and plan-linked grocery needs are immutable derived child snapshots. Creating
+a plan inserts the complete child sets. Replanning or replacing child content runs one
+operation boundary that deletes the existing child rows and inserts the complete replacement
+sets; it never updates a child row in place. Plan confirmation updates only the parent plan's
+status. Consequently, neither child table has an authenticated `UPDATE` policy or grant.
 
 ### 4.2 Session-only and borrowed data
 
@@ -361,6 +367,8 @@ Grocery needs are derived only from concrete entries:
 - Expose no more than 12 unique needs.
 - Do not silently truncate. A concrete candidate that would exceed 12 is not admitted.
 - Delete the needs through the plan's cascade when the plan is deleted or replaced.
+- Replace derived entries or needs only by deleting and reinserting the complete child sets in
+  one operation boundary; never update a child row in place.
 
 The heading is `What this plan needs`. Needs cannot be checked off into pantry state, reused
 across plans, retained as history, or displayed independently as a general list. A replacement
@@ -535,6 +543,9 @@ or the named platform review:
   indexes, explicit grants, and cascades from plans to entries and needs.
 - RLS tests prove append-only taste and satiety rows have only `SELECT`/`INSERT` policies and
   grants, while each mutable table has only the operation-specific verbs it requires.
+- RLS tests prove weekly entry and plan-linked grocery-need children have only
+  `SELECT`/`INSERT`/`DELETE`, no `UPDATE`, and replacement uses delete-and-reinsert in one
+  operation boundary while confirmation updates only the parent.
 - Persistence mappers admit bundled recipes to plans and prevent borrowed recipe content from
   crossing a write boundary.
 - Body-profile deletion leaves no history, and a plan replacement leaves no stale needs.
