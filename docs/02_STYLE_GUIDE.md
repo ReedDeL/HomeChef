@@ -356,7 +356,7 @@ from catalog.normalize import canonical_ingredient_id
 | Modules, packages    | `lowercase` or `snake_case` | `normalize.py`                    |
 | Functions, variables | `snake_case`                | `fetch_all_recipes`               |
 | Classes, exceptions  | `PascalCase`                | `RecipeRecord`, `EnrichmentError` |
-| Constants            | `SCREAMING_SNAKE_CASE`      | `MEALDB_BASE_URL`                 |
+| Constants            | `SCREAMING_SNAKE_CASE`      | `SOURCE_ARCHIVE_URL`              |
 | Internal / private   | leading underscore          | `_retry_with_backoff`             |
 | Type variables       | `PascalCase`, short         | `T`, `RecipeT`                    |
 

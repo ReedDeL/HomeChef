@@ -8,8 +8,8 @@
 -- household_id (shared with roommates); preferences, allergens, and feedback
 -- join to user_id (structurally unreachable by household members).
 --
--- Recipes are deliberately absent. Tier 1 is bundled JSON versioned with the
--- app; Tier 2 is fetched live and discarded.
+-- Recipes are deliberately absent from this initial schema. Catalog tables
+-- were introduced in a later migration after the privacy schema was established.
 -- ---------------------------------------------------------------------------
 
 -- Helper functions live here so they are not exposed through PostgREST.

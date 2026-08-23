@@ -61,8 +61,8 @@ select household_id, 'rice', 'manual'
   from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000001';
 
 insert into public.meal_feedback (user_id, recipe_id, verdict)
-values ('aaaaaaaa-0000-4000-8000-000000000001', 'tier1-0001', 'liked'),
-       ('bbbbbbbb-0000-4000-8000-000000000001', 'tier1-0002', 'disliked');
+values ('aaaaaaaa-0000-4000-8000-000000000001', 'catalog-0001', 'liked'),
+       ('bbbbbbbb-0000-4000-8000-000000000001', 'catalog-0002', 'disliked');
 
 -- An allergen is the highest-stakes private field in the schema. If a roommate
 -- can read this row, the privacy model has failed.
@@ -123,7 +123,7 @@ begin
   blocked := false;
   begin
     insert into public.meal_feedback (user_id, recipe_id, verdict)
-    values (user_b, 'tier1-0003', 'liked');
+    values (user_b, 'catalog-0003', 'liked');
   exception when others then blocked := true;
   end;
   results := results || format('9|A cannot write feedback as B|blocked|%s',
