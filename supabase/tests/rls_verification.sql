@@ -64,6 +64,67 @@ insert into public.meal_feedback (user_id, recipe_id, verdict)
 values ('aaaaaaaa-0000-4000-8000-000000000001', 'bundled-0001', 'liked'),
        ('bbbbbbbb-0000-4000-8000-000000000001', 'bundled-0002', 'disliked');
 
+insert into public.body_profiles (
+  user_id, age_years, height_centimeters, weight_kilograms, calculation_sex,
+  activity_level, goal, pregnant, breastfeeding
+)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 30, 170, 70, 'female', 'moderate',
+   'maintain', false, false),
+  ('bbbbbbbb-0000-4000-8000-000000000001', 40, 180, 85, 'male', 'active',
+   'gain', false, false);
+
+insert into public.taste_signals (user_id, kind, recipe_id, journey, recorded_at)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'photo_selected', 'bundled-0001', 'now', now()),
+  ('bbbbbbbb-0000-4000-8000-000000000001', 'photo_selected', 'bundled-0002', 'week', now());
+
+insert into public.meal_satiety (user_id, recipe_id, level)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'bundled-0001', 'satisfied'),
+  ('bbbbbbbb-0000-4000-8000-000000000001', 'bundled-0002', 'too_full');
+
+insert into public.onboarding_progress (user_id, safety_completed)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', true),
+  ('bbbbbbbb-0000-4000-8000-000000000001', true);
+
+insert into public.meal_reminder_preferences (user_id, enabled, lead_minutes)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', true, 15),
+  ('bbbbbbbb-0000-4000-8000-000000000001', false, 30);
+
+insert into public.weekly_meal_plans (id, user_id, week_start, status, stated_relaxations)
+values
+  ('a0000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001',
+   '2026-08-24', 'draft', array[]::text[]),
+  ('b0000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000001',
+   '2026-08-24', 'draft', array[]::text[]);
+
+insert into public.weekly_meal_plan_entries (
+  id, plan_id, user_id, entry_date, kind, recipe_id, planned_meal_time,
+  reason, stated_relaxations, portion_servings, portion_label, portion_disclaimer
+)
+values
+  ('a1000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+   'aaaaaaaa-0000-4000-8000-000000000001', '2026-08-24', 'recipe', 'bundled-0001',
+   '2026-08-24T19:00:00-07:00', null, array[]::text[], 1, 'Start with 1 serving',
+   'Estimate only—adjust to your hunger.'),
+  ('b1000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001',
+   'bbbbbbbb-0000-4000-8000-000000000001', '2026-08-24', 'day_of_decision', null, null,
+   'no_safe_recipe', array[]::text[], null, null, null);
+
+insert into public.plan_linked_grocery_needs (
+  id, plan_id, user_id, ingredient_id, recipe_ids, dates
+)
+values
+  ('a2000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+   'aaaaaaaa-0000-4000-8000-000000000001', 'egg', array['bundled-0001'],
+   array['2026-08-24']::date[]),
+  ('b2000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001',
+   'bbbbbbbb-0000-4000-8000-000000000001', 'rice', array['bundled-0002'],
+   array['2026-08-24']::date[]);
+
 -- An allergen is the highest-stakes private field in the schema. If a roommate
 -- can read this row, the privacy model has failed.
 update public.user_preferences
@@ -179,6 +240,261 @@ begin
 
   perform set_config('role', 'postgres', true);
 
+  insert into _rls_results (n, assertion, expected, actual, pass)
+  select split_part(r, '|', 1)::int,
+         split_part(r, '|', 2),
+         split_part(r, '|', 3),
+         split_part(r, '|', 4),
+         split_part(r, '|', 3) = split_part(r, '|', 4)
+    from unnest(results) as r;
+end $$;
+
+-- ------------------------------------------------ personal meal journeys ---
+-- These assertions cover owner A, roommate A2, unrelated owner B, and anon.
+-- The append-only and immutable-child negative writes also prove the table
+-- grants are no broader than the RLS policies.
+
+do $$
+declare
+  user_a uuid := 'aaaaaaaa-0000-4000-8000-000000000001';
+  user_a2 uuid := 'aaaaaaaa-0000-4000-8000-000000000002';
+  user_b uuid := 'bbbbbbbb-0000-4000-8000-000000000001';
+  results text[] := '{}';
+  n int;
+  blocked boolean;
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', user_a, 'role', 'authenticated')::text, true);
+
+  select count(*) into n from public.body_profiles;
+  results := results || format('24|A sees own body profile only|1|%s', n);
+  select count(*) into n from public.taste_signals;
+  results := results || format('25|A sees own taste signals only|1|%s', n);
+  select count(*) into n from public.meal_satiety;
+  results := results || format('26|A sees own satiety only|1|%s', n);
+  select count(*) into n from public.onboarding_progress;
+  results := results || format('27|A sees own onboarding progress only|1|%s', n);
+  select count(*) into n from public.weekly_meal_plans;
+  results := results || format('28|A sees own weekly plans only|1|%s', n);
+  select count(*) into n from public.weekly_meal_plan_entries;
+  results := results || format('29|A sees own weekly entries only|1|%s', n);
+  select count(*) into n from public.plan_linked_grocery_needs;
+  results := results || format('30|A sees own plan needs only|1|%s', n);
+  select count(*) into n from public.meal_reminder_preferences;
+  results := results || format('31|A sees own reminders only|1|%s', n);
+
+  update public.body_profiles set weight_kilograms = 71 where user_id = user_a;
+  get diagnostics n = row_count;
+  results := results || format('32|A can update own body profile|1|%s', n);
+  update public.onboarding_progress set reminder_completed = true where user_id = user_a;
+  get diagnostics n = row_count;
+  results := results || format('33|A can update own onboarding progress|1|%s', n);
+  update public.meal_reminder_preferences set lead_minutes = 10 where user_id = user_a;
+  get diagnostics n = row_count;
+  results := results || format('34|A can update own reminder preferences|1|%s', n);
+  update public.weekly_meal_plans set status = 'confirmed' where user_id = user_a;
+  get diagnostics n = row_count;
+  results := results || format('35|A can confirm own parent plan|1|%s', n);
+
+  blocked := false;
+  begin
+    insert into public.meal_satiety (user_id, recipe_id, level)
+    values (user_b, 'bundled-cross', 'still_hungry');
+  exception when others then blocked := true;
+  end;
+  results := results || format('36|A cannot insert satiety as B|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  update public.body_profiles set weight_kilograms = 72 where user_id = user_b;
+  get diagnostics n = row_count;
+  results := results || format('37|A cannot update B body profile|0|%s', n);
+
+  blocked := false;
+  begin
+    update public.taste_signals set journey = 'week' where user_id = user_a;
+  exception when others then blocked := true;
+  end;
+  results := results || format('38|Taste signals reject client update|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  blocked := false;
+  begin
+    delete from public.meal_satiety where user_id = user_a;
+  exception when others then blocked := true;
+  end;
+  results := results || format('39|Satiety rejects client delete|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  blocked := false;
+  begin
+    update public.weekly_meal_plan_entries set recipe_id = 'bundled-other'
+     where user_id = user_a;
+  exception when others then blocked := true;
+  end;
+  results := results || format('40|Weekly children reject client update|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  blocked := false;
+  begin
+    insert into public.plan_linked_grocery_needs (
+      plan_id, user_id, ingredient_id, recipe_ids, dates
+    ) values (
+      'b0000000-0000-4000-8000-000000000001', user_a, 'saffron',
+      array['bundled-cross'], array['2026-08-25']::date[]
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('41|Child ownership cannot differ from parent|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  insert into public.taste_signals (user_id, kind, recipe_id, journey, recorded_at)
+  values (user_a, 'photo_selected', 'bundled-own-insert', 'now', now());
+  get diagnostics n = row_count;
+  results := results || format('66|A can insert own taste signal|1|%s', n);
+
+  insert into public.meal_satiety (recipe_id, level)
+  values ('bundled-own-insert', 'satisfied');
+  get diagnostics n = row_count;
+  results := results || format('67|A can insert satiety with server ownership|1|%s', n);
+
+  perform public.replace_weekly_plan_children(
+    'a0000000-0000-4000-8000-000000000001',
+    jsonb_build_array(jsonb_build_object(
+      'entry_date', '2026-08-25',
+      'kind', 'recipe',
+      'recipe_id', 'bundled-replanned',
+      'planned_meal_time', '2026-08-25T18:30:00-07:00',
+      'reason', null,
+      'stated_relaxations', jsonb_build_array('time'),
+      'portion_servings', null,
+      'portion_label', null,
+      'portion_disclaimer', null
+    )),
+    jsonb_build_array(jsonb_build_object(
+      'ingredient_id', 'milk',
+      'recipe_ids', jsonb_build_array('bundled-replanned'),
+      'dates', jsonb_build_array('2026-08-25')
+    ))
+  );
+  select count(*) into n
+    from public.plan_linked_grocery_needs
+   where user_id = user_a and ingredient_id = 'milk';
+  results := results || format('84|Replacement inserts the complete new need set|1|%s', n);
+  select count(*) into n
+    from public.plan_linked_grocery_needs
+   where user_id = user_a and ingredient_id = 'egg';
+  results := results || format('85|Replacement leaves no stale plan needs|0|%s', n);
+
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', user_a2, 'role', 'authenticated')::text, true);
+  select count(*) into n from public.weekly_meal_plans;
+  results := results || format('42|Roommate cannot read A weekly plan|0|%s', n);
+  select count(*) into n from public.body_profiles;
+  results := results || format('43|Roommate cannot read A body profile|0|%s', n);
+  select count(*) into n from public.taste_signals;
+  results := results || format('44|Roommate cannot read A taste|0|%s', n);
+  select count(*) into n from public.meal_satiety;
+  results := results || format('45|Roommate cannot read A satiety|0|%s', n);
+  select count(*) into n from public.onboarding_progress;
+  results := results || format('68|Roommate cannot read A onboarding|0|%s', n);
+  select count(*) into n from public.weekly_meal_plan_entries;
+  results := results || format('69|Roommate cannot read A weekly entries|0|%s', n);
+  select count(*) into n from public.plan_linked_grocery_needs;
+  results := results || format('70|Roommate cannot read A plan needs|0|%s', n);
+  select count(*) into n from public.meal_reminder_preferences;
+  results := results || format('71|Roommate cannot read A reminders|0|%s', n);
+  blocked := false;
+  begin
+    perform public.replace_weekly_plan_children(
+      'a0000000-0000-4000-8000-000000000001', '[]'::jsonb, '[]'::jsonb
+    );
+  exception when others then blocked := true;
+  end;
+  results := results || format('86|Roommate cannot replace A plan children|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', user_b, 'role', 'authenticated')::text, true);
+  select count(*) into n from public.weekly_meal_plans;
+  results := results || format('46|B positive control sees own weekly plan|1|%s', n);
+  select count(*) into n from public.plan_linked_grocery_needs;
+  results := results || format('47|B positive control sees own plan need|1|%s', n);
+  select count(*) into n from public.body_profiles;
+  results := results || format('72|B positive control sees own body profile|1|%s', n);
+  select count(*) into n from public.taste_signals;
+  results := results || format('73|B positive control sees own taste|1|%s', n);
+  select count(*) into n from public.meal_satiety;
+  results := results || format('74|B positive control sees own satiety|1|%s', n);
+  select count(*) into n from public.onboarding_progress;
+  results := results || format('75|B positive control sees own onboarding|1|%s', n);
+  select count(*) into n from public.weekly_meal_plan_entries;
+  results := results || format('76|B positive control sees own weekly entry|1|%s', n);
+  select count(*) into n from public.meal_reminder_preferences;
+  results := results || format('77|B positive control sees own reminders|1|%s', n);
+
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  blocked := false;
+  begin
+    perform count(*) from public.body_profiles;
+  exception when others then blocked := true;
+  end;
+  results := results || format('48|Anon cannot read body profiles|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  blocked := false;
+  begin
+    insert into public.taste_signals (kind, recipe_id, journey, recorded_at)
+    values ('photo_selected', 'bundled-anon', 'now', now());
+  exception when others then blocked := true;
+  end;
+  results := results || format('49|Anon cannot insert taste|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  blocked := false;
+  begin
+    perform count(*) from public.meal_satiety;
+  exception when others then blocked := true;
+  end;
+  results := results || format('78|Anon cannot read satiety|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  blocked := false;
+  begin
+    perform count(*) from public.onboarding_progress;
+  exception when others then blocked := true;
+  end;
+  results := results || format('79|Anon cannot read onboarding|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  blocked := false;
+  begin
+    perform count(*) from public.weekly_meal_plans;
+  exception when others then blocked := true;
+  end;
+  results := results || format('80|Anon cannot read weekly plans|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  blocked := false;
+  begin
+    perform count(*) from public.weekly_meal_plan_entries;
+  exception when others then blocked := true;
+  end;
+  results := results || format('81|Anon cannot read weekly entries|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  blocked := false;
+  begin
+    perform count(*) from public.plan_linked_grocery_needs;
+  exception when others then blocked := true;
+  end;
+  results := results || format('82|Anon cannot read plan needs|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+  blocked := false;
+  begin
+    perform count(*) from public.meal_reminder_preferences;
+  exception when others then blocked := true;
+  end;
+  results := results || format('83|Anon cannot read reminders|blocked|%s',
+                               case when blocked then 'blocked' else 'ALLOWED' end);
+
+  perform set_config('role', 'postgres', true);
   insert into _rls_results (n, assertion, expected, actual, pass)
   select split_part(r, '|', 1)::int,
          split_part(r, '|', 2),
