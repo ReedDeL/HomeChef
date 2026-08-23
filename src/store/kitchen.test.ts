@@ -101,7 +101,7 @@ describe('COMMON_ALLERGENS', () => {
         },
       ],
       instructions: 'Melt it.',
-      source: 'tier1',
+      source: 'bundled',
     };
 
     const prefs = toEnginePreferences({ ...base, allergens: ['dairy'] });

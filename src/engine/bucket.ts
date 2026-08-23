@@ -1,7 +1,7 @@
 import type { Bucket } from '@/engine/types';
 
 /**
- * Truncation is the product (docs/01_TECHNICAL_SPEC.md:452). Comprehensiveness
+ * Truncation is the product (Technical Spec §4.1, B4). Comprehensiveness
  * is our competitors' value proposition and the thing we deliberately do not do.
  */
 export const BUCKET_CAP = 4;

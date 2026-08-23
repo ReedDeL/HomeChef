@@ -132,7 +132,14 @@ export const shadow: Record<ColorScheme, ElevationSet> = {
  * logical width — the largest phone the layout is designed for, so nothing
  * reflows differently in the browser than it does on device.
  */
-export const layout = { mobileViewportMaxWidth: 430 } as const;
+export const layout = {
+  mobileViewportMaxWidth: 430,
+  tabletBreakpoint: 640,
+  desktopBreakpoint: 960,
+  desktopMaxWidth: 1180,
+  desktopGutter: 32,
+  desktopColumnGap: 24,
+} as const;
 
 /**
  * Minimum touch targets in pt. Cook mode is oversized deliberately — it is

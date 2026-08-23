@@ -173,7 +173,7 @@ The user configures a reusable rhythm once:
 - Preferred dinner time for each weekday.
 - Whether that weekday is normally available for cooking.
 - Number of diners.
-- Reminder lead time: at start, 10, 20, or 30 minutes before start.
+- Reminder lead time: disabled, at start, or 10, 15, 30, or 60 minutes before start.
 
 The UI may group days with the same values, such as Monday through Thursday. A user can
 override any value for one date from the generated plan without changing the reusable
@@ -227,7 +227,7 @@ no I/O, and does not know whether its inputs came from Zustand or Supabase.
 
 ## Catalog requirements
 
-Reliable leftovers require data that the current catalog contract does not contain. Tier 1
+Reliable leftovers require data that the current catalog contract does not contain. Bundled recipes
 recipes must gain build-time fields for:
 
 - Base serving count.
@@ -241,9 +241,9 @@ The initial leftover rule is deliberately narrow: a larger cook may supply the f
 night only. Longer storage or freezer planning requires explicit catalog metadata and is
 not inferred.
 
-Only bundled Tier 1 recipes are eligible for durable plans. Spoonacular ingredients,
+Only bundled recipes are eligible for durable plans. Spoonacular ingredients,
 instructions, time, and serving data are borrowed and cannot be persisted. Restricting the
-planner to Tier 1 keeps approved plans available offline and prevents a Terms of Use
+planner to the bundled catalog keeps approved plans available offline and prevents a Terms of Use
 violation.
 
 ## Scheduling behavior
@@ -261,7 +261,7 @@ The planner applies these rules in order:
 9. Use a stable recipe-ID tie-breaker so identical inputs always produce the same plan.
 
 The implementation should use a bounded deterministic search rather than seven greedy
-daily decisions. A small beam search over the roughly 300 bundled recipes can carry the
+daily decisions. A small beam search over the bundled catalog can carry the
 remaining ingredient ledger and leftover state across days without requiring a service or
 database search.
 
@@ -354,127 +354,39 @@ The feature is divided into units with one responsibility each:
 TanStack Query owns server state. Temporary draft edits may live in component state or a
 focused client store, but the approved plan and grocery history do not belong in Zustand.
 
-## Data model
+## Data and security contract
 
-The exact SQL belongs in the implementation plan. The durable model has these boundaries:
-
-- `grocery_events` is household-owned and records one dated manual or photo addition.
-- `grocery_event_items` is household-owned and records canonical ingredients and amounts.
-- `weekly_ingredient_forecasts` is household-owned and records one forecast per week.
-- `weekly_ingredient_forecast_items` is household-owned and records each ingredient state.
-- `meal_schedule_preferences` is user-owned and records diners, reminders, and timezone.
-- `meal_schedule_day_preferences` is user-owned and records each weekday's rhythm.
-- `meal_plans` is user-owned and records one personal draft or approved plan per week.
-- `meal_plan_entries` is user-owned and records the seven dated plan entries.
-
-Child records carry their ownership column as well as their parent foreign key. A composite
-foreign key keeps child ownership consistent with the parent while allowing direct,
-indexable RLS predicates.
-
-All timestamps are `timestamptz`; calendar dates are `date`; weekday values have a bounded
-check constraint. Status values use text with check constraints. Every foreign key and RLS
-predicate column is indexed, including composite user/week and household/week access paths.
-
-### RLS
-
-- Grocery events and forecasts require membership in their `household_id`.
-- Schedule preferences, plans, and entries require `(select auth.uid()) = user_id`.
-- Update policies use both `using` and `with check` ownership predicates.
-- RLS is enabled in the same migration that creates each table.
-- Authenticated clients receive only the grants needed for the intended operations.
-
-The household pantry remains shared while allergies, dietary preferences, and schedules
-remain personal.
+The feature requires household grocery events and expected ingredients, plus
+user-owned rhythm and weekly-plan records. The implementation plan must define
+the exact schema. Every table enables RLS in its creation migration, indexes its
+foreign keys, and prevents ownership reassignment. Household members may access
+household grocery data; user preferences and plans remain private to their
+owner.
 
 ## Data flow
 
-```text
-grocery photo/manual entry
-  -> canonical grocery event + confirmed pantry update
-  -> inferWeeklyIngredients(recent events)
-  -> user confirms the weekly forecast
-  -> planWeek(catalog, pantry, expected, rhythm, hard constraints)
-  -> user approves one draft
-  -> persist plan + schedule local reminders
-  -> Home renders tonight's plan entry
-```
+Grocery events produce suggested expected ingredients. The user confirms the
+forecast, the pure planner builds one seven-day draft, and approval persists the
+plan and schedules local reminders. Pantry drift or a missed expected arrival
+replans only affected future entries and explains the change.
 
-The grocery photo reuses the existing image-processing privacy boundary: compress, analyze,
-confirm candidates, and discard the image. A grocery-specific source flag distinguishes
-the resulting event from an ordinary pantry scan.
+## Recovery and accessibility
 
-## Recovery behavior
+An approved plan remains usable when notifications fail. Forecast skips use
+confirmed pantry items only; missing expected items and catalog drift trigger
+stated replacements. Offline generation and synchronization are deferred.
 
-- **Forecast skipped:** plan with confirmed pantry ingredients only.
-- **Expected item late:** replace only affected future entries and explain why.
-- **Pantry drift:** recompute the affected cook and dependent leftover.
-- **Insufficient ingredients:** use a stated day-of decision entry rather than inventing a
-  purchase.
-- **Offline:** use the bundled catalog, locally available approved plan, cached pantry, and
-  saved preferences; queue mutations for later synchronization.
-- **Notification permission denied:** keep all plan behavior and show start times in-app.
-- **Notification scheduling failure:** show the approved plan and an in-app reminder state;
-  notification delivery must never block plan approval.
-- **Tier 1 recipe unavailable after an app update:** replace the affected future entry using
-  the current bundled catalog and state the change.
+Every day is one accessible group, edits require no drag gesture, targets are at
+least 44 by 44 points, state is never color-only, and the agenda reflows at 200%
+Dynamic Type.
 
-## Accessibility
+## Verification contract
 
-- Every plan entry is a single accessible group with date, meal, duration, and status.
-- All edits work without drag gestures.
-- Interactive targets remain at least 44 by 44 points.
-- Expected and confirmed states use text labels, not color alone.
-- Automatic plan changes are announced politely; allergen warnings remain the only
-  assertive safety announcement.
-- Dynamic Type at 200% reflows the weekly agenda without horizontal scrolling.
-- Notification copy includes the meal, start time, duration, and dinner time.
-
-## Testing
-
-### Pure engine
-
-- Expected ingredients are unavailable before their arrival date.
-- Hard equipment, allergen, and dietary constraints are never relaxed.
-- Daily cooking limits and explicit time relaxations are respected.
-- Ingredient reservations never spend a known quantity twice.
-- Unknown quantities receive at most one primary use.
-- Leftovers originate from a qualifying cook and follow its serving count.
-- Stable inputs produce a stable plan.
-- Every approved plan has exactly seven entries.
-- Relaxation order is fixed and tested.
-
-### Forecasting
-
-- Two of the four prior calendar weeks crosses the recurrence threshold.
-- Median weekday and quantity calculations are stable.
-- Ordinary pantry photos do not create grocery events.
-- Manual corrections affect later forecasts.
-- Two consecutive rejections suppress a suggestion until a new grocery event revives it.
-- Suggested, expected, confirmed, rejected, and missed states do not collapse together.
-
-### Data and security
-
-- Household members can access their household's grocery events and forecasts.
-- Non-members cannot access them.
-- A user cannot read or mutate another user's rhythm or meal plan.
-- Child ownership cannot be reassigned through an update.
-- Every new table has RLS enabled and required foreign-key indexes.
-
-### Notifications
-
-- Approving a plan schedules one reminder for each applicable dinner.
-- Swaps and moves cancel stale reminders before scheduling replacements.
-- Leftover entries use reheating time.
-- Timezone and daylight-saving changes recalculate times correctly.
-- Permission denial and scheduling failure do not block plan approval.
-
-### Integration and accessibility
-
-- Grocery photo to confirmed event to expected forecast to approved plan.
-- Missed expected ingredient to explained local replacement.
-- Pantry removal to affected-entry replan.
-- Notification deep link to tonight's plan entry.
-- Keyboard, screen-reader, reduced-motion, and 200% Dynamic Type coverage.
+Tests cover deterministic seven-day planning, hard constraints, arrival dates,
+ingredient reservations, leftovers, relaxation order, recurrence forecasting,
+RLS isolation, reminder replacement, timezone changes, drift recovery, and the
+complete grocery-photo-to-plan flow. Accessibility coverage includes keyboard,
+screen reader, reduced motion, and 200% Dynamic Type.
 
 ## Success criteria
 

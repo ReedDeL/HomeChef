@@ -4,9 +4,8 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * "src/engine/ has no imports from src/lib/ or React. It is a pure function
- * over plain data. This is the one architectural rule worth defending in code
- * review" (docs/01_TECHNICAL_SPEC.md:675).
+ * The engine is pure: no React, no imports from src/lib/, no I/O
+ * (Technical Spec §4.1; AGENTS.md architecture rules).
  *
  * Code review is a human process that gets skipped at 2am on August 23, so the
  * rule is also asserted here and enforced by ESLint in CI.

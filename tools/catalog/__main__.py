@@ -1,4 +1,4 @@
-"""Build the bundled Tier 1 catalog.
+"""Build the bundled catalog.
 
     python -m tools.catalog --limit 20
 
@@ -27,7 +27,7 @@ OUTPUT_DIR = Path(__file__).resolve().parents[2] / "src" / "data"
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the HomeChef Tier 1 catalog.")
+    parser = argparse.ArgumentParser(description="Build the HomeChef bundled catalog.")
     parser.add_argument("--limit", type=int, default=None, help="stop after N recipes")
     parser.add_argument(
         "--output-dir", type=Path, default=OUTPUT_DIR, help="where to write the JSON files"

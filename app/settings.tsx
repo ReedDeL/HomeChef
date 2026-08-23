@@ -4,6 +4,7 @@ import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'r
 
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Header } from '@/components/ui/Header';
 import {
   clearMealPrepReminders,
   requestMealPrepReminderPermission,
@@ -12,11 +13,11 @@ import {
   MEAL_PREP_REMINDER_LEAD_MINUTES,
   type MealPrepReminderLeadMinutes,
 } from '@/lib/meal-prep-reminder';
+import { trackSettingsUpdated } from '@/lib/analytics';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { Text } from '@/components/ui/Text';
-import { trackSettingsUpdated } from '@/lib/analytics';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
@@ -134,27 +135,6 @@ export default function SettingsScreen() {
     router.replace('/(onboarding)/equipment');
   };
 
-  const handleReset = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Reset all pantry items and onboarding preferences?')) {
-        confirmReset();
-      }
-    } else {
-      Alert.alert(
-        'Reset HomeChef',
-        'This will clear your pantry items, kitchen setup, and preferences, and restart onboarding.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Reset All',
-            style: 'destructive',
-            onPress: confirmReset,
-          },
-        ]
-      );
-    }
-  };
-
   const handleReminderToggle = async (enabled: boolean) => {
     if (!enabled) {
       setMealPrepRemindersEnabled(false);
@@ -180,25 +160,37 @@ export default function SettingsScreen() {
     );
   };
 
-  const openSpoonacular = () => {
-    Linking.openURL('https://spoonacular.com/food-api');
+  const handleReset = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Reset all pantry items and onboarding preferences?')) {
+        confirmReset();
+      }
+    } else {
+      Alert.alert(
+        'Reset HomeChef',
+        'This will clear your pantry items, kitchen setup, and preferences, and restart onboarding.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Reset All',
+            style: 'destructive',
+            onPress: confirmReset,
+          },
+        ]
+      );
+    }
+  };
+
+  // Required by TheMealDB's paid terms: "You can use our custom artwork in your
+  // projects but must mention us as the source of the data", and artwork
+  // "should link back to our website where appropriate". They supply 792 of the
+  // 812 bundled recipes and every recipe image, so this credit is not optional.
+  const openMealDb = () => {
+    Linking.openURL('https://www.themealdb.com');
   };
 
   return (
-    <Screen>
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        accessibilityHint="Returns to the previous screen"
-        onPress={() => router.back()}
-        style={styles.backRow}
-      >
-        <Text variant="heading" tone="accent">
-          ‹ Back
-        </Text>
-      </Pressable>
-
+    <Screen header={<Header backLabel="Back" fallbackHref="/" />}>
       <View style={styles.header}>
         <Text variant="display">Settings</Text>
         <Text variant="body" tone="muted">
@@ -217,6 +209,7 @@ export default function SettingsScreen() {
           style={styles.group}
           accessibilityRole="radiogroup"
           accessibilityLabel="Appearance theme options"
+          accessibilityHint="Choose light, dark, or follow your system setting"
         >
           {THEME_OPTIONS.map((opt) => (
             <SelectableCard
@@ -242,6 +235,7 @@ export default function SettingsScreen() {
           style={styles.group}
           accessibilityRole="radiogroup"
           accessibilityLabel="Kitchen equipment tier"
+          accessibilityHint="Choose the appliances you can cook with"
         >
           {EQUIPMENT_TIERS.map((tier) => (
             <SelectableCard
@@ -329,6 +323,7 @@ export default function SettingsScreen() {
             style={styles.group}
             accessibilityRole="radiogroup"
             accessibilityLabel="How early should meal-prep reminders arrive"
+            accessibilityHint="Choose when meal-prep reminders arrive before cooking"
           >
             <Text variant="bodyStrong">Remind me</Text>
             <View style={styles.chipRow}>
@@ -358,13 +353,13 @@ export default function SettingsScreen() {
           <Pressable
             accessible
             accessibilityRole="link"
-            accessibilityLabel="Recipe data powered by spoonacular"
-            accessibilityHint="Opens the Spoonacular website in browser"
-            onPress={openSpoonacular}
+            accessibilityLabel="Recipe data and images from TheMealDB"
+            accessibilityHint="Opens TheMealDB website in browser"
+            onPress={openMealDb}
             style={styles.attributionLink}
           >
             <Text variant="caption" tone="accent">
-              Recipe data powered by Spoonacular ↗
+              Recipe data & images from TheMealDB ↗
             </Text>
           </Pressable>
         </Card>
@@ -404,7 +399,6 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  backRow: { minHeight: 44, justifyContent: 'center' },
   header: { gap: space.xs },
   section: { gap: space.sm, marginTop: space.sm },
   group: { gap: space.sm },

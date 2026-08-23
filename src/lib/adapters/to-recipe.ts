@@ -36,7 +36,7 @@ export function toRecipe(raw: unknown): Recipe | null {
     dietaryTags: keepKnown(raw.dietaryTags, DIETARY_TAGS),
     ingredients,
     instructions: asString(raw.instructions) ?? '',
-    source: raw.source === 'tier2' ? 'tier2' : 'tier1',
+    source: raw.source === 'spoonacular' ? 'spoonacular' : 'bundled',
   };
 }
 

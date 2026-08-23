@@ -1,4 +1,4 @@
-import { TIER1_CATALOG } from '@/data/catalog';
+import { BUNDLED_CATALOG } from '@/data/catalog';
 
 export interface CuisineOption {
   /** The catalog's own value — what the engine matches against. */
@@ -37,5 +37,5 @@ const CANDIDATES: readonly CuisineOption[] = [
  * silently returns nothing.
  */
 export const CUISINE_OPTIONS: readonly CuisineOption[] = CANDIDATES.filter((option) =>
-  TIER1_CATALOG.some((recipe) => recipe.cuisine === option.value)
+  BUNDLED_CATALOG.some((recipe) => recipe.cuisine === option.value)
 );

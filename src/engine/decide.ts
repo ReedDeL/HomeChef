@@ -15,7 +15,7 @@ import type {
  * The decision engine.
  *
  * Pure and synchronous over plain data. It takes a `Recipe[]` and does not know
- * or care whether Tier 1 bundled JSON or a Tier 2 live fetch supplied it —
+ * or care whether bundled JSON or a live Spoonacular fetch supplied it —
  * which is what lets the whole suite run in milliseconds with no device, no
  * network, and no API quota.
  *

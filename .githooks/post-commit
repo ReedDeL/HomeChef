@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Post every local commit summary to the Discord status webhook using the
+# shared report format in scripts/discord-status.mjs. Committing must never
+# fail because Discord is unreachable, so every error path exits 0 silently.
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$REPO_ROOT" || exit 0
+command -v node >/dev/null 2>&1 || exit 0
+
+node scripts/discord-status.mjs --post-commit 2>/dev/null || true
+exit 0

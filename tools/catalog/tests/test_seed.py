@@ -38,10 +38,10 @@ class TestSeedLoads:
     def test_parses_and_validates(self, seed: list[CatalogRecipe]) -> None:
         assert len(seed) == EXPECTED_SEED_COUNT
 
-    def test_every_recipe_is_marked_tier1(self, seed: list[CatalogRecipe]) -> None:
-        # These are bundled, offline and owned, so they are Tier 1 by every part
+    def test_every_recipe_is_marked_bundled(self, seed: list[CatalogRecipe]) -> None:
+        # These are bundled, offline and owned, so the source label is explicit.
         # of the definition. The engine needs no new case for them.
-        assert all(recipe.source == "tier1" for recipe in seed)
+        assert all(recipe.source == "bundled" for recipe in seed)
 
     def test_ids_are_unique(self, seed: list[CatalogRecipe]) -> None:
         ids = [recipe.id for recipe in seed]

@@ -15,7 +15,7 @@ interface RecipeCardProps {
 const THUMBNAIL = 72;
 
 /**
- * One answer (spec §5).
+ * One answer (Technical Spec §4.1, B4).
  *
  * Every card states its required equipment, even when the user could infer it
  * — constant, cheap proof that the app respects the constraint they declared
