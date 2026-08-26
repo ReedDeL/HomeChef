@@ -2,14 +2,14 @@
 
 **Company:** Application42
 **Product:** HomeChef
-**Version:** 0.1.0 · **Updated:** August 16, 2026
-**Scope:** August 24 MVP. Current implementation status lives in ../README.md.
+**Version:** 0.1.0 · **Updated:** August 26, 2026
+**Scope:** Current MVP. Version 1.0 has no fixed release date.
 
 ---
 
 ## 0. How to read this document
 
-This is the binding technical decision record for HomeChef. Where this document conflicts with an earlier Notion page, **this document wins** and the Notion page should be updated to match. Three such conflicts are resolved explicitly in §2.6.
+`00_PRODUCT_DIRECTION.md` is the binding product record. This document is the binding technical record beneath it. Where an older plan or Notion page conflicts, update that source rather than carrying two directions.
 
 Every decision below is stated as: **what we chose**, **what we rejected**, and **why** — so that neither founder has to re-litigate it at 2am on August 20th.
 
@@ -17,30 +17,26 @@ Every decision below is stated as: **what we chose**, **what we rejected**, and 
 
 ## 1. Product Vision → Technical Constraints
 
-The product is not a recipe search engine. It is a **decision engine**: it consumes constraints and emits three to four actionable directives. Every technical choice below descends from that framing.
+The product is not a recipe search engine. It is a **decision engine** built as two guided trees: make something now and plan my week. Each step asks one question, or two closely related questions. The first result set stays small; Show more reveals additional ranked matches on request.
 
 | # | Business outcome (what the user experiences) | Technical constraint it forces |
 |---|---|---|
 | B1 | "I set up my kitchen once and it never asks again." | Durable per-user profile with equipment tier + allergens. Must survive reinstall → server-side, not device-local. Auth required from day one. |
 | B2 | "I take a photo of my fridge and it knows what I have." | Open-vocabulary visual recognition. Cannot be a fixed-class model. Output must be machine-parseable, not prose. |
 | B3 | "It shows me meals in four buckets by what I'm missing." | Set-difference of pantry against every recipe's ingredient list, computed for the entire catalog on every query. Must feel instant (<100ms perceived). |
-| B4 | "Three good answers, not four hundred." | Ranking and truncation are product features. The engine must be *opinionated* — a scoring function, not a filter. |
+| B4 | "A few answers first, more when I ask." | Ranking, initial truncation, and paged Show more results are product features. The engine is an opinionated scoring function, not a filter. |
 | B5 | "I have 20 minutes." | `total_time_minutes` is a first-class indexed field, and the primary screen input. Not a settings-menu filter. |
 | B6 | "Don't suggest a braise — I have a microwave." | Structured `equipment_required[]` on every recipe. **TheMealDB does not provide this** — we must synthesize it. This is the single largest data-engineering task in the build (§5.2). |
 | B7 | "One tap to say I don't have this, from anywhere." | Every ingredient chip in the entire app is an interactive control bound to a single mutation. Enforced as a shared component, not a per-screen implementation. |
 | B8 | "My roommate and I share a pantry, but not our allergies." | Relational model with row-level authorization. Inventory joins to a *household*; preferences and allergens join to a *user*. **This single requirement eliminates document databases.** |
-| B9 | "Hands-free while cooking." | On-device speech, no per-request cloud billing, no network dependency mid-recipe. |
+| B9 | "Give me a week without making me build one." | The weekly planner returns one proposal and derives plan-linked ingredient gaps from the pantry. |
 | B10 | "Never show me an empty screen." | Constraint relaxation is a required code path with its own tests — not an error state. |
-| B11 | "Free forever, no subscription." | Infrastructure must be ~$0 at launch scale and sub-linear thereafter. Per-user recurring cloud cost is disqualifying. |
+| B11 | "Free to start, with dependable answers." | Infrastructure must stay low-cost at initial scale and grow sub-linearly. Per-user recurring cost requires an explicit business decision. |
 | B12 | ADA compliant. | Accessibility tree correctness is a Definition-of-Done gate, not a post-launch cleanup. |
 
 ### 1.1 The MVP line
 
-The launch product accepts kitchen constraints and a pantry scan, ranks the owned
-bundled catalog locally, and returns a small set of equipment-, allergen-, and
-diet-compatible options. Spoonacular is an optional, best-effort expansion. Shopping lists,
-barcode scanning, macro tracking, wake-word voice, and roommate-sharing UI are
-out of scope.
+The MVP has two complete journeys. **Now** ranks the catalog against the pantry and leads with a small set of hard-safe matches, with Show more available. **Plan** asks a few preferences, proposes one practical week, and derives **What to get** beyond the pantry. Recipe pages include ingredients and instructions. Dedicated cook mode, voice cooking, barcode scanning, general shopping lists, macro tracking, and roommate-management UI are out of scope.
 
 ---
 
@@ -50,12 +46,12 @@ out of scope.
 
 **Chosen.** Confirmed against both the research document and the existing Notion `Technicalities` page.
 
-Justification, in priority order for a 21-day build:
+Justification, in priority order:
 
 1. **One codebase, three targets.** iOS, Android, and web are all required by the vision. Three native codebases is not survivable by a three-person team in three weeks.
-2. **The New Architecture removes the old objection.** Fabric + TurboModules + JSI give synchronous JS↔native calls. This matters concretely in exactly two places for us: camera frame handling during pantry capture, and speech-recognition callbacks in cook mode. Both were bridge-latency victims under the old architecture.
-3. **Expo Config Plugins are the reason we can ship voice at all.** `@react-native-voice/voice` needs native `NSMicrophoneUsageDescription` and `RECORD_AUDIO` entries. Config plugins inject these during prebuild, so we never maintain a detached native project — which would cost us days we do not have.
-4. **OTA updates are our safety net.** Expo pushes JS-bundle fixes directly to users, bypassing App Store review. With a hard external launch date, the ability to fix a launch-day bug in 20 minutes rather than 72 hours is not a nice-to-have.
+2. **The New Architecture supports camera-heavy pantry capture.** Fabric, TurboModules, and JSI keep the path responsive without a second client architecture.
+3. **Expo keeps platform setup consistent.** Config plugins let us add native capabilities without maintaining separate detached projects.
+4. **OTA updates reduce release risk.** Eligible JavaScript fixes can reach users without waiting for another store review.
 5. **AI SDK ecosystem is JavaScript-first.** Every vendor ships a TS SDK before anything else.
 
 *Closed: Flutter and separate native codebases were both evaluated and rejected. Do not reopen.*
@@ -70,7 +66,7 @@ Justification, in priority order for a 21-day build:
 | State — client | Zustand | v5 |
 | Recipe catalog | Bundled JSON, `src/data/` | — |
 | Backend | Supabase | — |
-| Voice | Deferred post-launch (§2.5) | — |
+| Voice | Not in current scope (§2.5) | — |
 | Editor | VS Code (shared workspace settings, committed) | — |
 
 ### 2.2 Backend — Supabase (managed PostgreSQL)
@@ -240,17 +236,9 @@ Two rules that follow from this schema:
 
 Validate with **Zod** on the Edge Function before any write. The schema guarantee is strong but it is not a substitute for a boundary check — and Zod is where we catch a name that isn't in our canonical ingredient list.
 
-### 2.5 Voice — on-device, native OS APIs
+### 2.5 Recipe guidance
 
-> **DEFERRED post-launch (decided Aug 22, 2026).** All voice interaction —
-> tap-to-listen included — is out of the August 24 build. The architecture
-> below is the design we will implement when voice returns.
-
-`@react-native-voice/voice` bridges to iOS `SFSpeechRecognizer` and Android `SpeechRecognizer`. Processing is local: no cloud cost, no per-request billing, no latency, works offline.
-
-Requires native code, so it cannot run in the Expo Go sandbox — we use **Expo Prebuild + config plugins**, which generate the native projects during the build and inject the microphone permissions automatically.
-
-**Wake-word ("Hey Chef") and tap-to-listen are both deferred.** Wake-word continuously streams audio through the native recognizer, which drains battery and causes thermal throttling during a long cooking session; it wants a dedicated on-device engine (Picovoice Porcupine) and is a Phase 2 build. Tap-to-listen was scoped for launch but cut two days out: untestable in CI, device-dependent, and half-shipped voice is worse than none. Cook mode ships silent; step navigation stays touch-first.
+The current product ends at a clear recipe page with ingredients and instructions. Dedicated cook mode, hands-free cooking, voice control, and keep-awake behavior are not current requirements. Reconsider them only after the Now and Plan journeys are complete and real usage shows a need.
 
 ### 2.6 Conflicts resolved
 
@@ -258,9 +246,9 @@ Three places where the sources disagreed, and the resolution:
 
 | # | Conflict | Resolution |
 |---|---|---|
-| 1 | Brief states `PRIMARY_LANGUAGE: Python`; research and Notion both specify TypeScript/React Native. | **TypeScript is the product language.** Python is the *tooling* language and owns the catalog ingest and equipment-enrichment pipeline (§5.2) — a real, load-bearing component that plays directly to existing team fluency. Both standards are specified in the Style Guide. No Python enters the request path; adding a FastAPI layer would introduce a second deploy target for zero product benefit, 21 days from launch. |
+| 1 | Brief states `PRIMARY_LANGUAGE: Python`; research and Notion both specify TypeScript/React Native. | **TypeScript is the product language.** Python is the *tooling* language and owns the catalog ingest and equipment-enrichment pipeline (§5.2) — a real, load-bearing component that plays directly to existing team fluency. Both standards are specified in the Style Guide. No Python enters the request path; adding a FastAPI layer would introduce a second deploy target for no product benefit. |
 | 2 | Notion `Technicalities` lists "MongoDB or Firebase if needed" alongside Supabase. | **Closed. Supabase Postgres only.** The roommate privacy requirement (B8) is a relational constraint enforced by RLS. Update the Notion page to remove the alternatives so nobody starts a parallel implementation. |
-| 3 | Research recommends pgvector + Reciprocal Rank Fusion hybrid search; Notion specifies a bundled JSON catalog. | **Notion is right for launch.** Reasoning in §4.1 — at ~320 recipes the entire ranking runs client-side in under 10ms. Spoonacular doesn't change this: their terms forbid storing their recipes, so our *stored* catalog stays ~300 regardless of how many we display. |
+| 3 | Research recommends pgvector + Reciprocal Rank Fusion hybrid search; Notion specifies a bundled JSON catalog. | **The bundled catalog remains the right choice.** Reasoning in §4.1 — at ~320 recipes the entire ranking runs client-side in under 10ms. Spoonacular doesn't change this: their terms forbid storing their recipes, so our *stored* catalog stays ~300 regardless of how many we display. |
 | 4 | Original spec treated Spoonacular as a Phase 2 replacement whose data we would cache into Postgres. | **Wrong, and corrected Aug 3.** Their Terms of Use prohibit storing ingredients, instructions, or derived data beyond a 1-hour cache. Spoonacular is now an optional live query, nothing persisted but `id`/`title`/`imageUrl` (§2.3). |
 
 ---
@@ -403,7 +391,7 @@ function decide(
 
 **Bucketing** by count of missing ingredients: `0` → *ready* · `1–2` → *missing a few* · `3–4` → *missing more* · `5+` → *grocery run*.
 
-**Truncation is the product (B4).** Show at most 4 per bucket. Comprehensiveness is our competitors' value proposition, and it is the thing we are deliberately not doing.
+**Progressive disclosure is the product (B4).** Show a few top matches first. A user-triggered Show more action may reveal the next ranked set while preserving order, explanations, and every hard constraint. Catalog breadth is available without becoming the default cognitive load.
 
 ### 4.2 The Spoonacular expansion rule
 
@@ -588,7 +576,7 @@ Implementation requirements:
 
 ## 7. Accessibility (ADA) — a Definition-of-Done gate
 
-Accessibility work here does double duty: the same APIs that serve screen-reader users also solve the **situational disability** at the heart of cook mode — a user whose hands are covered in raw chicken cannot reliably touch a screen either.
+Accessibility reduces effort for everyone. Clear hierarchy, large targets, and predictable focus make each decision-tree step easier under stress as well as with assistive technology.
 
 | Requirement | Implementation |
 |---|---|
@@ -596,11 +584,11 @@ Accessibility work here does double duty: the same APIs that serve screen-reader
 | Descriptive labels | `accessibilityLabel` on every icon-only control. The save-heart declares `"Save recipe"`, never an image filename. |
 | Contextual hints | `accessibilityHint` on any control with a non-obvious consequence — e.g. `"Removes this ingredient from your pantry"`. |
 | Semantic roles | `accessibilityRole` on all interactive and structural elements, so the OS appends its native affordance ("double tap to activate"). |
-| Live regions — polite | `aria-live="polite"` for cook-mode step advances. Announces after the current utterance finishes. |
-| Live regions — assertive | `aria-live="assertive"` **reserved exclusively for allergen warnings and expired timers.** Overuse makes the app hostile to screen-reader users. |
+| Live regions — polite | `aria-live="polite"` for recommendation updates, Show more results, and pantry corrections. |
+| Live regions — assertive | `aria-live="assertive"` is reserved for allergen warnings. Overuse makes the app hostile to screen-reader users. |
 | Reduced motion | `AccessibilityInfo.isScreenReaderEnabled()` to disable auto-advancing carousels and decorative animation. |
 | Contrast | WCAG 2.1 AA — 4.5:1 body text, 3:1 large text. Verified in the design tokens (see UI/UX spec). |
-| Touch targets | Minimum 44×44pt. Cook-mode controls minimum **64×64pt** — sized for a knuckle. |
+| Touch targets | Minimum 44×44pt, with larger primary actions where space allows. |
 | Audit | Xcode Accessibility Inspector and Android Accessibility Scanner run before every release. |
 
 ---
