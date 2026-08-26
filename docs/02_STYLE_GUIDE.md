@@ -8,7 +8,7 @@
 
 ## 0. Why this document exists
 
-Two people writing in two personal styles produces a codebase that reads like an argument. With 21 days and a hard launch date, time spent decoding a teammate's formatting is time not spent shipping.
+Two people writing in two personal styles produces a codebase that reads like an argument. Time spent decoding a teammate's formatting is time not spent improving the product.
 
 **The governing principle:** *most style questions should be answered by a tool, not by a person.* Formatters and linters are configured once, run automatically, and are never debated in a pull request. Human review is reserved for things tools cannot check — naming, structure, and whether the code is correct.
 
@@ -366,11 +366,11 @@ Verbs we use: `Add` · `Fix` · `Remove` · `Refactor` · `Update` · `Rename` �
 **Body** (optional, wrapped at 72 characters, separated from the subject by a blank line) explains *why*, never *what* — the diff already shows what:
 
 ```
-Cut wake-word detection from launch scope
+Keep voice cooking out of current scope
 
 Continuous audio streaming through SFSpeechRecognizer causes thermal
 throttling on iPhone 12 and older after roughly 8 minutes. Tap-to-listen
-ships for Aug 24; Porcupine wake-word is queued for Phase 2.
+is outside the current product direction; revisit only with user evidence.
 
 Refs: Technical Spec 2.5
 ```
