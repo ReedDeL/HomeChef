@@ -1,3 +1,5 @@
+> **Supporting future design.** Weekly planning is current MVP scope; notifications are optional follow-on work and do not define release readiness.
+
 # HomeChef Meal-Prep Notification Foundation Design
 
 **Date:** 2026-08-13

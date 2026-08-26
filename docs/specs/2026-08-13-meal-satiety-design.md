@@ -1,3 +1,5 @@
+> **Historical product design.** Dedicated cook mode and satiety prompts are not current MVP requirements. See `../00_PRODUCT_DIRECTION.md`.
+
 # Meal satiety check-in design
 
 **Date:** 2026-08-13

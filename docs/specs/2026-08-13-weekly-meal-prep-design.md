@@ -1,396 +1,134 @@
-# HomeChef Weekly Meal Prep Design
+# HomeChef Weekly Meal Prep Specification
 
-**Date:** August 13, 2026
-
-**Status:** Approved for implementation planning
-
-**Release scope:** Post-August 24 feature
+**Updated:** August 26, 2026  
+**Status:** Current MVP journey
 
 ## Goal
 
-Give the user one dependable dinner schedule for the next seven days, based on what is in
-the pantry, what HomeChef expects the household to receive, and how much time the user
-wants to spend cooking each day.
+Help a busy user plan meals for several days without making them build a
+calendar or browse a catalog.
 
-The feature remains a decision engine. HomeChef generates one plan normally containing
-three to four cooking sessions and uses leftovers for the remaining dinners. The user
-reviews the recommendation and edits exceptions; they do not build a calendar from a
-recipe browser.
+The weekly journey is the reverse of the Now journey:
 
-## Scope
+- Now asks what the pantry can make.
+- Plan proposes meals, then shows what the pantry is missing.
 
-The complete feature includes:
+## Decision tree
 
-- Dinner only.
-- A reusable pattern of daily cooking-time limits and preferred dinner times.
-- Recurring-grocery suggestions learned from dated grocery additions.
-- Manual grocery entry and grocery-specific photo capture.
-- A seven-night plan generated automatically from confirmed and expected ingredients.
-- Deliberate larger cooks followed by leftover dinners on busy nights.
-- Focused per-night edits and automatic replanning after pantry drift.
-- One local reminder before each cooking or reheating start time.
+Each step asks one question.
 
-This feature is post-launch. It does not change the August 24 MVP boundary.
+### 1. Days
 
-## Non-goals
+Ask how many days HomeChef should plan. Use a small set of common choices.
 
-- Shopping lists or automatically proposed purchases.
-- Breakfast or lunch planning.
-- A browsable meal-planning calendar.
-- Drag-and-drop schedule editing.
-- Nutrition or macro targets.
-- Expiry tracking.
-- Roommate schedule-sharing UI.
-- Spoonacular recipes in durable weekly plans.
-- Receipt OCR, retailer accounts, or grocery-delivery integrations.
+### 2. Preparation style
 
-## Product principles
+Ask whether the week should be:
 
-### One recommendation, then exceptions
+- mostly quick meals;
+- batch prep;
+- a mix.
 
-HomeChef produces the week before asking the user to make recipe decisions. The primary
-weekly surface is one proposed plan, not multiple schedules or an empty calendar.
+### 3. Variety
 
-### Ingredients have explicit states
+Ask whether the user wants variety or comfortable repeats.
 
-The planner never treats an inference as confirmed pantry inventory:
+Existing equipment, allergens, dietary needs, pantry contents, and learned
+preferences apply automatically. Do not ask for them again.
 
-- **Confirmed:** currently in the pantry.
-- **Expected:** included in the confirmed weekly forecast but not yet received.
-- **Suggested:** inferred from grocery history and awaiting weekly confirmation.
+Optional advanced preferences belong behind progressive disclosure. They must
+not turn the first flow into a planning form.
 
-Suggested ingredients may be used to compute an internal provisional draft. The user must
-confirm the weekly forecast before the schedule can be approved. Confirming a forecast
-moves an ingredient to expected, not confirmed.
+## Proposal
 
-### Hard constraints remain hard
+HomeChef generates one recommended plan.
 
-Equipment, allergens, and dietary restrictions eliminate recipes. No scheduling,
-forecasting, or recovery path may relax them.
+The plan should:
 
-### No hidden shopping list
+- cover the selected number of days;
+- respect every hard constraint;
+- reuse ingredients where practical;
+- reduce waste;
+- fit the selected preparation style;
+- state any relaxed time or cuisine preference;
+- use a labeled day-of-decision fallback when no safe recipe fits.
 
-An approved plan uses confirmed pantry ingredients and confirmed expected ingredients.
-HomeChef never silently schedules a meal that requires the user to buy something else.
+The user reviews the proposal and may replace one meal at a time. There is no
+empty calendar and no recipe-browser-first flow.
 
-## Core experience
+## What to get
 
-### 1. Confirm the weekly forecast
+After confirmation, derive the ingredients needed beyond the pantry.
 
-The weekly flow begins with a short list of suggested incoming groceries. Each suggestion
-has an explanation such as `Usually added on Sundays`.
+Use the heading **What to get**.
 
-The user can:
+The output:
 
-- Confirm the forecast.
-- Remove or change a suggested item.
-- Add an expected item manually.
-- Use **Add groceries by photo** for groceries already purchased.
+- belongs only to the current plan;
+- excludes ingredients already confirmed in the pantry;
+- groups repeated needs;
+- explains which meals use each ingredient;
+- stays small enough to review;
+- requires confirmation before changing pantry state.
 
-If the user skips the forecast, HomeChef generates the plan from confirmed pantry
-ingredients only.
+This is plan-linked ingredient guidance, not a general shopping-list feature.
+It does not add checkouts, store aisles, barcode scanning, retailer accounts, or
+a reusable list.
 
-### 2. Review one generated week
+## Ingredient recommendations
 
-HomeChef presents seven dinner entries and a compact summary:
+HomeChef may learn from explicit recipe selections and confirmed weekly plans.
 
-- Number of cooking sessions.
-- Number of leftover nights.
-- Total active cooking time.
-- Which meals rely on expected ingredients.
+Future suggestions may consider:
 
-The default target is four cooks and three leftover nights. The planner may reduce the
-number of unique cooks when time or ingredient coverage is thin.
+- ingredients repeatedly needed by selected meals;
+- ingredients that work across several planned recipes;
+- pantry staples the user regularly confirms;
+- choices the user replaces or rejects.
 
-The plan is still a draft until the user selects **Use this plan**. Approval persists the
-plan and schedules its reminders.
-
-### 3. Return to tonight
-
-After approval, Home stops asking the normal time-first question when tonight has a plan.
-It instead shows:
-
-- Tonight's meal.
-- The calculated start time.
-- Total cooking or reheating time.
-- Whether the cook also produces tomorrow's dinner.
-- **Start cooking** as the primary action.
-
-Two quiet secondary actions remain: **View this week** and **Pick something else**.
-Choosing another meal does not delete the rest of the approved week.
-
-### Navigation
-
-Before a plan exists, Home exposes one quiet **Plan my week** row near the pantry link.
-The weekly flow is a stack route, not a third tab. The feature must not put a persistent
-meal-planning choice on every screen.
-
-## Grocery learning
-
-### What creates purchase history
-
-Only explicit grocery events teach recurrence:
-
-- A grocery-specific photo session.
-- Manual entry through **Just bought groceries**.
-
-An ordinary pantry photo does not create a purchase event. It may contain items bought
-weeks earlier and would corrupt the inferred cadence.
-
-Images are processed and discarded. The durable event contains canonical ingredient IDs,
-the event date, entry source, and quantity or unit when the user confirmed one. Receipt
-text and image locations are not retained.
-
-### Recurrence heuristic
-
-The first version uses a deterministic heuristic rather than a model or external service:
-
-1. Consider the four prior calendar weeks in the household's local timezone.
-2. Suggest an ingredient after it appears in at least two of those weeks.
-3. Estimate its arrival weekday from the median recent purchase weekday.
-4. Estimate quantity from the median of known recent quantities.
-5. Keep quantity unknown when the observations do not support a reliable estimate.
-
-Manual corrections become new evidence. Rejecting a suggestion excludes it from the
-current forecast but does not erase the purchase history. Two consecutive weekly
-rejections suppress it until a new grocery event records that ingredient again.
-
-### Arrival and drift
-
-Each expected ingredient has an anticipated arrival date. The planner cannot use it before
-that date. A grocery photo or manual confirmation promotes a matching expected item into
-the confirmed pantry and records the actual arrival date.
-
-When an expected item is still absent after its anticipated arrival, HomeChef replans only
-future meals that depend on it. It explains the replacement and offers an undo or an
-**I received it** correction.
-
-## Weekly preferences
-
-The user configures a reusable rhythm once:
-
-- Maximum active cooking minutes for each weekday.
-- Preferred dinner time for each weekday.
-- Whether that weekday is normally available for cooking.
-- Number of diners.
-- Reminder lead time: disabled, at start, or 10, 15, 30, or 60 minutes before start.
-
-The UI may group days with the same values, such as Monday through Thursday. A user can
-override any value for one date from the generated plan without changing the reusable
-pattern.
-
-The initial default is one diner, a 30-minute limit, a 7:00 PM dinner time, and a 10-minute
-reminder lead. Reminders remain disabled until the user explicitly enables them.
+Recommendations remain suggestions. They do not become pantry facts and do not
+affect a plan without user approval.
 
 ## Planner contract
 
-`planWeek()` belongs in `src/engine/` and is pure. Dates in its contract are ISO 8601 local
-calendar dates rather than timestamps. Its conceptual inputs are:
+The planner remains pure and deterministic. It receives:
 
-```ts
-type ISODate = string;
+- the bundled recipe catalog;
+- the confirmed pantry;
+- user restrictions and equipment;
+- the answers from the weekly decision tree;
+- explicit preference signals;
+- the week start.
 
-interface PlanWeekInput {
-  recipes: Recipe[];
-  pantry: IngredientAvailability[];
-  expected: ExpectedIngredient[];
-  preferences: UserPreferences;
-  rhythm: WeeklyCookingRhythm;
-  dinerCount: number;
-  weekStart: ISODate;
-}
-```
+It returns:
 
-The output is a deterministic draft with seven entries:
+- one draft plan;
+- dated entries;
+- stated relaxations;
+- plan-linked ingredient gaps;
+- a safe fallback for any unfilled day.
 
-```ts
-type MealPlanEntry =
-  | CookEntry
-  | LeftoverEntry
-  | UnavailableEntry
-  | DayOfDecisionEntry;
+Borrowed live-recipe content cannot be persisted in a weekly plan. Hard
+constraints are never relaxed.
 
-interface WeeklyMealPlan {
-  weekStart: ISODate;
-  entries: readonly MealPlanEntry[];
-  activeMinutes: number;
-  appliedRelaxations: readonly WeeklyPlanRelaxation[];
-}
-```
+## Navigation
 
-`UnavailableEntry` means the user explicitly opted out of planning dinner for that date.
-`DayOfDecisionEntry` is the last-resort promise that HomeChef will run its normal pantry
-decision on that date because the weekly planner could not safely assign a concrete meal.
+Plan is a primary destination beside Now and Pantry.
 
-These are plain-data contracts. The engine imports neither React nor `src/lib/`, performs
-no I/O, and does not know whether its inputs came from Zustand or Supabase.
+The flow should show progress without presenting every question at once. Leaving
+and returning should preserve the draft.
 
-## Catalog requirements
+## Accessibility
 
-Reliable leftovers require data that the current catalog contract does not contain. Bundled recipes
-recipes must gain build-time fields for:
+- Every step has a clear heading and one primary action.
+- Choice controls expose selected state.
+- Plan entries announce date, meal, time, and pantry fit together.
+- Ingredient gaps identify the meals that use them.
+- Layouts support keyboard navigation, screen readers, reduced motion, and 200%
+  text scaling.
 
-- Base serving count.
-- Structured ingredient quantity and canonical unit where parsing is reliable.
-- Whether the recipe can produce next-day leftovers.
+## Success
 
-The catalog pipeline leaves a quantity unknown rather than inventing precision. A recipe
-without a reliable serving count is not eligible to anchor a leftover night.
-
-The initial leftover rule is deliberately narrow: a larger cook may supply the following
-night only. Longer storage or freezer planning requires explicit catalog metadata and is
-not inferred.
-
-Only bundled recipes are eligible for durable plans. Spoonacular ingredients,
-instructions, time, and serving data are borrowed and cannot be persisted. Restricting the
-planner to the bundled catalog keeps approved plans available offline and prevents a Terms of Use
-violation.
-
-## Scheduling behavior
-
-The planner applies these rules in order:
-
-1. Eliminate recipes that violate equipment, allergen, or dietary constraints.
-2. Eliminate a recipe from a date when its required ingredients are not available by then.
-3. Put larger, leftover-producing meals on higher-time days.
-4. Assign their leftovers to the following lower-time or unavailable cooking day.
-5. Prefer ingredient reuse without reserving the same limited quantity twice.
-6. Apply existing dislike and skip signals when ranking otherwise valid recipes.
-7. Prefer three to four distinct cooks while avoiding unnecessary repetition.
-8. Minimize active cooking time after the requirements above are satisfied.
-9. Use a stable recipe-ID tie-breaker so identical inputs always produce the same plan.
-
-The implementation should use a bounded deterministic search rather than seven greedy
-daily decisions. A small beam search over the bundled catalog can carry the
-remaining ingredient ledger and leftover state across days without requiring a service or
-database search.
-
-### Ingredient reservations
-
-Known quantities are reserved across all seven entries while the draft is built. An
-ingredient with an unknown quantity receives one primary use unless the user confirms that
-there is enough for more. Leftover entries consume the reservation made by their original
-cook and do not consume ingredients again.
-
-Reservations are tentative. Approving a plan does not remove anything from the pantry.
-The existing Cook mode completion flow performs the real pantry deduction, after which the
-coordinator checks future entries for drift.
-
-### Weekly relaxation order
-
-If the ideal four-cook plan cannot be built, the planner:
-
-1. Reduces four unique cooks to three, then two.
-2. Uses an additional valid leftover night when the catalog metadata permits it.
-3. Widens a daily time limit by one tier and states the change in the plan.
-4. Places a clearly labeled day-of HomeChef decision on the affected night.
-
-The planner never adds missing groceries, schedules an unconfirmed suggestion, or relaxes
-a hard constraint.
-
-## Editing and automatic recovery
-
-Tapping a dinner opens four focused actions:
-
-- Swap this dinner.
-- Move it to another day.
-- Change this day's available time.
-- Mark this date as unavailable for cooking.
-
-Swap shows at most three ranked alternatives. It does not open the full catalog. Moving a
-cook moves its dependent leftover entry or asks the user to replace that leftover night.
-
-Automatic replanning is local to the smallest affected portion of the week:
-
-- Pantry drift changes the affected future cook and its dependent leftover only.
-- A missed expected ingredient changes only future entries that require it.
-- A completed or skipped date is immutable.
-- Every automatic replacement states why it occurred and offers undo.
-
-All editing actions use buttons and lists. Dragging may be an enhancement but can never be
-the only way to modify a plan.
-
-## Reminders
-
-Reminders use local notifications. No Edge Function, cron job, or third-party notification
-service is required.
-
-For a cooking entry:
-
-```text
-start time = preferred dinner time - recipe duration
-reminder time = start time - reminder lead time
-```
-
-For a leftover entry, the recipe duration is replaced with its reheating duration. The
-first implementation sends one reminder per concrete dinner. Unavailable and day-of
-decision entries do not schedule a cooking reminder until they contain a meal.
-
-Approving, swapping, moving, or replacing a plan entry cancels its stale notification and
-schedules a new one. Times are recalculated in the user's current timezone, including
-daylight-saving changes.
-
-Notification permission is requested only after the user enables reminders. If permission
-is denied, planning remains fully functional and Home always displays the calculated start
-time. Settings shows one quiet **Enable reminders** row.
-
-A notification opens tonight's plan entry. Example copy:
-
-> Start in 10 minutes. Lemon chicken tray takes 45 minutes. Start at 6:15 to eat
-> at 7:00.
-
-## Architecture
-
-The feature is divided into units with one responsibility each:
-
-- `inferWeeklyIngredients()` converts grocery events into suggested ingredients.
-- `planWeek()` converts recipes, availability, and preferences into a seven-entry draft.
-- The weekly-plan coordinator loads inputs, requests confirmation, persists approval, and
-  triggers reminder scheduling.
-- The notification service owns local notification identifiers, cancellation, and
-  rescheduling.
-- The data layer maps Supabase rows into plain engine inputs and outputs.
-
-TanStack Query owns server state. Temporary draft edits may live in component state or a
-focused client store, but the approved plan and grocery history do not belong in Zustand.
-
-## Data and security contract
-
-The feature requires household grocery events and expected ingredients, plus
-user-owned rhythm and weekly-plan records. The implementation plan must define
-the exact schema. Every table enables RLS in its creation migration, indexes its
-foreign keys, and prevents ownership reassignment. Household members may access
-household grocery data; user preferences and plans remain private to their
-owner.
-
-## Data flow
-
-Grocery events produce suggested expected ingredients. The user confirms the
-forecast, the pure planner builds one seven-day draft, and approval persists the
-plan and schedules local reminders. Pantry drift or a missed expected arrival
-replans only affected future entries and explains the change.
-
-## Recovery and accessibility
-
-An approved plan remains usable when notifications fail. Forecast skips use
-confirmed pantry items only; missing expected items and catalog drift trigger
-stated replacements. Offline generation and synchronization are deferred.
-
-Every day is one accessible group, edits require no drag gesture, targets are at
-least 44 by 44 points, state is never color-only, and the agenda reflows at 200%
-Dynamic Type.
-
-## Verification contract
-
-Tests cover deterministic seven-day planning, hard constraints, arrival dates,
-ingredient reservations, leftovers, relaxation order, recurrence forecasting,
-RLS isolation, reminder replacement, timezone changes, drift recovery, and the
-complete grocery-photo-to-plan flow. Accessibility coverage includes keyboard,
-screen reader, reduced motion, and 200% Dynamic Type.
-
-## Success criteria
-
-The feature succeeds when a returning user can confirm the week's expected groceries,
-approve a complete dinner plan, and leave the app in under two minutes. During the week,
-HomeChef should require no interaction until a useful cooking reminder or genuine pantry
-drift demands attention.
+The journey succeeds when a user can answer a few questions, understand one
+proposed week, and identify what to get without feeling that they planned the
+week manually.

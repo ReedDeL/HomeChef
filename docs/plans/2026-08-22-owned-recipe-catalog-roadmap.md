@@ -44,7 +44,7 @@ than admit.
 - The engine remains synchronous and pure; it receives `Recipe[]` only.
 - Equipment, allergens, and dietary restrictions never relax; unknown status
   excludes.
-- The product emits at most 3-4 answers per bucket and never becomes a recipe
+- The product leads with a few answers, reveals more only on request, and never becomes a recipe
   browser.
 - Hosted failure retains offline results. No empty results screen.
 - Every catalog table has RLS in the same migration and no direct client writes.

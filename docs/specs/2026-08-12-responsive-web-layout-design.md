@@ -1,3 +1,5 @@
+> **Supporting layout design.** Responsive workspace rules remain useful. Cook-mode references are superseded by the current recipe-page direction in `../04_UIUX_SPEC.md`.
+
 # HomeChef Responsive Web Layout Design
 
 **Date:** August 12, 2026  
