@@ -1,3 +1,5 @@
+> **Historical execution plan.** It records the implementation boundary agreed on August 22. Current product behavior and release scope are governed by `../../00_PRODUCT_DIRECTION.md` and `../../04_UIUX_SPEC.md`.
+
 # HomeChef Dual Meal Journeys Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
