@@ -1,3 +1,5 @@
+> **Historical implementation plan.** Cooking and cook-mode events below are legacy. Current analytics work follows `../00_PRODUCT_DIRECTION.md` and measures the Now, Plan, Pantry, Show more, recipe, and What to get journeys.
+
 # PostHog Analytics Integration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (\`- [ ]\`) syntax for tracking.
