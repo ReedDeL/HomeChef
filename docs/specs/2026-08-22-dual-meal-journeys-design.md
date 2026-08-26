@@ -1,4 +1,9 @@
-# HomeChef Dual Meal Journeys Governing Design
+# HomeChef Dual Meal Journeys Technical Design
+
+> **Current authority:** Product behavior is governed by
+> `../00_PRODUCT_DIRECTION.md` and `../04_UIUX_SPEC.md`. This file preserves
+> supporting data, privacy, and engine contracts. Cook-mode, satiety, portion,
+> and reminder sections are not current MVP requirements.
 
 **Date:** 2026-08-22
 
@@ -33,18 +38,17 @@ tracking, a nutrition dashboard, weight history, roommate planning, or a general
 
 ## 2. Product decision
 
-Home is a chooser for two distinct decisions:
+HomeChef has two decision journeys:
 
-1. Make a meal now from the saved pantry, optionally refreshing pantry drift with photos.
-2. Generate one seven-day plan and the bounded grocery needs created by that plan.
+1. Now makes a meal decision from the saved pantry, with optional photo correction.
+2. Plan proposes a practical week and derives the ingredient gaps created by that plan.
 
-The chooser has exactly two primary journey actions. Both journeys are stack routes; the
-weekly journey does not become a persistent navigation tab. The existing navigation may
-remain, but no third journey tab is added.
+Now and Plan are primary destinations alongside Pantry. Each journey reveals one question at
+a time and preserves its draft when the user moves between steps.
 
 The product remains a decision engine:
 
-- The now journey exposes at most four answers total, not four per bucket.
+- The now journey leads with a few answers and exposes the next ranked set only through Show more.
 - The week journey exposes one proposal with exactly seven dated entries.
 - Equipment, allergen, and dietary constraints are never relaxed.
 - Time and cuisine are the only relaxable inputs, and every relaxation is visible.
@@ -56,14 +60,14 @@ These strings and meanings are part of the cross-platform contract.
 
 | Purpose | Exact copy | Meaning |
 |---|---|---|
-| Now action | `Make a meal now` | Start the immediate decision journey. |
+| Now action | `Now` | Start the immediate decision journey. |
 | Now description | `Use your saved pantry, with an optional photo refresh.` | Photos correct pantry drift but are not required. |
-| Week action | `Plan and prep my week` | Start the single-proposal weekly journey. |
+| Week action | `Plan` | Start the single-proposal weekly journey. |
 | Week description | `Get one seven-day plan and only what that plan needs.` | The output is one bounded plan, not a browser or reusable list. |
 | Weekly fallback | `Decide that day` | No safe concrete recipe is committed for that date. |
 | Nutrition disclaimer | `Estimate only—adjust to your hunger.` | Portion guidance is non-medical and may be adjusted by the user. |
 | Plan confirmation | `Use this plan` | Persist the proposal as the confirmed personal plan. |
-| Grocery-needs heading | `What this plan needs` | Every displayed need belongs only to the displayed plan. |
+| Grocery-needs heading | `What to get` | Every displayed need belongs only to the displayed plan. |
 
 Copy may be translated for localization, but the meaning, safety boundaries, and plan scope
 must not change. Tests use the English strings above as the canonical fixture values.
@@ -301,9 +305,9 @@ correction, but the refresh is not a prerequisite for a decision. Returning from
 capture preserves the mounted now-journey draft.
 
 The engine retains the readiness order `ready`, `missing_few`, `missing_some`,
-`grocery_run`. The presentation boundary consumes non-empty buckets in that order and stops
-after four scored recipes total. Empty buckets and their headings are absent. There is no
-per-bucket allowance that can expand the surface beyond four.
+`grocery_run`. The presentation boundary consumes non-empty buckets in that order and shows
+a small first set. Empty buckets and their headings are absent. Show more requests the next
+stable ranked set; it does not rerank, relax a hard constraint, or replace earlier results.
 
 When an exact result is thin, the engine may widen time and then drop cuisine, stating each
 concession. It may make a best-effort live expansion only under the existing four Spoonacular
@@ -370,7 +374,7 @@ Grocery needs are derived only from concrete entries:
 - Replace derived entries or needs only by deleting and reinserting the complete child sets in
   one operation boundary; never update a child row in place.
 
-The heading is `What this plan needs`. Needs cannot be checked off into pantry state, reused
+The heading is `What to get`. Needs cannot be checked off into pantry state, reused
 across plans, retained as history, or displayed independently as a general list. A replacement
 plan derives a new set from its own entries.
 
@@ -518,8 +522,8 @@ or the named platform review:
   concrete weekly entry.
 - JSON Schema regeneration is stable, and the checked-in fixture parses through the runtime
   schema.
-- The visible now decision preserves bucket order, removes empty buckets, and exposes at most
-  four recipes total.
+- The visible now decision preserves bucket order, removes empty buckets, leads with a small
+  first set, and exposes stable additional sets through Show more.
 - Missing equipment metadata fails closed as `unclassified`.
 - Spoonacular persistence emits exactly `id`, `title`, and `imageUrl`.
 
@@ -552,10 +556,10 @@ or the named platform review:
 
 ### Experience and reminders
 
-- Home has exactly the two frozen journey labels and no new persistent journey tab.
+- Now and Plan are primary destinations beside Pantry, with one decision visible per step.
 - Every interactive element has role, label, hint, and applicable state.
 - Weekly entries expose combined date, meal, duration, and status accessibility text.
-- The weekly screen uses the frozen grocery heading and confirmation action, and displays no
+- The weekly screen uses the `What to get` heading and confirmation action, and displays no
   more than 12 needs.
 - Reminder tests prove all five presets, the `max(duration, lead)` formula, save-before-sync,
   confirmed-only scheduling, stale cancellation, serialized replacement, and non-blocking
