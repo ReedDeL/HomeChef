@@ -1,3 +1,5 @@
+> **Historical implementation plan.** Cook mode and satiety check-ins are not current MVP requirements. See `../00_PRODUCT_DIRECTION.md`.
+
 # Meal Satiety Check-In Implementation Plan
 
 **Goal:** Let a user privately record whether a completed meal left them
