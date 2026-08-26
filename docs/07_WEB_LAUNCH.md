@@ -1,8 +1,8 @@
-# HomeChef — Cloudflare Web Launch
+# HomeChef — Cloudflare Web Release
 
 **Version:** 0.1.0 · **Date:** August 23, 2026
 
-This is the no-app-store launch path. It publishes the existing Expo Router
+This publishes the existing Expo Router
 web build as static assets on Cloudflare Pages. It does not replace Supabase,
 move an API, or create a second backend.
 
@@ -14,7 +14,7 @@ move an API, or create a second backend.
 | Supabase | Authentication, database, storage, and Edge Functions |
 | PostHog | The approved product analytics events |
 
-HomeChef uses no Pages Functions for this launch. Static asset requests on
+HomeChef uses no Pages Functions for this release. Static asset requests on
 Cloudflare Pages are free; the vendor's current limits still apply and should
 be rechecked before a higher-traffic release.
 
@@ -71,16 +71,16 @@ approved by the repository owner.
    PostHog personal API key, or Discord webhook.
 
 6. Select **Save and Deploy**. Cloudflare assigns a `*.pages.dev` HTTPS URL.
-7. Add a custom domain only after the `pages.dev` launch passes the checklist.
+7. Add a custom domain only after the `pages.dev` release passes the checklist.
 
 PostHog is optional for rendering: if its project token is absent, HomeChef
 starts with analytics disabled. Supabase configuration is required for the
 photo pipeline and future authentication.
 
-## Launch checklist
+## release checklist
 
 - Complete onboarding and submit a pantry filter.
-- Open a recipe, start cook mode, and complete it.
+- Open a recipe and verify complete instructions. Verify Show more preserves earlier matches, then generate a weekly plan and review What to get.
 - Refresh a recipe or cook-mode URL directly to check deep links.
 - Upload a synthetic test photo; do not use a real pantry photo for an
   infrastructure check.
