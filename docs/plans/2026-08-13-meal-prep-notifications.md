@@ -1,3 +1,5 @@
+> **Supporting future plan.** Weekly planning is current MVP scope; reminders are not required for Version 1.0 unless separately approved. Product behavior follows `../00_PRODUCT_DIRECTION.md`.
+
 # Meal-Prep Notification Foundation Plan
 
 **Goal:** Add opt-in local start-cooking reminders for future weekly meal plans;
