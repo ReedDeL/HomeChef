@@ -29,13 +29,31 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import * as WebBrowser from 'expo-web-browser';
 
-import { createGoogleOAuthDependencies, signInWithGoogle, signOut } from '@/lib/auth/google';
+import {
+  createGoogleOAuthDependencies,
+  resolveWebRedirectUri,
+  signInWithGoogle,
+  signOut,
+} from '@/lib/auth/google';
 import { supabase } from '@/lib/supabase';
 
 afterEach(() => {
   platformState.os = 'web';
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe('resolveWebRedirectUri', () => {
+  it('uses the configured production origin when present', () => {
+    expect(resolveWebRedirectUri('http://localhost:8081', 'https://homechef-2xy.pages.dev')).toBe(
+      'https://homechef-2xy.pages.dev'
+    );
+  });
+
+  it('falls back to the current browser origin for local development', () => {
+    expect(resolveWebRedirectUri('http://localhost:8081', '   ')).toBe('http://localhost:8081');
+  });
 });
 
 describe('createGoogleOAuthDependencies', () => {
