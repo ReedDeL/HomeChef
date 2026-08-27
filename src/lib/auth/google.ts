@@ -44,6 +44,13 @@ export interface GoogleOAuthAdapterDependencies {
 
 WebBrowser.maybeCompleteAuthSession();
 
+export function resolveWebRedirectUri(
+  currentOrigin: string,
+  configuredOrigin = process.env.EXPO_PUBLIC_SITE_URL
+): string {
+  return configuredOrigin?.trim() || currentOrigin;
+}
+
 export function createGoogleOAuthDependencies(
   adapter: GoogleOAuthAdapterDependencies
 ): GoogleOAuthFlowDependencies {
@@ -95,7 +102,9 @@ export async function signInWithGoogle(): Promise<GoogleOAuthOutcome> {
   }
   const platform: GoogleOAuthPlatform = Platform.OS === 'web' ? 'web' : 'android';
   const redirectTo =
-    platform === 'web' ? globalThis.location.origin : makeRedirectUri({ path: 'auth/callback' });
+    platform === 'web'
+      ? resolveWebRedirectUri(globalThis.location.origin)
+      : makeRedirectUri({ path: 'auth/callback' });
   return runGoogleOAuthFlow(
     createGoogleOAuthDependencies({
       platform,
