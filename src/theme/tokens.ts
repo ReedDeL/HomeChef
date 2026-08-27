@@ -127,10 +127,9 @@ export const shadow: Record<ColorScheme, ElevationSet> = {
 };
 
 /**
- * The web build letterboxes the phone layout into a column of this width
- * rather than stretching it across a monitor. 430pt is the iPhone Pro Max
- * logical width — the largest phone the layout is designed for, so nothing
- * reflows differently in the browser than it does on device.
+ * Native and phone-sized web viewports use the compact phone composition.
+ * Wide web viewports use a centered workspace capped at this width so content
+ * can breathe without becoming difficult to scan.
  */
 export const layout = {
   mobileViewportMaxWidth: 430,
