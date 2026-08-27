@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
@@ -31,7 +31,7 @@ interface ScreenProps extends PropsWithChildren {
 export function Screen({ children, header, footer, scroll = true }: ScreenProps) {
   const { color } = useTheme();
   const { width } = useWindowDimensions();
-  const { horizontalPadding } = getResponsiveLayout(width);
+  const { horizontalPadding } = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
   const horizontalInset = { paddingHorizontal: horizontalPadding };
 
   return (
