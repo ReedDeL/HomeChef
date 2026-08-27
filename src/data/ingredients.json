@@ -249,6 +249,12 @@
     "isStaple": false
   },
   {
+    "id": "potatoes",
+    "displayName": "Potatoes",
+    "allergenGroups": [],
+    "isStaple": false
+  },
+  {
     "id": "quinoa",
     "displayName": "Quinoa",
     "allergenGroups": [],
@@ -311,6 +317,12 @@
   {
     "id": "tomato",
     "displayName": "Tomato",
+    "allergenGroups": [],
+    "isStaple": false
+  },
+  {
+    "id": "tomatoes",
+    "displayName": "Tomatoes",
     "allergenGroups": [],
     "isStaple": false
   },

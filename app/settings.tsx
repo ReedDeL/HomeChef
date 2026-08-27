@@ -365,7 +365,7 @@ export default function SettingsScreen() {
           ))}
           <Text variant="caption" tone="muted">
             Each recipe keeps its source, version, license, and attribution metadata.
-          </Text>>
+          </Text>
         </Card>
       </View>
 

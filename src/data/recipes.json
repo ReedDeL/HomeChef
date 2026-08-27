@@ -115,7 +115,7 @@
     "dietaryTags": [],
     "ingredients": [
       {
-        "id": "potato",
+        "id": "potatoes",
         "measure": "1 medium",
         "allergenGroups": []
       },
@@ -1011,7 +1011,7 @@
         "allergenGroups": []
       },
       {
-        "id": "tomato",
+        "id": "tomatoes",
         "measure": "2, chopped",
         "allergenGroups": []
       },
