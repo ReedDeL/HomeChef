@@ -7,12 +7,10 @@ import { palette } from '@/theme/tokens';
  * The web-only HTML shell. Native has no equivalent, and expo-router renders
  * this file at build time rather than shipping it to the client.
  *
- * It exists because the default Expo shell leaves `#root` unbounded, so the
- * phone layout stretched to the full width of a desktop monitor — the summary
- * tiles became 600pt wide and the ingredient chips spread into one sparse row.
- * The app is designed for a phone held in one hand (docs/04_UIUX_SPEC.md §0),
- * so on the web we letterbox it into a phone-width column rather than inventing
- * a second, desktop-shaped design that would drift from iOS and Android.
+ * It exists because the default Expo shell leaves `#root` unbounded. The web
+ * shell now centers a responsive workspace for desktop browsers while the
+ * screen-level compositions keep the phone layout for narrow viewports. Native
+ * platforms remain unchanged.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -52,9 +50,9 @@ const FAVICON_HREF =
 
 /**
  * Only what cannot be expressed in React Native styles belongs here: the page
- * background behind the letterbox, and the centering context the app column
- * sits in. The column's own width lives in `MobileViewport` so that it stays
- * token-driven and readable from the component tree.
+ * background behind the responsive workspace and the centering context the
+ * app column sits in. The column's own width lives in `MobileViewport` so it
+ * stays token-driven and readable from the component tree.
  *
  * Colors are interpolated from the tokens rather than written as hex, so this
  * file cannot drift from src/theme/tokens.ts.
@@ -65,7 +63,7 @@ html, body { height: 100%; }
 body {
   overflow: hidden;
   background-color: ${palette.light.surfaceAlt};
-  /* Matches the RN default so the letterboxed column and the page agree. */
+  /* Matches the RN default so the workspace and the page agree. */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -74,7 +72,7 @@ body {
   display: flex;
   height: 100%;
   flex: 1;
-  /* Centers the phone-width column on a wide viewport. */
+  /* Centers the responsive workspace on a wide viewport. */
   justify-content: center;
 }
 
