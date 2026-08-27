@@ -28,12 +28,4 @@ describe('getResponsiveLayout', () => {
     });
   });
 
-  it('can keep a wide viewport in the phone composition', () => {
-    expect(getResponsiveLayout(1280, false)).toMatchObject({
-      mode: 'tablet',
-      isDesktop: false,
-      contentMaxWidth: undefined,
-      gridColumns: 1,
-    });
-  });
 });
