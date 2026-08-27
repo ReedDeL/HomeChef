@@ -61,6 +61,8 @@ export default function HomeScreen() {
   const allergens = useKitchenStore((state) => state.allergens);
   const dietary = useKitchenStore((state) => state.dietary);
   const pantry = useKitchenStore((state) => state.pantry);
+  const dislikedRecipes = useKitchenStore((state) => state.dislikedRecipes);
+  const skippedRecipes = useKitchenStore((state) => state.skippedRecipes);
 
   const [timeLimit, setTimeLimit] = useState<Minutes | null>(null);
   const [cuisine, setCuisine] = useState<string | null>(null);
@@ -71,8 +73,12 @@ export default function HomeScreen() {
   const [strict, setStrict] = useState(false);
 
   const preferences = useMemo(
-    () => toEnginePreferences({ tierId, extras, allergens, dietary }, cuisine),
-    [tierId, extras, allergens, dietary, cuisine]
+    () =>
+      toEnginePreferences(
+        { tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes },
+        cuisine
+      ),
+    [tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, cuisine]
   );
 
   const pantrySet = useMemo(() => new Set(pantry), [pantry]);

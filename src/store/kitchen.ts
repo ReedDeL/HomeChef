@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { STAPLE_INGREDIENT_IDS, lookupIngredient } from '@/data/catalog';
 import type { DietaryTag, Equipment, IngredientId, UserPreferences } from '@/engine/types';
+import { clearLocalMealSatiety } from '@/lib/meal-satiety';
 import type { MealPrepReminderLeadMinutes } from '@/lib/meal-prep-reminder';
 import { getJSON, setJSON, storage } from '@/lib/storage';
 
@@ -123,6 +124,9 @@ export const DIETARY_PRESETS: readonly { id: DietaryTag; label: string }[] = [
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+const DISLIKED_KEY = 'homechef-disliked';
+const SKIPPED_KEY = 'homechef-skipped';
+
 interface KitchenState {
   tierId: string;
   extras: Equipment[];
@@ -134,6 +138,8 @@ interface KitchenState {
   themeMode: ThemeMode;
   mealPrepRemindersEnabled: boolean;
   mealPrepReminderLeadMinutes: MealPrepReminderLeadMinutes;
+  dislikedRecipes: string[];
+  skippedRecipes: string[];
 
   setTier: (tierId: string) => void;
   toggleExtra: (equipment: Equipment) => void;
@@ -147,6 +153,8 @@ interface KitchenState {
   setThemeMode: (mode: ThemeMode) => void;
   setMealPrepRemindersEnabled: (enabled: boolean) => void;
   setMealPrepReminderLeadMinutes: (minutes: MealPrepReminderLeadMinutes) => void;
+  recordDislike: (recipeId: string) => void;
+  recordSkip: (recipeId: string) => void;
   reset: () => void;
 }
 
@@ -180,6 +188,8 @@ export const useKitchenStore = create<KitchenState>()(
       themeMode: 'system',
       mealPrepRemindersEnabled: false,
       mealPrepReminderLeadMinutes: 0,
+      dislikedRecipes: getJSON<string[]>(DISLIKED_KEY) ?? [],
+      skippedRecipes: getJSON<string[]>(SKIPPED_KEY) ?? [],
 
       setTier: (tierId) => set({ tierId }),
       toggleExtra: (equipment) => set((s) => ({ extras: toggle(s.extras, equipment) })),
@@ -196,7 +206,22 @@ export const useKitchenStore = create<KitchenState>()(
       setMealPrepRemindersEnabled: (mealPrepRemindersEnabled) => set({ mealPrepRemindersEnabled }),
       setMealPrepReminderLeadMinutes: (mealPrepReminderLeadMinutes) =>
         set({ mealPrepReminderLeadMinutes }),
-      reset: () =>
+      recordDislike: (recipeId) =>
+        set((s) => {
+          const updated = [...new Set([...s.dislikedRecipes, recipeId])];
+          setJSON(DISLIKED_KEY, updated);
+          return { dislikedRecipes: updated };
+        }),
+      recordSkip: (recipeId) =>
+        set((s) => {
+          const updated = [...new Set([...s.skippedRecipes, recipeId])];
+          setJSON(SKIPPED_KEY, updated);
+          return { skippedRecipes: updated };
+        }),
+      reset: () => {
+        setJSON(DISLIKED_KEY, []);
+        setJSON(SKIPPED_KEY, []);
+        clearLocalMealSatiety();
         set({
           tierId: DEFAULT_TIER_ID,
           extras: [],
@@ -207,7 +232,10 @@ export const useKitchenStore = create<KitchenState>()(
           themeMode: 'system',
           mealPrepRemindersEnabled: false,
           mealPrepReminderLeadMinutes: 0,
-        }),
+          dislikedRecipes: [],
+          skippedRecipes: [],
+        });
+      },
     }),
     { name: 'homechef-kitchen', storage: zustandStorage }
   )
@@ -221,7 +249,10 @@ export const useKitchenStore = create<KitchenState>()(
  * mirroring what `src/lib/adapters/from-database.ts` does for Postgres rows.
  */
 export function toEnginePreferences(
-  state: Pick<KitchenState, 'tierId' | 'extras' | 'allergens' | 'dietary'>,
+  state: Pick<KitchenState, 'tierId' | 'extras' | 'allergens' | 'dietary'> & {
+    dislikedRecipes?: readonly string[];
+    skippedRecipes?: readonly string[];
+  },
   preferredCuisine: string | null = null
 ): UserPreferences {
   const tier = EQUIPMENT_TIERS.find((candidate) => candidate.id === state.tierId);
@@ -234,18 +265,22 @@ export function toEnginePreferences(
     (id) => COMMON_ALLERGENS.find((allergen) => allergen.id === id)?.groups ?? []
   );
 
+  const disliked = state.dislikedRecipes
+    ? new Set(state.dislikedRecipes)
+    : new Set(getJSON<string[]>(DISLIKED_KEY) ?? []);
+  const skipped = state.skippedRecipes
+    ? new Set(state.skippedRecipes)
+    : new Set(getJSON<string[]>(SKIPPED_KEY) ?? []);
+
   return {
     equipment: [...new Set([...base, ...state.extras])],
     allergens: [...new Set(allergenGroups)],
     dietary: state.dietary,
-    dislikedRecipeIds: new Set(getJSON<string[]>(DISLIKED_KEY) ?? []),
-    skippedRecipeIds: new Set(getJSON<string[]>(SKIPPED_KEY) ?? []),
+    dislikedRecipeIds: disliked,
+    skippedRecipeIds: skipped,
     preferredCuisine,
   };
 }
-
-const DISLIKED_KEY = 'homechef-disliked';
-const SKIPPED_KEY = 'homechef-skipped';
 
 /**
  * `skipped` is a weak negative signal and `disliked` a strong one; the engine
@@ -253,13 +288,9 @@ const SKIPPED_KEY = 'homechef-skipped';
  * though the UI records them from adjacent gestures.
  */
 export function recordSkip(recipeId: string): void {
-  const current = new Set(getJSON<string[]>(SKIPPED_KEY) ?? []);
-  current.add(recipeId);
-  setJSON(SKIPPED_KEY, [...current]);
+  useKitchenStore.getState().recordSkip(recipeId);
 }
 
 export function recordDislike(recipeId: string): void {
-  const current = new Set(getJSON<string[]>(DISLIKED_KEY) ?? []);
-  current.add(recipeId);
-  setJSON(DISLIKED_KEY, [...current]);
+  useKitchenStore.getState().recordDislike(recipeId);
 }

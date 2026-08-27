@@ -1,9 +1,9 @@
-"""Rights-manifest contract for approved catalog archives."""
+"""Rights-manifest contract for catalog source candidates and approved archives."""
 
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -11,13 +11,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
-class ReleaseSource(BaseModel):
-    """One auditable source record emitted with a catalog release.
-
-    This is broader than a downloadable archive: the protected loader maps
-    these fields directly to ``catalog_release_sources``, including
-    HomeChef-authored source material.
-    """
+class SourceMetadata(BaseModel):
+    """Rights and provenance metadata shared by candidate and release sources."""
 
     model_config = {"extra": "forbid", "populate_by_name": True}
 
@@ -25,11 +20,9 @@ class ReleaseSource(BaseModel):
     version: str
     title: str
     archive_url: str = Field(alias="archiveUrl")
-    sha256: str
     license_name: str = Field(alias="licenseName")
     license_url: str = Field(alias="licenseUrl")
     attribution: str
-    status: Literal["approved", "quarantine"]
 
     @field_validator("id", "version", "title", "license_name", "attribution")
     @classmethod
@@ -39,13 +32,6 @@ class ReleaseSource(BaseModel):
             raise ValueError("must not be blank")
         return value.strip()
 
-    @field_validator("sha256")
-    @classmethod
-    def require_lowercase_sha256(cls, value: str) -> str:
-        if not _SHA256.fullmatch(value):
-            raise ValueError("must be an exact lowercase SHA-256")
-        return value
-
     @field_validator("archive_url", "license_url")
     @classmethod
     def require_https_url(cls, value: str) -> str:
@@ -53,6 +39,42 @@ class ReleaseSource(BaseModel):
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("must be an HTTPS URL")
         return value
+
+
+class ReleaseSource(SourceMetadata):
+    """One auditable source record emitted with a catalog release.
+
+    This is broader than a downloadable archive: the protected loader maps
+    these fields directly to ``catalog_release_sources``, including
+    HomeChef-authored source material.
+    """
+
+    sha256: str
+    status: Literal["approved", "quarantine"]
+
+    @field_validator("sha256")
+    @classmethod
+    def require_lowercase_sha256(cls, value: str) -> str:
+        if not _SHA256.fullmatch(value):
+            raise ValueError("must be an exact lowercase SHA-256")
+        return value
+
+
+class CandidateSource(SourceMetadata):
+    """A researched source that is deliberately ineligible for release."""
+
+    sha256: None = None
+    archive_format: Literal["jsonl", "mediawiki-xml-bz2"] = Field(alias="archiveFormat")
+    status: Literal["candidate"]
+    notes: str
+
+    @field_validator("notes")
+    @classmethod
+    def require_notes(cls, value: str) -> str:
+        """Require the work needed before a candidate can be approved."""
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
 
 
 class RightsSource(ReleaseSource):
@@ -80,13 +102,16 @@ class RightsSource(ReleaseSource):
         )
 
 
+type ManifestSource = Annotated[CandidateSource | RightsSource, Field(discriminator="status")]
+
+
 class RightsManifest(BaseModel):
     """Versioned source list; duplicate source/version pairs are ambiguous."""
 
     model_config = {"extra": "forbid", "populate_by_name": True}
 
     schema_version: Literal[1] = Field(alias="schemaVersion")
-    sources: list[RightsSource]
+    sources: list[ManifestSource]
 
     @model_validator(mode="after")
     def reject_duplicate_source_versions(self) -> RightsManifest:
@@ -100,9 +125,17 @@ class RightsManifest(BaseModel):
 
     def approved_sources(self) -> list[RightsSource]:
         """Return release-eligible sources in deterministic manifest order."""
-        return [source for source in self.sources if source.status == "approved"]
+        return [
+            source
+            for source in self.sources
+            if isinstance(source, RightsSource) and source.status == "approved"
+        ]
 
-    def source(self, source_id: str) -> RightsSource:
+    def candidate_sources(self) -> list[CandidateSource]:
+        """Return researched sources that still need a release-grade archive."""
+        return [source for source in self.sources if isinstance(source, CandidateSource)]
+
+    def source(self, source_id: str) -> ManifestSource:
         """Resolve a manifest source or fail before reading any archive."""
         for source in self.sources:
             if source.id == source_id:

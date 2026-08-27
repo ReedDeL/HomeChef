@@ -182,4 +182,25 @@ describe('useKitchenStore meal-prep reminder preferences', () => {
     expect(useKitchenStore.getState().mealPrepRemindersEnabled).toBe(false);
     expect(useKitchenStore.getState().mealPrepReminderLeadMinutes).toBe(0);
   });
+
+  it('records dislikes and skips reactively and clears them on reset', () => {
+    useKitchenStore.getState().recordDislike('recipe-disliked-1');
+    useKitchenStore.getState().recordSkip('recipe-skipped-1');
+
+    expect(useKitchenStore.getState().dislikedRecipes).toContain('recipe-disliked-1');
+    expect(useKitchenStore.getState().skippedRecipes).toContain('recipe-skipped-1');
+
+    const prefs = toEnginePreferences(useKitchenStore.getState());
+    expect(prefs.dislikedRecipeIds.has('recipe-disliked-1')).toBe(true);
+    expect(prefs.skippedRecipeIds.has('recipe-skipped-1')).toBe(true);
+
+    useKitchenStore.getState().reset();
+
+    expect(useKitchenStore.getState().dislikedRecipes).toEqual([]);
+    expect(useKitchenStore.getState().skippedRecipes).toEqual([]);
+
+    const resetPrefs = toEnginePreferences(useKitchenStore.getState());
+    expect(resetPrefs.dislikedRecipeIds.size).toBe(0);
+    expect(resetPrefs.skippedRecipeIds.size).toBe(0);
+  });
 });

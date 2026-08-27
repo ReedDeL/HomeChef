@@ -1,7 +1,7 @@
 # Owned recipe catalog roadmap
 
 **Date:** 2026-08-22
-**Status:** Active
+**Status:** Active — source pipeline foundation in place; Wikibooks candidate registered
 
 ## Outcome
 
@@ -13,6 +13,35 @@ The current 812-recipe/897-ingredient provider-derived bundle remains a
 transitional, non-rebuildable artifact with its attribution until approved
 replacement parity. Its 76 `unclassified` recipes continue to exclude rather
 than admit.
+
+## Current implementation state
+
+| Area | State | Evidence and next gate |
+|---|---|---|
+| Documentation and legacy cleanup | In progress | The owned-catalog design governs new work; provider-era runtime guidance and residue still need removal. |
+| Build pipeline | In progress | The rights manifest, checksum boundary, quarantine, deterministic release builder, and protected loader exist. The first source extractor does not. |
+| Hosted catalog contract | Repository implementation complete | Protected release tables, RLS, read RPCs, and activation functions exist. No candidate source has been activated. |
+| Client integration | Partial | Hosted query hooks exist, but the home decision path still runs from the transitional offline bundle. |
+| Transition audit | Not complete | Provider-era commands, names, docs, and data remain until replacement parity is proven. |
+| Release verification | Blocked on an approved source | There is no approved external source in the manifest yet. |
+
+## Current source gate
+
+`wikibooks-cookbook` is registered in
+`tools/catalog/rights-manifest.json` as a **candidate**, not an approved
+release source. The recorded `latest` Wikimedia URL is discovery metadata and
+is mutable. Candidate sources deliberately have no SHA-256 and are excluded
+from download, ingestion, and release activation.
+
+Promotion requires all of the following:
+
+1. Resolve the discovery URL to an immutable dated Wikimedia dump.
+2. Record and independently verify its SHA-256.
+3. Stream the Cookbook namespace into the source-neutral JSONL contract.
+4. Preserve page-level source and license evidence through normalization.
+5. Pass parser, attribution, equipment, allergen, dietary, and parity gates.
+6. Change the manifest entry to the release-grade JSONL archive only after
+   review.
 
 ## Work sequence
 
@@ -41,6 +70,7 @@ than admit.
 - No recipe-provider API, key, endpoint, quota guard, live fallback, or tier
   semantic remains active.
 - Only approved, checksum-pinned sources enter a release.
+- A mutable discovery URL can never become release input.
 - The engine remains synchronous and pure; it receives `Recipe[]` only.
 - Equipment, allergens, and dietary restrictions never relax; unknown status
   excludes.
@@ -62,4 +92,6 @@ plainly.
 ## Related documents
 
 - [Owned catalog design](../specs/2026-08-22-owned-recipe-catalog-design.md)
+- [Wikibooks source design](../specs/2026-08-13-wikibooks-catalog-design.md)
+- [Wikibooks implementation plan](2026-08-13-wikibooks-catalog.md)
 - [Technical specification](../01_TECHNICAL_SPEC.md)

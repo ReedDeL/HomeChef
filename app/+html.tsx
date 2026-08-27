@@ -58,9 +58,13 @@ const FAVICON_HREF =
  * file cannot drift from src/theme/tokens.ts.
  */
 const SHELL_CSS = `
-html, body { height: 100%; }
+html { height: 100%; }
 
 body {
+  /* Browser controls change the visible height while a mobile page is open. */
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
   overflow: hidden;
   background-color: ${palette.light.surfaceAlt};
   /* Matches the RN default so the workspace and the page agree. */

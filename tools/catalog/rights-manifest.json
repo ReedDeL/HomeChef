@@ -1,4 +1,18 @@
 {
   "schemaVersion": 1,
-  "sources": []
+  "sources": [
+    {
+      "id": "wikibooks-cookbook",
+      "version": "latest-observed-2026-08-04",
+      "title": "English Wikibooks Cookbook",
+      "archiveUrl": "https://dumps.wikimedia.org/enwikibooks/latest/enwikibooks-latest-pages-articles.xml.bz2",
+      "sha256": null,
+      "archiveFormat": "mediawiki-xml-bz2",
+      "licenseName": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "English Wikibooks contributors; each reused recipe must link to its source page and license.",
+      "status": "candidate",
+      "notes": "Discovery only. Resolve to an immutable dated dump, compute SHA-256, extract the Cookbook namespace to neutral JSONL, and pass attribution and hard-constraint gates before approval."
+    }
+  ]
 }

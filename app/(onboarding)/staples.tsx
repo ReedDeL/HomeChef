@@ -47,6 +47,9 @@ export default function StaplesScreen() {
   const back = () => router.back();
 
   const extras = COMMON_PANTRY_IDS.filter((id) => !STAPLE_INGREDIENT_IDS.includes(id));
+  const scannedCustom = pantry.filter(
+    (id) => !STAPLE_INGREDIENT_IDS.includes(id) && !COMMON_PANTRY_IDS.includes(id)
+  );
 
   return (
     <Screen
@@ -104,6 +107,22 @@ export default function StaplesScreen() {
           ))}
         </View>
       </View>
+
+      {scannedCustom.length > 0 ? (
+        <View style={styles.group}>
+          <Text variant="heading">From your photos</Text>
+          <View style={styles.chipRow}>
+            {scannedCustom.map((id) => (
+              <IngredientChip
+                key={id}
+                id={id}
+                inPantry={pantry.includes(id)}
+                onToggle={toggleIngredient}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.group}>
         <Text variant="heading">Or photograph your fridge</Text>
