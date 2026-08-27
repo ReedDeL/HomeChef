@@ -2,14 +2,14 @@
 
 **Company:** Application42
 **Product:** HomeChef
-**Version:** 0.1.1 · **Updated:** August 27, 2026
-**Scope:** August 24 MVP. Current implementation status lives in ../README.md.
+**Version:** 0.1.0 · **Updated:** August 26, 2026
+**Scope:** Current MVP. Version 1.0 has no fixed release date.
 
 ---
 
 ## 0. How to read this document
 
-This is the binding technical decision record for HomeChef. Its decisions supersede earlier planning notes. Three such conflicts are resolved explicitly in §2.6.
+`00_PRODUCT_DIRECTION.md` is the binding product record. This document is the binding technical record beneath it. Where an older plan or Notion page conflicts, update that source rather than carrying two directions.
 
 Every decision below is stated as: **what we chose**, **what we rejected**, and **why** — so that neither founder has to re-litigate it at 2am on August 20th.
 
@@ -17,30 +17,26 @@ Every decision below is stated as: **what we chose**, **what we rejected**, and 
 
 ## 1. Product Vision → Technical Constraints
 
-The product is not a recipe search engine. It is a **decision engine**: it consumes constraints and emits three to four actionable directives. Every technical choice below descends from that framing.
+The product is not a recipe search engine. It is a **decision engine** built as two guided trees: make something now and plan my week. Each step asks one question, or two closely related questions. The first result set stays small; Show more reveals additional ranked matches on request.
 
 | # | Business outcome (what the user experiences) | Technical constraint it forces |
 |---|---|---|
-| B1 | "I set up my kitchen once and it never asks again." | Durable local profile with equipment tier + allergens. An optional sync account adds cross-device recovery without delaying first use. |
+| B1 | "I set up my kitchen once and it never asks again." | Durable per-user profile with equipment tier + allergens. Must survive reinstall → server-side, not device-local. Auth required from day one. |
 | B2 | "I take a photo of my fridge and it knows what I have." | Open-vocabulary visual recognition. Cannot be a fixed-class model. Output must be machine-parseable, not prose. |
 | B3 | "It shows me meals in four buckets by what I'm missing." | Set-difference of pantry against every recipe's ingredient list, computed for the entire catalog on every query. Must feel instant (<100ms perceived). |
-| B4 | "Three good answers, not four hundred." | Ranking and truncation are product features. The engine must be *opinionated* — a scoring function, not a filter. |
+| B4 | "A few answers first, more when I ask." | Ranking, initial truncation, and paged Show more results are product features. The engine is an opinionated scoring function, not a filter. |
 | B5 | "I have 20 minutes." | `total_time_minutes` is a first-class indexed field, and the primary screen input. Not a settings-menu filter. |
-| B6 | "Don't suggest a braise — I have a microwave." | Structured `equipment_required[]` on every accepted recipe. Source data is evidence, not permission to guess: unknown equipment excludes. This remains the catalog's highest-risk enrichment gate (§5.2). |
+| B6 | "Don't suggest a braise — I have a microwave." | Structured `equipment_required[]` on every recipe. **TheMealDB does not provide this** — we must synthesize it. This is the single largest data-engineering task in the build (§5.2). |
 | B7 | "One tap to say I don't have this, from anywhere." | Every ingredient chip in the entire app is an interactive control bound to a single mutation. Enforced as a shared component, not a per-screen implementation. |
 | B8 | "My roommate and I share a pantry, but not our allergies." | Relational model with row-level authorization. Inventory joins to a *household*; preferences and allergens join to a *user*. **This single requirement eliminates document databases.** |
-| B9 | "Hands-free while cooking." | On-device speech, no per-request cloud billing, no network dependency mid-recipe. |
+| B9 | "Give me a week without making me build one." | The weekly planner returns one proposal and derives plan-linked ingredient gaps from the pantry. |
 | B10 | "Never show me an empty screen." | Constraint relaxation is a required code path with its own tests — not an error state. |
-| B11 | "Free forever, no subscription." | Infrastructure must be ~$0 at launch scale and sub-linear thereafter. Per-user recurring cloud cost is disqualifying. |
+| B11 | "Free to start, with dependable answers." | Infrastructure must stay low-cost at initial scale and grow sub-linearly. Per-user recurring cost requires an explicit business decision. |
 | B12 | ADA compliant. | Accessibility tree correctness is a Definition-of-Done gate, not a post-launch cleanup. |
 
 ### 1.1 The MVP line
 
-The launch product accepts kitchen constraints and a pantry scan, renders a
-small set of equipment-, allergen-, and diet-compatible options from the curated
-offline catalog, and can add bounded candidates from the active hosted release.
-Shopping lists, barcode scanning, macro tracking, wake-word voice, and
-roommate-sharing UI are out of scope.
+The MVP has two complete journeys. **Now** ranks the catalog against the pantry and leads with a small set of hard-safe matches, with Show more available. **Plan** asks a few preferences, proposes one practical week, and derives **What to get** beyond the pantry. Recipe pages include ingredients and instructions. Dedicated cook mode, voice cooking, barcode scanning, general shopping lists, macro tracking, and roommate-management UI are out of scope.
 
 ---
 
@@ -48,14 +44,14 @@ roommate-sharing UI are out of scope.
 
 ### 2.1 Client — React Native 0.86 + Expo 57 + TypeScript 6.0
 
-**Chosen.** Confirmed against the research document and the current architecture record.
+**Chosen.** Confirmed against both the research document and the existing Notion `Technicalities` page.
 
-Justification, in priority order for a 21-day build:
+Justification, in priority order:
 
 1. **One codebase, three targets.** iOS, Android, and web are all required by the vision. Three native codebases is not survivable by a three-person team in three weeks.
-2. **The New Architecture removes the old objection.** Fabric + TurboModules + JSI give synchronous JS↔native calls. This matters concretely in exactly two places for us: camera frame handling during pantry capture, and speech-recognition callbacks in cook mode. Both were bridge-latency victims under the old architecture.
-3. **Expo Config Plugins are the reason we can ship voice at all.** `@react-native-voice/voice` needs native `NSMicrophoneUsageDescription` and `RECORD_AUDIO` entries. Config plugins inject these during prebuild, so we never maintain a detached native project — which would cost us days we do not have.
-4. **OTA updates are our safety net.** Expo pushes JS-bundle fixes directly to users, bypassing App Store review. With a hard external launch date, the ability to fix a launch-day bug in 20 minutes rather than 72 hours is not a nice-to-have.
+2. **The New Architecture supports camera-heavy pantry capture.** Fabric, TurboModules, and JSI keep the path responsive without a second client architecture.
+3. **Expo keeps platform setup consistent.** Config plugins let us add native capabilities without maintaining separate detached projects.
+4. **OTA updates reduce release risk.** Eligible JavaScript fixes can reach users without waiting for another store review.
 5. **AI SDK ecosystem is JavaScript-first.** Every vendor ships a TS SDK before anything else.
 
 *Closed: Flutter and separate native codebases were both evaluated and rejected. Do not reopen.*
@@ -68,9 +64,9 @@ Justification, in priority order for a 21-day build:
 | Routing | expo-router (file-based, typed routes) | — |
 | State — server | TanStack Query | v5 |
 | State — client | Zustand | v5 |
-| Recipe catalog | Protected Supabase release + curated offline JSON | — |
+| Recipe catalog | Bundled JSON, `src/data/` | — |
 | Backend | Supabase | — |
-| Voice | Deferred post-launch (§2.5) | — |
+| Voice | Not in current scope (§2.5) | — |
 | Editor | VS Code (shared workspace settings, committed) | — |
 
 ### 2.2 Backend — Supabase (managed PostgreSQL)
@@ -100,7 +96,7 @@ using (user_id = auth.uid());
 
 A misconfigured client cannot leak a roommate's allergen list, because the database refuses to return the rows. That guarantee is worth more than any amount of application-layer discipline.
 
-> **Closed: MongoDB and Firebase.** Supabase Postgres is the only database for launch. The roommate privacy requirement is a relational constraint enforced by RLS; do not reopen the alternatives.
+> **Closed: MongoDB and Firebase.** The Notion `Technicalities` page still lists "MongoDB/Firebase if needed" — that option is closed. A document store pushes the inventory/preferences join into application code, turning our privacy guarantee from an engine-enforced invariant into a code-review promise. Do not reopen; migrating databases mid-sprint is how launch dates get missed.
 
 #### Cost model
 
@@ -145,22 +141,20 @@ Deno.serve(async (req) => {
 });
 ```
 
-### 2.2.1 Authentication — local by default, optional sync identity
+### 2.2.1 Authentication — Supabase Auth, federated sign-in
 
-**REVISED Aug 27, 2026.** HomeChef creates a local account by default. Equipment
-onboarding is the first action; no identity-provider or network round trip may
-stand between launch and the local decision engine.
+**DECIDED Aug 12, 2026.** Accounts are mandatory from first launch (B1: "I set up
+my kitchen once and it never asks again" requires a durable server-side profile
+that survives reinstall). Sign-in is **federated via Google**, brokered by
+Supabase Auth.
 
-Google sign-in through Supabase Auth is an optional choice whose sole product
-purpose is cross-device sync and recovery. Supabase Auth issues the JWT used by
-the RLS policies in §3, so synced data retains the same household and personal
-privacy boundaries. Signing out stops sync but never deletes the local kitchen.
+Supabase Auth issues the JWT that every RLS policy in §3 keys on, so the
+provider choice and the authorization model are the same decision. No custom
+session handling, no second identity store.
 
-The Zustand store remains the source of truth for unsigned users. A sync layer
-must reconcile that state through the existing TanStack Query/Supabase seam:
-first sign-in uploads meaningful local state before empty server defaults can
-replace it, and subsequent devices pull the authenticated profile. Sync failure
-falls back to local state without blocking the app.
+**This is what makes the app online-only.** A user cannot reach the
+first screen without a network round trip to an identity provider, so designing
+any downstream layer for offline operation protects a state that cannot occur.
 
 **Open items — owner RJ:**
 
@@ -168,27 +162,22 @@ falls back to local state without blocking the app.
 |---|---|
 | **Sign in with Apple** | Apple's App Store guidelines have historically required it wherever a third-party social login is offered. If that holds, iOS ships with both or is rejected at review. **Verify against current guidelines before the iOS build.** |
 | **Email fallback** | A federated-only app locks out anyone without a Google account, and makes review-team testing awkward. Supabase magic links cost nothing to add. |
-| **Sync reconciliation** | First sign-in must preserve meaningful local data; later devices need deterministic conflict handling instead of last-response-wins replacement. |
+| **Session persistence** | Sessions must survive app restart, or "never asks again" fails on the second launch. |
 
-### 2.3 Recipe sources — rights-first hosted catalog and offline fallback
+### 2.3 Recipe sources — bundled catalog and optional live expansion
 
-**The release catalog is source-neutral and auditable.** `tools/catalog/`
-accepts only approved, checksum-pinned neutral JSONL with complete license and
-attribution metadata. Candidate sources are research records and cannot enter a
-release.
+**The bundled catalog is owned and offline.** TheMealDB data and HomeChef seed recipes are
+normalized by `tools/catalog/` into `src/data/`. The decision engine receives
+plain `Recipe[]` values and never knows their source.
 
-**The client is offline-first.** A curated release subset ships with the app and
-renders before network work. The current provider-derived bundle is a
-transitional fallback, not an approved rebuild source, and remains only until
-replacement parity is documented.
+**Spoonacular is borrowed and live.** It is queried only when the bundled catalog is thin,
+the device is online, quota use is below 40 points, and no session result is
+cached. Only `id`, `title`, and `imageUrl` may persist. Ingredients and
+instructions are session-scoped and discarded. HTTP 402 returns an empty Spoonacular
+result without a user-visible error.
 
-**Supabase hosts the full active release.** Authenticated, bounded RPCs expose
-candidate summaries, recipe details, and active attribution. Clients have no
-direct catalog writes, the full hosted catalog never enters the Metro bundle,
-and hosted failure leaves the offline answers intact.
-
-Catalog counts are operational release evidence, not architecture. See the
-owned catalog design and roadmap for the current gate.
+Catalog counts are operational data, not architecture; see `README.md` for the
+current generated totals.
 
 ### 2.4 Vision — Gemini 3.6 Flash with structured outputs
 
@@ -214,7 +203,7 @@ Pin the **stable** string, not `gemini-flash-latest`. The `latest` alias hot-swa
 
 Google's **Interactions API** is now GA and is the recommended surface for new builds. Use it for this integration rather than the older endpoint.
 
-**Accepted tradeoffs:** photo analysis requires network connectivity, while manual pantry entry and the bundled decision engine remain the complete local fallback; per-call cost scales with usage (bounded — capture is infrequent and is the app's largest per-user variable cost); and a third-party dependency is mitigated by the required manual correction path (B7).
+**Accepted tradeoffs:** requires network connectivity (acceptable — the app is online-only by decision, §2.2.1); per-call cost scaling with usage (bounded — capture is infrequent, and this is the app's largest per-user variable cost); and a third-party dependency (mitigated — manual pantry entry is a complete fallback and is required anyway for B7).
 
 **Phase 3 option:** once real user photos accumulate, a distilled on-device model could handle the ~200 most common ingredients locally and fall back to the cloud for the tail. A sound cost optimization, not a launch strategy.
 
@@ -247,28 +236,20 @@ Two rules that follow from this schema:
 
 Validate with **Zod** on the Edge Function before any write. The schema guarantee is strong but it is not a substitute for a boundary check — and Zod is where we catch a name that isn't in our canonical ingredient list.
 
-### 2.5 Voice — on-device, native OS APIs
+### 2.5 Recipe guidance
 
-> **DEFERRED post-launch (decided Aug 22, 2026).** All voice interaction —
-> tap-to-listen included — is out of the August 24 build. The architecture
-> below is the design we will implement when voice returns.
-
-`@react-native-voice/voice` bridges to iOS `SFSpeechRecognizer` and Android `SpeechRecognizer`. Processing is local: no cloud cost, no per-request billing, no latency, works offline.
-
-Requires native code, so it cannot run in the Expo Go sandbox — we use **Expo Prebuild + config plugins**, which generate the native projects during the build and inject the microphone permissions automatically.
-
-**Wake-word ("Hey Chef") and tap-to-listen are both deferred.** Wake-word continuously streams audio through the native recognizer, which drains battery and causes thermal throttling during a long cooking session; it wants a dedicated on-device engine (Picovoice Porcupine) and is a Phase 2 build. Tap-to-listen was scoped for launch but cut two days out: untestable in CI, device-dependent, and half-shipped voice is worse than none. Cook mode ships silent; step navigation stays touch-first.
+The current product ends at a clear recipe page with ingredients and instructions. Dedicated cook mode, hands-free cooking, voice control, and keep-awake behavior are not current requirements. Reconsider them only after the Now and Plan journeys are complete and real usage shows a need.
 
 ### 2.6 Conflicts resolved
 
-Four places where the sources disagreed, and the resolution:
+Three places where the sources disagreed, and the resolution:
 
 | # | Conflict | Resolution |
 |---|---|---|
-| 1 | Brief states `PRIMARY_LANGUAGE: Python`; research and earlier planning record both specify TypeScript/React Native. | **TypeScript is the product language.** Python is the build-time catalog tooling language (§5.2). No Python enters the request path. |
-| 2 | Earlier planning listed MongoDB or Firebase alongside Supabase. | **Closed. Supabase Postgres only.** Household privacy is relational and enforced by RLS. |
-| 3 | Research recommends pgvector and hybrid search. | **Rejected for this product path.** Supabase returns bounded candidates and the pure client engine applies hard constraints, ranking, and truncation. |
-| 4 | Earlier revisions used a live recipe provider and called the bundled provider data owned. | **Retired Aug 27.** New releases require approved, checksum-pinned sources with auditable rights. The old bundle is transitional until replacement parity, not an ownership claim. |
+| 1 | Brief states `PRIMARY_LANGUAGE: Python`; research and Notion both specify TypeScript/React Native. | **TypeScript is the product language.** Python is the *tooling* language and owns the catalog ingest and equipment-enrichment pipeline (§5.2) — a real, load-bearing component that plays directly to existing team fluency. Both standards are specified in the Style Guide. No Python enters the request path; adding a FastAPI layer would introduce a second deploy target for no product benefit. |
+| 2 | Notion `Technicalities` lists "MongoDB or Firebase if needed" alongside Supabase. | **Closed. Supabase Postgres only.** The roommate privacy requirement (B8) is a relational constraint enforced by RLS. Update the Notion page to remove the alternatives so nobody starts a parallel implementation. |
+| 3 | Research recommends pgvector + Reciprocal Rank Fusion hybrid search; Notion specifies a bundled JSON catalog. | **The bundled catalog remains the right choice.** Reasoning in §4.1 — at ~320 recipes the entire ranking runs client-side in under 10ms. Spoonacular doesn't change this: their terms forbid storing their recipes, so our *stored* catalog stays ~300 regardless of how many we display. |
+| 4 | Original spec treated Spoonacular as a Phase 2 replacement whose data we would cache into Postgres. | **Wrong, and corrected Aug 3.** Their Terms of Use prohibit storing ingredients, instructions, or derived data beyond a 1-hour cache. Spoonacular is now an optional live query, nothing persisted but `id`/`title`/`imageUrl` (§2.3). |
 
 ---
 
@@ -335,7 +316,7 @@ create table inventory (
 create index inventory_household_idx on inventory (household_id);
 ```
 
-**Recipes are stored in protected release tables.** Clients read only the active release through bounded authenticated RPCs; RLS and grants deny direct writes. A curated subset is versioned with the app so catalog access remains useful offline. Release activation is an explicit, auditable operation.
+**Recipes are not in Postgres.** The bundled catalog is JSON versioned with the app; Spoonacular results are fetched live and discarded. The only recipe data that ever reaches Postgres is the `id`/`title`/`imageUrl` triple on `meal_feedback` and saved meals — see §2.3 for why that limit is contractual.
 
 Three notes on the schema:
 
@@ -351,28 +332,22 @@ Three notes on the schema:
 
 ### 4.1 The engine is a pure function over whatever recipes it is handed
 
-This boundary makes hosted and offline catalog data interchangeable without
-moving network or storage concerns into ranking.
+**This is the design decision that makes the two-source catalog work without compromising anything.**
 
-`decide()` takes a `Recipe[]` and does not know whether a recipe came from the
-curated offline subset, a bounded hosted response, or a deterministic test
-fixture.
+`decide()` takes a `Recipe[]` and knows nothing about where those recipes came from. The bundled catalog supplies them from an import; Spoonacular supplies them from a live fetch. The engine cannot tell the difference and does not care.
 
-```text
-curated offline subset ──┐
-                         ├──▶ Recipe[] ──▶ decide() ──▶ ScoredRecipe[]
-bounded hosted results ──┘                  ↑ pure, no I/O, no network
+```
+  bundled MealDB JSON  ──┐
+                         ├──▶  Recipe[]  ──▶  decide()  ──▶  ScoredRecipe[]
+  Spoonacular fetch    ──┘                    ↑ pure, no I/O, no network
 ```
 
-Two consequences matter:
+Two consequences worth stating plainly:
 
-- `src/engine/` stays pure and testable in milliseconds.
-- Hosted candidates are mapped to the same contract, deduplicated, and passed
-  through the same hard constraints before ranking.
+- **`src/engine/` stays pure and stays testable in milliseconds** with no device, no network, and no API quota. This is the entire reason our testing strategy survives the Spoonacular integration.
+- **Merging tiers is trivial** — concatenate two arrays, deduplicate by title, hand the result to `decide()`. No second code path, no parallel ranking logic.
 
-At the bounded candidate sizes HomeChef displays, client-side set operations are
-simpler and safer than vector search. Catalog scale belongs behind the hosted
-RPC boundary, not inside the client bundle.
+The research recommends pgvector semantic search fused via Reciprocal Rank Fusion. **At the scale we actually rank — ~300 bundled plus at most 20 fetched — that is over-engineering.** 320 recipes × ~10 ingredients = ~3,200 comparisons, **well under 10 milliseconds** on a phone.
 
 The engine, unchanged from the original design:
 
@@ -416,37 +391,37 @@ function decide(
 
 **Bucketing** by count of missing ingredients: `0` → *ready* · `1–2` → *missing a few* · `3–4` → *missing more* · `5+` → *grocery run*.
 
-**Truncation is the product (B4).** Show at most 4 per bucket. Comprehensiveness is our competitors' value proposition, and it is the thing we are deliberately not doing.
+**Progressive disclosure is the product (B4).** Show a few top matches first. A user-triggered Show more action may reveal the next ranked set while preserving order, explanations, and every hard constraint. Catalog breadth is available without becoming the default cognitive load.
 
-### 4.2 Hosted catalog enrichment
+### 4.2 The Spoonacular expansion rule
 
-Offline results are computed first. When an authenticated hosted catalog is
-available, the client may request a bounded candidate set for the same hard
-constraints, map it to `Recipe[]`, deduplicate it against the offline subset,
-and rerun the pure engine.
+Spoonacular is called **only** when all four conditions hold. Any one false → the bundled result stands, silently.
 
-The hosted response is untrusted input: unknown equipment, allergen, or dietary
-status still excludes locally. Timeout, auth failure, missing active release, or
-an empty response leaves the offline result unchanged and produces no
-provider-specific UI.
+```ts
+const shouldFetchSpoonacular =
+  bundledResults.ready.length < 3 &&        // bundled results are genuinely thin
+  quotaUsedToday < 40 &&           // reserve ~10 points for the demo
+  isOnline &&
+  !sessionCache.has(queryKey);     // ToS-permitted 1-hour cache
+```
+
+The user is **never** told the app declined to call Spoonacular. There is no "quota exhausted" message, no degraded-mode banner. The bundled catalog always has an answer, so from the user's side nothing happened.
 
 ### 4.3 Never show an empty screen (B10)
 
-Relaxation is a first-class code path with its own test suite, not an error
-handler. Order is fixed and deliberate — cheapest concession first:
+Relaxation is a first-class code path with its own test suite, not an error handler. Order is fixed and deliberate — cheapest concession first:
 
 1. Expand the time limit by one tier (20 min → 30 min).
 2. Drop the cuisine/genre preference.
-3. Merge bounded hosted candidates when available.
+3. **Fetch Spoonacular** if the §4.2 conditions allow.
 4. Surface the *missing a few* bucket as the primary result.
 5. Widen to *missing more*.
 
-Equipment, allergens, and dietary restrictions are never relaxed. Hosted
-enrichment adds candidates but does not remove constraints, so it needs no
-relaxation disclosure. Every actual relaxation is stated in the UI.
+**Equipment, allergens, and dietary restrictions are never relaxed. Not at step 5, not ever.**
 
-The curated offline subset is the safety floor. If the hosted catalog fails, the
-same offline decision path still returns useful answers.
+Every relaxation is stated out loud in the UI: *"Nothing fits 20 minutes — here's what works in 30."* Silent filter changes are how an app teaches a user not to trust it. **The Spoonacular expansion is the one exception** — it adds options without removing constraints, so there is nothing to disclose.
+
+Because the bundled catalog is always present, **an empty results screen is now structurally impossible.** If one ever appears, the bug is in the engine, not in the data.
 
 ---
 
@@ -495,55 +470,90 @@ lowercase throughout, so the shipped schema matches §2.4 exactly again.
 
 **Matching tiers.** A name resolves through exact → synonym → plural → partial → fuzzy, and the tier is reported rather than collapsed, because the confirmation sheet's job is to show what the machine was unsure about. Only exact, synonym, and plural are auto-accepted. `partial` (qualifier words dropped, e.g. "baby spinach" → spinach) is never auto-accepted: the same mechanism turns "oat milk" into "milk", which is plausible, wrong, and precisely what poisons the pantry set difference.
 
-### 5.2 Catalog build — Python, build-time
+### 5.2 Catalog build — Python, build-time, run once
 
-Python owns the reproducible catalog maintenance path under `tools/catalog/`.
-It does not run in the request path.
+**This is where Python lives, and it is genuinely load-bearing work — it produces the entire product catalog and closes our single largest data gap (B6).**
 
-1. **Register candidates.** Record source, version, license, attribution,
-   archive format, and the work needed before approval. Candidate status is
-   never release-eligible.
-2. **Pin provenance.** Resolve an immutable upstream artifact and independently
-   verify its SHA-256.
-3. **Extract neutral JSONL.** Source-specific code emits the shared record
-   contract with stable IDs and page-level provenance. Raw provider or wiki
-   formats stop at this boundary.
-4. **Normalize and quarantine.** Canonicalize ingredients and measurements,
-   classify equipment/allergen/dietary evidence, and reject unsafe or malformed
-   rows with counted reasons. Unknown hard constraints exclude.
-5. **Build deterministically.** Sort and serialize a release artifact plus a
-   curated offline subset. The same inputs must produce the same checksums.
-6. **Review.** Inspect source counts, rejection reasons, attribution, hard-
-   constraint coverage, and useful-answer parity. Human spot-checks are
-   mandatory.
-7. **Load, then activate.** Load into protected Supabase release tables and
-   activate through the audited function only after every gate passes.
+**Owner: Harshal. Due: August 9 (go/no-go gate).**
 
-The transitional provider-derived bundle is not overwritten until an approved
-release meets the documented parity and legal gates.
+The pipeline is a Python package under `tools/catalog/`, run manually, whose output is committed to `src/data/`:
 
-### 5.3 Hosted catalog reads
+1. **Fetch** all ~300 recipes from TheMealDB.
+2. **Normalize** ingredient strings to a canonical ID list. Deduplicate aggressively; this list is the shared vocabulary between the vision pipeline, the pantry, and the decision engine, so an error here propagates everywhere.
+3. **Parse measurements** into `{quantity, unit}`. Expect messy input — "1 cup or so", "a pinch", "2 1/2 tbsp".
+4. **Enrich equipment (the critical step).** TheMealDB carries no equipment metadata. Send each recipe's instruction text to an LLM with a strict JSON schema and extract `equipment_required: string[]` from a **closed enumeration** — `["microwave","stove","oven","air_fryer","kettle","blender","rice_cooker","toaster_oven","none","unclassified"]`. A closed enum is what makes the §4.1 filter a simple set operation instead of a string-matching problem.
 
-```text
-Client                 Supabase protected catalog
-  | offline decide()              |
-  |----------------> render       |
-  |                               |
-  | bounded candidate RPC         |
-  |------------------------------>|
-  | summaries + release id        |
-  |<------------------------------|
-  | map + hard constraints        |
-  | merge + decide() -> render    |
-  |                               |
-  | detail/attribution RPC on use |
-  |------------------------------>|
+   `unclassified` is the tenth value, and it is load-bearing: it marks recipes whose tagging failed, and `isEquipmentSatisfied` (§4.1) rejects it for every user — including full-kitchen users. Unknown excludes; it does not admit. Collapsing it into `none` once served stove-requiring recipes to microwave-only users as though verified.
+5. **Estimate `total_time_minutes`** from the instructions where absent.
+6. **Human spot-check.** Sample 30 recipes and verify equipment tags by hand. This gate is mandatory — an oven-requiring recipe mislabeled `microwave` is precisely the trust-destroying failure the equipment wedge exists to prevent. **Log the sampled accuracy rate in the Notion status report.**
+7. **Emit** `recipes.json` + `ingredients.json` to `src/data/`, and commit them.
+
+Because this runs once at build time, its latency is irrelevant and its cost is a few dollars total. Python is the right tool: the team already writes it, and the ecosystem for this kind of messy-text ETL is unmatched.
+
+> **This pipeline runs on TheMealDB recipes only.** Running it over Spoonacular data would produce "derived data," which their terms prohibit.
+>
+> ⚠️ **CORRECTED Aug 13, 2026.** This section previously claimed "Spoonacular
+> supplies equipment natively via its `equipment` parameter, so there is nothing
+> to enrich." That is **wrong**, and it was load-bearing for Spoonacular. Their
+> documented parameter is: *"The equipment required. **Multiple values will be
+> interpreted as 'or'.** For example, value could be 'blender, frying pan,
+> bowl'."*
+>
+> Three independent problems, in descending severity:
+>
+> 1. **OR semantics, not subset semantics.** Our constraint is
+>    `recipe.equipmentRequired ⊆ user.equipment` (§4.1). Theirs is "uses at
+>    least one of these." A microwave-only user querying `equipment=microwave`
+>    gets back every recipe that touches a microwave at any step — including one
+>    that also needs an oven. **The parameter cannot serve as our hard filter.**
+> 2. **Open vocabulary, not a closed enum.** Returned values are free text
+>    (`"pie form"`, `"bowl"`, `"frying pan"`). Our enum is ten fixed values, and
+>    the closed enum is precisely what makes §4.1 a set operation rather than a
+>    string-matching problem.
+> 3. **Not in search results.** Equipment arrives via `analyzedInstructions` or a
+>    per-recipe `equipmentWidget.json` call — not in `complexSearch` output — so
+>    obtaining it costs either extra parameters or extra calls.
+>
+> **Consequence:** equipment for Spoonacular results must be computed client-side, in-session,
+> from `analyzedInstructions`, and run through our own `isEquipmentSatisfied`.
+> That is permitted (compute and display in-session, persist nothing) but it
+> means we cannot pre-filter, so we over-fetch and discard. See R13.
+
+### 5.3 Spoonacular live query — Edge Function
+
+```
+Client              Edge Function                 Spoonacular
+  |  pantry + prefs + time  |                          |
+  |------------------------>|                          |
+  |                         | check: thin? quota<40?   |
+  |                         |   online? not cached?    |
+  |                         |─────────┐                |
+  |                         |  any false → return []   |
+  |                         |<────────┘                |
+  |                         |  complexSearch           |
+  |                         |  &addRecipeInformation   |
+  |                         |  &fillIngredients        |
+  |                         |  &number=20              |
+  |                         |------------------------->|
+  |                         |   recipes + ingredients  |
+  |                         |<-------------------------|
+  |                         | read X-API-Quota-Used    |
+  |                         | map → our Recipe type    |
+  |   Recipe[] (in memory)  |                          |
+  |<------------------------|                          |
+  |                         |                          |
+  |  merge with bundled catalog → decide() → render → DISCARD   |
 ```
 
-The client cannot enumerate or mutate release tables directly. Candidate,
-detail, and attribution RPCs are authenticated, bounded, and pinned to the
-active release. A failed hosted call leaves the already-rendered offline result
-standing.
+Implementation requirements:
+
+- **One call, everything in it.** `addRecipeInformation=true&fillIngredients=true`. A follow-up `Get Recipe Information` costs another point for data you already had.
+- **`number=20`.** Result points scale linearly; we show 4 per bucket.
+- **Map their shape to ours at the boundary.** Their `extendedIngredients[]`, `analyzedInstructions[]`, and `readyInMinutes` become our `Recipe` type inside the Edge Function, so the engine sees one shape regardless of source.
+- **Persist nothing but `id`, `title`, `imageUrl`.** Enforce this in code with an explicit whitelist on the way to Postgres, not by convention. A reviewer should be able to grep for it.
+- **HTTP 402 is a normal outcome.** Return an empty array and let the bundled catalog stand. Never surface it as an error.
+- **Log `X-API-Quota-Used`** to a counter so the reserve rule in §4.2 has real data.
+- **Session cache keyed on the query, 1-hour TTL**, in memory. Never written to disk or Postgres.
 
 ---
 
@@ -552,7 +562,7 @@ standing.
 | Control | Implementation |
 |---|---|
 | Third-party API keys | Supabase secrets, referenced only inside Edge Functions. **Never in the client bundle, never in git.** Full setup: `06_API_KEYS_AND_ENV.md`. |
-| Catalog release integrity | Approved checksum-pinned sources only; protected tables deny direct client writes; activation is audited. |
+| Spoonacular data retention | Whitelist enforced in code — only `id`, `title`, `imageUrl` may reach Postgres. Ingredients and instructions are session-scoped and discarded. |
 | Data authorization | RLS on every table, enabled before client integration. |
 | Roommate privacy | Preferences, allergens, and feedback join to `user_id`. Structurally unreachable by household members. |
 | Photo retention | Images are processed and discarded. We store extracted ingredients, not photographs. Simplest possible privacy posture, and the easiest to explain to a user. |
@@ -566,7 +576,7 @@ standing.
 
 ## 7. Accessibility (ADA) — a Definition-of-Done gate
 
-Accessibility work here does double duty: the same APIs that serve screen-reader users also solve the **situational disability** at the heart of cook mode — a user whose hands are covered in raw chicken cannot reliably touch a screen either.
+Accessibility reduces effort for everyone. Clear hierarchy, large targets, and predictable focus make each decision-tree step easier under stress as well as with assistive technology.
 
 | Requirement | Implementation |
 |---|---|
@@ -574,11 +584,11 @@ Accessibility work here does double duty: the same APIs that serve screen-reader
 | Descriptive labels | `accessibilityLabel` on every icon-only control. The save-heart declares `"Save recipe"`, never an image filename. |
 | Contextual hints | `accessibilityHint` on any control with a non-obvious consequence — e.g. `"Removes this ingredient from your pantry"`. |
 | Semantic roles | `accessibilityRole` on all interactive and structural elements, so the OS appends its native affordance ("double tap to activate"). |
-| Live regions — polite | `aria-live="polite"` for cook-mode step advances. Announces after the current utterance finishes. |
-| Live regions — assertive | `aria-live="assertive"` **reserved exclusively for allergen warnings and expired timers.** Overuse makes the app hostile to screen-reader users. |
+| Live regions — polite | `aria-live="polite"` for recommendation updates, Show more results, and pantry corrections. |
+| Live regions — assertive | `aria-live="assertive"` is reserved for allergen warnings. Overuse makes the app hostile to screen-reader users. |
 | Reduced motion | `AccessibilityInfo.isScreenReaderEnabled()` to disable auto-advancing carousels and decorative animation. |
 | Contrast | WCAG 2.1 AA — 4.5:1 body text, 3:1 large text. Verified in the design tokens (see UI/UX spec). |
-| Touch targets | Minimum 44×44pt. Cook-mode controls minimum **64×64pt** — sized for a knuckle. |
+| Touch targets | Minimum 44×44pt, with larger primary actions where space allows. |
 | Audit | Xcode Accessibility Inspector and Android Accessibility Scanner run before every release. |
 
 ---
@@ -588,14 +598,11 @@ Accessibility work here does double duty: the same APIs that serve screen-reader
 Live status and measured catalog gaps belong in `README.md#known-gaps`.
 Architecture-level risks that remain binding are:
 
-- candidate source research can be mistaken for release approval;
-- parser or enrichment gaps can silently reduce useful hard-constraint coverage;
-- the hosted catalog must fail back to a useful curated offline subset;
-- replacement parity and attribution must be proven before retiring the
-  transitional bundle;
+- hard-constraint coverage is only as good as the catalog vocabulary;
+- Spoonacular quota, connectivity, and vendor access can disappear without warning;
+- Spoonacular storage restrictions must be enforced by field allowlists;
 - live Gemini request compatibility requires a post-deploy smoke test;
-- every personal-data and catalog table requires RLS, grants, and
-  authenticated-session verification.
+- every personal-data table requires RLS and authenticated-session verification.
 
 ---
 
@@ -619,9 +626,10 @@ See `../README.md` for current routes and commands.
 | Document | Contents |
 |---|---|
 | `02_STYLE_GUIDE.md` | TypeScript and PEP 8 standards, comment policy, Git commit conventions |
-| `03_COLLABORATION_BLUEPRINT.md` | GitHub Flow, earlier planning record board, Definition of Done, role boundaries |
+| `03_COLLABORATION_BLUEPRINT.md` | GitHub Flow, Notion board, Definition of Done, role boundaries |
 | `04_UIUX_SPEC.md` | Screen inventory, design tokens, interaction rules |
-| `CONTRIBUTING.md` | Team setup, branching, pull requests, review, and verification |
+| `05_AI_TOOLING_PLAYBOOK.md` | How the team uses AI tools without generating slop |
+| `AGENTS.md` | Repo-root context file consumed by coding agents |
 
 ---
 

@@ -1,3 +1,5 @@
+> **Historical analytics design.** Cook-mode milestones are legacy. Current product events follow `../../00_PRODUCT_DIRECTION.md`.
+
 # HomeChef PostHog Analytics Integration Design
 
 **Date:** 2026-08-12  

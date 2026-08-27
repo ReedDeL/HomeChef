@@ -1,3 +1,5 @@
+> **Historical layout decision.** The current UI uses Now, Plan, and Pantry decision trees, supports Show more, and has no dedicated cook mode. See `../00_PRODUCT_DIRECTION.md` and `../04_UIUX_SPEC.md`.
+
 # Sequential layout — one decision per screen
 
 **Date:** 2026-08-08

@@ -1,3 +1,5 @@
+> **Historical execution plan.** Dated launch assumptions and cook-mode checks do not define the current release. See `../../00_PRODUCT_DIRECTION.md`.
+
 # Web Android Parity Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

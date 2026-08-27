@@ -1,63 +1,69 @@
 # HomeChef
 
-HomeChef is a photo-based meal decision engine for the moment when you are
-hungry, short on time, and tired of recipe sites asking you to choose from
-hundreds of possibilities. It turns the kitchen you actually have into a short,
-confident answer to one question: _what should I make right now?_
+HomeChef reduces food decision fatigue.
 
-Take a photo of your pantry, set the time you have, and HomeChef returns three
-or four meals that fit. It is not a recipe search engine; more options are not
-the goal. The goal is to make dinner feel decided.
+It helps with two moments:
 
-## A kitchen-aware answer
+- **Now:** decide what to make from the kitchen you already have.
+- **This week:** propose a practical meal plan and identify what is missing.
 
-Every recommendation starts with real constraints:
+HomeChef is not a recipe search engine. It is a guided decision tree. Each step
+asks one question, or two closely related questions, and uses the pantry,
+equipment, allergens, dietary needs, and prior choices to remove unnecessary
+decisions.
 
-- **Your pantry.** A photo scan and quick corrections build a living picture of
-  what is on hand, with simple ways to correct pantry drift.
-- **Your equipment tier.** A microwave-only kitchen should receive meals it can
-  genuinely cook—not aspirational recipes that require a stovetop or blender.
-- **Your time.** Fifteen minutes, thirty minutes, or a slower evening each call
-  for a different answer.
-- **Your dietary and allergen needs.** These are hard constraints. HomeChef
-  never quietly relaxes them to fill a screen.
+## Make something now
 
-Results are arranged by what is missing: meals you can make now, meals that
-need a small pantry gap filled, and options for a larger restock. When time or
-cuisine preferences must relax to avoid a dead end, the app says so clearly.
+Take a photo of the pantry or correct it manually, choose the time available,
+and add one optional preference. HomeChef leads with a small set of strong
+matches.
 
-## Built for the 6pm moment
+The first set stays focused. **Show more matches** reveals additional catalog
+depth when the user wants it.
 
-HomeChef is designed for someone holding a phone in one hand, not someone
-planning a culinary project. The experience favors large, clear controls,
-minimal choices, and a cook mode that keeps the next step legible across a
-counter. Pantry scanning is helpful, never required; manual corrections remain
-part of the product because a useful pantry must be easy to keep accurate.
+Results explain the pantry gap:
 
-## Trust is part of the product
+- ready with what you have;
+- missing a few ingredients;
+- a larger pantry gap.
 
-Safety and privacy are product requirements, not polish.
+Hard constraints never move. Equipment, allergens, and dietary needs are not
+relaxed to fill a screen.
 
-- Allergens, dietary needs, and available equipment are never compromised.
-- A shared household can share its pantry without sharing private preferences.
-- The bundled catalog works as the dependable base. Optional live expansion is
-  best-effort and never replaces a valid on-hand answer with an error.
-- HomeChef is built to stay free at launch, with no subscription required to get
-  a useful decision.
+## Plan my week
 
-## The vision
+The weekly journey uses the same intelligence in reverse. HomeChef asks a few
+simple questions, proposes one week, and shows **What to get** beyond the
+current pantry.
 
-HomeChef should make cooking from home feel lighter: less searching, less
-second-guessing, and fewer ingredients bought for one recipe and forgotten.
-It helps people use what they already have, respect the limits of their real
-kitchens, and get from “what is for dinner?” to “let’s make this” in a few
-seconds.
+The user may replace one meal at a time. They do not build a calendar from an
+empty page or browse hundreds of recipes.
 
-The August 2026 launch focuses on that core promise across iOS, Android, and
-the web. Product decisions and technical details live in [the project
-documentation](docs/).
+What to get is guidance attached to that plan. It is not a general shopping
+list.
 
-## Contributing
+## Pantry intelligence
 
-Start with the [contribution guide](CONTRIBUTING.md) for local setup, branch
-and commit conventions, pull requests, and verification requirements.
+Photo recognition makes setup faster. Confirmation and manual correction keep
+the pantry trustworthy.
+
+Over time, explicit recipe and plan selections may help HomeChef suggest likely
+future ingredients. Suggestions require confirmation before changing pantry or
+plan state.
+
+## Experience
+
+The interface is food-first, modern, and calm: strong imagery, bold type, warm
+colors, generous spacing, large controls, and short conversational copy.
+
+The current product includes recipe details and instructions. Dedicated cook
+mode, hands-free cooking, barcode scanning, and general shopping lists are out
+of scope.
+
+## Release
+
+Version 1.0 has no fixed calendar date. It ships when both decision journeys are
+complete, tested, understandable, and trustworthy.
+
+Start with [Product Direction](docs/00_PRODUCT_DIRECTION.md). Technical,
+experience, and operating documents are indexed in [docs/](docs/).
