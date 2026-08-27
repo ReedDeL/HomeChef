@@ -9,6 +9,7 @@ from typing import NoReturn
 import pytest
 
 from tools.catalog import __main__ as catalog_cli
+from tools.catalog.models import CatalogIngredient, CatalogRecipe
 from tools.catalog.nutrition import load_usda_cache
 from tools.catalog.tests.test_build import make_meal
 
@@ -97,6 +98,24 @@ def test_usda_cache_flag_enriches_offline_without_refresh(
     fixture = Path(__file__).parent / "fixtures" / "usda_foods.json"
     monkeypatch.setattr(catalog_cli, "fetch_all_meals", fail_network)
     monkeypatch.setattr(catalog_cli, "refresh_usda_cache", fail_network)
+    monkeypatch.setattr(
+        catalog_cli,
+        "load_catalog_recipes",
+        lambda _path: [
+            CatalogRecipe(
+                id="flour",
+                title="USDA fixture recipe",
+                image_url=None,
+                cuisine=None,
+                total_time_minutes=10,
+                equipment_required=["stove"],
+                dietary_tags=[],
+                ingredients=[CatalogIngredient(id="flour", measure="100 g")],
+                instructions="Cook safely.",
+                base_servings=1,
+            )
+        ],
+    )
 
     result = catalog_cli.main(["--usda-cache", str(fixture), "--output-dir", str(tmp_path)])
 
