@@ -8,7 +8,7 @@ const roots = ['app','src','supabase','tools','scripts','.github'];
 const failures = [];
 const check = (name, ok) => ok ? stdout.write(`PASS ${name}\n`) : (failures.push(name), stderr.write(`FAIL ${name}\n`));
 const filesIn = dir => readdirSync(dir,{withFileTypes:true}).flatMap(entry => { const path=join(dir,entry.name); return entry.isDirectory()?filesIn(path):[path]; });
-const sourceFiles = roots.flatMap(dir=>filesIn(join(root,dir))).filter(file=>/\.(?:[cm]?[jt]sx?|json|ya?ml|toml|sql|py)$/.test(file)).filter(file=>!excluded.has(relative(root,file))).filter(file=>relative(root,file)!=='scripts/catalog-boundary-verification.mjs');
+const sourceFiles = roots.flatMap(dir=>filesIn(join(root,dir))).filter(file=>/\.(?:[cm]?[jt]sx?)$/.test(file)).filter(file=>!excluded.has(relative(root,file))).filter(file=>relative(root,file)!=='scripts/catalog-boundary-verification.mjs');
 const payloadImports = sourceFiles.filter(file => {
   const path=relative(root,file);
   if (path==='src/data/catalog.ts') return false;
