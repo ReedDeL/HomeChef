@@ -6,15 +6,12 @@ import { layout, palette } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 /**
- * Letterboxes the app into a phone-width column on the web, and does nothing
- * at all on native.
+ * Keeps native and phone-sized browser layouts compact while giving desktop
+ * browsers a real responsive workspace.
  *
- * HomeChef is designed for one hand at 6pm (docs/04_UIUX_SPEC.md §0). Letting
- * that layout stretch to a 1920px monitor does not make it a desktop app, it
- * just makes it a broken phone app — 600pt-wide summary tiles and a single
- * sparse row of ingredient chips. Constraining the width keeps the browser
- * showing the same thing the device shows, which is also what makes the web
- * build usable for reviewing native work.
+ * The web shell is capped at the desktop workspace width from the layout
+ * tokens; screens add their own desktop composition inside it. A narrow browser
+ * remains naturally phone-width, so the mobile experience does not change.
  */
 export function MobileViewport({ children }: PropsWithChildren) {
   const { color, isDark } = useTheme();
@@ -31,6 +28,7 @@ export function MobileViewport({ children }: PropsWithChildren) {
       style={[
         styles.column,
         { backgroundColor: color.bg },
+        Platform.OS === 'web' && styles.webColumn,
         Platform.OS === 'web' && { borderColor: color.border, ...styles.webFrame },
       ]}
     >
@@ -44,14 +42,10 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: layout.mobileViewportMaxWidth,
-    /**
-     * The parent is React Native's root view, which is a column flex container
-     * — so the cross axis is horizontal and this is what centres the column on
-     * a wide viewport. Doing it here rather than in the HTML shell keeps the
-     * behaviour identical whether the web build is exported as an SPA or as
-     * static HTML.
-     */
     alignSelf: 'center',
+  },
+  webColumn: {
+    maxWidth: layout.desktopMaxWidth,
   },
   webFrame: {
     borderLeftWidth: StyleSheet.hairlineWidth,
