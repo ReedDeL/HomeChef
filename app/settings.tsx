@@ -176,12 +176,15 @@ export default function SettingsScreen() {
           {
             text: 'Reset All',
             style: 'destructive',
-            onP  const openAttribution = (url: string) => {
-    void Linking.openURL(url);
+            onPress: confirmReset,
+          },
+        ]
+      );
+    }
   };
 
-() => {
-    Linking.openURL('https://www.themealdb.com');
+  const openAttribution = (url: string) => {
+    void Linking.openURL(url);
   };
 
   return (
@@ -362,7 +365,7 @@ export default function SettingsScreen() {
           ))}
           <Text variant="caption" tone="muted">
             Each recipe keeps its source, version, license, and attribution metadata.
-          </Text>
+          </Text>>
         </Card>
       </View>
 
