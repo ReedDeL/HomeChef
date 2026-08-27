@@ -3,7 +3,7 @@
  *
  * Everything here is plain data. No Supabase row types, no React, no promises.
  * The data layer converts into these types (src/lib/adapters/) and the engine
- * never learns where a recipe came from — the bundled catalog or a live Spoonacular result.
+ * never learns where a recipe came from — the bundled catalog or a live catalog result.
  */
 import type { NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
 
@@ -73,6 +73,16 @@ export interface RecipeIngredient {
   allergenGroups: IngredientId[];
 }
 
+export interface RecipeAttribution {
+  sourceId: string;
+  sourceVersion: string;
+  sourceRecipeId?: string;
+  attribution: string;
+  url: string;
+  licenseName?: string;
+  licenseUrl?: string;
+}
+
 export interface Recipe {
   id: string;
   title: string;
@@ -93,6 +103,8 @@ export interface Recipe {
    * the UI can render attribution.
    */
   source: 'bundled' | 'spoonacular';
+  /** Rights metadata copied from the active catalog release. */
+  attribution?: RecipeAttribution | null;
 }
 
 export interface UserPreferences {

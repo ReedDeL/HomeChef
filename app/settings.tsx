@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { BUNDLED_CATALOG_ATTRIBUTIONS } from '@/data/catalog';
 import { useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
@@ -174,18 +176,11 @@ export default function SettingsScreen() {
           {
             text: 'Reset All',
             style: 'destructive',
-            onPress: confirmReset,
-          },
-        ]
-      );
-    }
+            onP  const openAttribution = (url: string) => {
+    void Linking.openURL(url);
   };
 
-  // Required by TheMealDB's paid terms: "You can use our custom artwork in your
-  // projects but must mention us as the source of the data", and artwork
-  // "should link back to our website where appropriate". They supply 792 of the
-  // 812 bundled recipes and every recipe image, so this credit is not optional.
-  const openMealDb = () => {
+() => {
     Linking.openURL('https://www.themealdb.com');
   };
 
@@ -350,18 +345,24 @@ export default function SettingsScreen() {
           <Text variant="caption" tone="muted">
             Photo-based meal decision engine. Version 0.1.0
           </Text>
-          <Pressable
-            accessible
-            accessibilityRole="link"
-            accessibilityLabel="Recipe data and images from TheMealDB"
-            accessibilityHint="Opens TheMealDB website in browser"
-            onPress={openMealDb}
-            style={styles.attributionLink}
-          >
-            <Text variant="caption" tone="accent">
-              Recipe data & images from TheMealDB ↗
-            </Text>
-          </Pressable>
+          {BUNDLED_CATALOG_ATTRIBUTIONS.map((source) => (
+            <Pressable
+              key={source.sourceId}
+              accessible
+              accessibilityRole="link"
+              accessibilityLabel={`${source.title}, ${source.licenseName}`}
+              accessibilityHint="Opens the source and license details in a browser"
+              onPress={() => openAttribution(source.url)}
+              style={styles.attributionLink}
+            >
+              <Text variant="caption" tone="accent">
+                {source.title} · {source.licenseName} ↗
+              </Text>
+            </Pressable>
+          ))}
+          <Text variant="caption" tone="muted">
+            Each recipe keeps its source, version, license, and attribution metadata.
+          </Text>
         </Card>
       </View>
 

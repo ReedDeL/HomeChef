@@ -1,0 +1,20 @@
+[
+  {
+    "sourceId": "wikibooks-cookbook",
+    "sourceVersion": "2026-08-27",
+    "title": "Wikibooks Cookbook recipe snapshot",
+    "url": "https://en.wikibooks.org/wiki/Cookbook:Recipes",
+    "licenseName": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attribution": "Recipe text is adapted from the Wikibooks Cookbook. Changes are documented in each recipe record."
+  },
+  {
+    "sourceId": "homechef-authored",
+    "sourceVersion": "microwave-seed-1",
+    "title": "HomeChef-authored microwave seed catalog",
+    "url": "https://homechef.app/catalog/rights",
+    "licenseName": "HomeChef-authored original content",
+    "licenseUrl": "https://homechef.app/catalog/rights",
+    "attribution": "HomeChef-authored microwave seed catalog."
+  }
+]

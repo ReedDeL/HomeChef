@@ -39,6 +39,7 @@ export function toRecipe(raw: unknown): Recipe | null {
     ingredients,
     instructions: asString(raw.instructions) ?? '',
     ...nutrition,
+    attribution: toAttribution(raw.attribution),
     source: raw.source === 'spoonacular' ? 'spoonacular' : 'bundled',
   };
 }
@@ -52,6 +53,26 @@ export function toCatalog(raw: unknown): Recipe[] {
     if (recipe) recipes.push(recipe);
   }
   return recipes;
+}
+
+function toAttribution(raw: unknown): Recipe['attribution'] {
+  if (!isRecord(raw)) return null;
+
+  const sourceId = asString(raw.sourceId);
+  const sourceVersion = asString(raw.sourceVersion);
+  const attribution = asString(raw.attribution);
+  const url = asString(raw.url);
+  if (!sourceId || !sourceVersion || !attribution || !url) return null;
+
+  return {
+    sourceId,
+    sourceVersion,
+    sourceRecipeId: asString(raw.sourceRecipeId) ?? undefined,
+    attribution,
+    url,
+    licenseName: asString(raw.licenseName) ?? undefined,
+    licenseUrl: asString(raw.licenseUrl) ?? undefined,
+  };
 }
 
 function toIngredients(raw: unknown): RecipeIngredient[] {

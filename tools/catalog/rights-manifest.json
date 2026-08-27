@@ -1,4 +1,17 @@
 {
   "schemaVersion": 1,
-  "sources": []
+  "sources": [
+    {
+      "id": "wikibooks-cookbook",
+      "version": "2026-08-27",
+      "title": "Wikibooks Cookbook recipe snapshot (adapted)",
+      "archiveUrl": "https://en.wikibooks.org/wiki/Cookbook:Recipes",
+      "sha256": "4c05db51e49432319b0a03e14c9fc5abea51f94ea44a65a24308668cc3f32f85",
+      "licenseName": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "Recipe text is adapted from the Wikibooks Cookbook under CC BY-SA 4.0. The normalized archive is retained in this repository.",
+      "archiveFormat": "jsonl",
+      "status": "approved"
+    }
+  ]
 }
