@@ -27,5 +27,4 @@ describe('getResponsiveLayout', () => {
       gridColumns: 2,
     });
   });
-
 });
