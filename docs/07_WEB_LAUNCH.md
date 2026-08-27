@@ -81,7 +81,7 @@ photo pipeline and future authentication.
 
 - Complete onboarding and submit a pantry filter.
 - Open a recipe and verify complete instructions. Verify Show more preserves earlier matches, then generate a weekly plan and review What to get.
-- Refresh a recipe or cook-mode URL directly to check deep links.
+- Refresh a recipe URL directly to check deep links.
 - Upload a synthetic test photo; do not use a real pantry photo for an
   infrastructure check.
 - Confirm the browser requests camera permission only after **Take a photo**.
