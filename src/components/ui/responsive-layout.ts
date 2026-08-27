@@ -16,12 +16,9 @@ export interface ResponsiveLayout {
  * screen-level compositions. Keeping this pure makes the breakpoint contract
  * testable without a browser or React Native renderer.
  */
-export function getResponsiveLayout(
-  width: number,
-  enableDesktopComposition = true
-): ResponsiveLayout {
+export function getResponsiveLayout(width: number): ResponsiveLayout {
   const viewportWidth = Number.isFinite(width) ? Math.max(0, width) : 0;
-  const isDesktop = enableDesktopComposition && viewportWidth >= layout.desktopBreakpoint;
+  const isDesktop = viewportWidth >= layout.desktopBreakpoint;
   const isTablet = viewportWidth >= layout.tabletBreakpoint;
 
   return {
