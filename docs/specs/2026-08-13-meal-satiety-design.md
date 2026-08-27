@@ -1,8 +1,7 @@
 # Meal satiety check-in design
 
 **Date:** 2026-08-13
-**Status:** Approved for implementation — plan at
-`docs/plans/2026-08-13-meal-satiety.md`, no code yet
+**Status:** Implemented
 
 ## Purpose
 

@@ -107,6 +107,9 @@ change with viewport width; product behavior and accessibility labels do not.
 
 ## 3. Onboarding
 
+First launch begins with equipment setup, never sign-in. The app creates and
+persists a local account without asking for identity or network access.
+
 Onboarding asks only for launch-critical constraints:
 
 1. choose an equipment tier;
@@ -116,6 +119,16 @@ Onboarding asks only for launch-critical constraints:
 Camera access is never required to finish onboarding. Only allergen groups the
 catalog can enforce may be offered. Every control uses design tokens, accessible
 labels, and a single clear primary action.
+
+### 3.1 Accounts and sync
+
+Unsigned state is a normal local account, not a guest mode, trial, or degraded
+experience. Every core bundled-catalog decision remains available.
+
+Settings contains the current account state and every account action. Choosing
+**Sync across devices** starts Google authorization from that card. Closing
+authorization leaves the local account unchanged; signing out also preserves
+local pantry items, kitchen setup, and preferences.
 
 ---
 
@@ -306,10 +319,10 @@ product thesis rests on.
 
 ### 11.2 Saved Spoonacular recipe, when the re-fetch fails
 
-The app is online-only (Technical Spec §2.2.1), so sustained offline use is not a
-supported state. But a request can still fail — dropped connection, vendor
-outage, exhausted quota (HTTP 402) — and this screen is what the user sees when
-it does.
+The bundled catalog, local kitchen profile, and decision engine support offline
+use. A saved live recipe can still fail to re-fetch because of a dropped
+connection, vendor outage, or exhausted quota (HTTP 402); this screen is what
+the user sees when that optional network feature is unavailable.
 
 We may store a Spoonacular recipe's `id`, `title`, and `imageUrl` — but not its
 ingredients or instructions. So a saved Spoonacular recipe whose re-fetch fails has a

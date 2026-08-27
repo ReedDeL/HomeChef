@@ -45,8 +45,8 @@ arrangement, but there must be no desktop-only or mobile-only product behavior.
 Replace the current web-only 430px letterbox with a responsive shell:
 
 - mobile: full-width content with 16–24px horizontal padding;
-- desktop: warm page canvas, centered workspace capped near 1180px, and a
-  readable content surface with responsive gutters;
+- desktop: full-browser canvas with a fluid centered workspace capped at
+  1600px, keeping readable content widths and responsive gutters;
 - tablet widths: fluid interpolation between the mobile and desktop states;
 - native platforms: preserve the existing native behavior and safe-area handling.
 

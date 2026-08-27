@@ -14,6 +14,10 @@ import {
   type MealPrepReminderLeadMinutes,
 } from '@/lib/meal-prep-reminder';
 import { trackSettingsUpdated } from '@/lib/analytics';
+import { signInWithGoogle, signOut } from '@/lib/auth/google';
+import { useAuthSession } from '@/lib/auth/useAuthSession';
+import { isHttpsUrl, mergeAttributions, type CatalogAttribution } from '@/lib/catalog';
+import { useCatalogAttributions } from '@/lib/queries/catalog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
@@ -62,6 +66,15 @@ const THEME_OPTIONS: readonly {
   },
 ];
 
+const DEFAULT_ATTRIBUTIONS: readonly CatalogAttribution[] = [
+  {
+    sourceId: 'homechef-authored',
+    sourceVersion: 'microwave-seed-1',
+    attribution: 'HomeChef-authored open-source catalog',
+    url: 'https://homechef.app/catalog/rights',
+  },
+];
+
 /**
  * Settings Screen / Window.
  *
@@ -71,6 +84,10 @@ const THEME_OPTIONS: readonly {
  */
 export default function SettingsScreen() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthSession();
+
+  const attributionsQuery = useCatalogAttributions();
+  const attributions = mergeAttributions(attributionsQuery.data ?? [], DEFAULT_ATTRIBUTIONS);
 
   const themeMode = useKitchenStore((state) => state.themeMode);
   const setThemeMode = useKitchenStore((state) => state.setThemeMode);
@@ -93,6 +110,9 @@ export default function SettingsScreen() {
   );
 
   const reset = useKitchenStore((state) => state.reset);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [resetConfirming, setResetConfirming] = useState(false);
 
   const updateTheme = (value: ThemeMode) => {
@@ -120,6 +140,35 @@ export default function SettingsScreen() {
     const enabled = !dietary.includes(value);
     toggleDietary(value);
     trackSettingsUpdated({ setting: 'dietary_filter_enabled', value: enabled });
+  };
+
+  const handleSignIn = async () => {
+    setSignInError(null);
+    setIsSigningIn(true);
+
+    try {
+      await signInWithGoogle();
+    } catch {
+      setSignInError("Couldn't sign you in. Check your connection and try again.");
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+
+    try {
+      await signOut();
+    } catch (error: unknown) {
+      console.warn('[auth] Unable to sign out', error);
+      Alert.alert(
+        "Couldn't sign out",
+        'Your local kitchen data is still safe on this device. Please try again.'
+      );
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const clearReminders = () => {
@@ -181,14 +230,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // Required by TheMealDB's paid terms: "You can use our custom artwork in your
-  // projects but must mention us as the source of the data", and artwork
-  // "should link back to our website where appropriate". They supply 792 of the
-  // 812 bundled recipes and every recipe image, so this credit is not optional.
-  const openMealDb = () => {
-    Linking.openURL('https://www.themealdb.com');
-  };
-
   return (
     <Screen header={<Header backLabel="Back" fallbackHref="/" />}>
       <View style={styles.header}>
@@ -196,6 +237,46 @@ export default function SettingsScreen() {
         <Text variant="body" tone="muted">
           Manage your appearance, kitchen setup, and dietary preferences.
         </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="heading">Account & Sync</Text>
+        <Card variant="alt">
+          {isAuthLoading ? (
+            <Text variant="caption" tone="muted">
+              Checking sync status…
+            </Text>
+          ) : isAuthenticated ? (
+            <>
+              <Text variant="bodyStrong">Sync account connected</Text>
+              <Text variant="caption" tone="muted">
+                Your local kitchen stays available on this device. Signing out stops sync without
+                clearing your pantry or preferences here.
+              </Text>
+              <PrimaryButton
+                label={isSigningOut ? 'Signing out…' : 'Sign out'}
+                onPress={handleSignOut}
+                accessibilityHint="Signs out without clearing local kitchen data"
+                disabled={isSigningOut}
+              />
+            </>
+          ) : (
+            <>
+              <Text variant="bodyStrong">Local account</Text>
+              <Text variant="caption" tone="muted">
+                Your pantry, kitchen setup, and preferences are stored on this device. Sign in only
+                if you want them synced across devices.
+              </Text>
+              {signInError ? <Text accessibilityLiveRegion="polite">{signInError}</Text> : null}
+              <PrimaryButton
+                label={isSigningIn ? 'Signing in…' : 'Sync across devices'}
+                onPress={handleSignIn}
+                accessibilityHint="Opens optional sign-in for cross-device sync"
+                disabled={isSigningIn}
+              />
+            </>
+          )}
+        </Card>
       </View>
 
       {/* Theme / Appearance Section */}
@@ -350,18 +431,31 @@ export default function SettingsScreen() {
           <Text variant="caption" tone="muted">
             Photo-based meal decision engine. Version 0.1.0
           </Text>
-          <Pressable
-            accessible
-            accessibilityRole="link"
-            accessibilityLabel="Recipe data and images from TheMealDB"
-            accessibilityHint="Opens TheMealDB website in browser"
-            onPress={openMealDb}
-            style={styles.attributionLink}
-          >
-            <Text variant="caption" tone="accent">
-              Recipe data & images from TheMealDB ↗
-            </Text>
-          </Pressable>
+          {attributions.map((item) =>
+            item.url && isHttpsUrl(item.url) ? (
+              <Pressable
+                key={`${item.sourceId}-${item.sourceVersion}`}
+                accessible
+                accessibilityRole="link"
+                accessibilityLabel={item.attribution}
+                accessibilityHint="Opens this catalog source in your browser"
+                onPress={() => {
+                  if (item.url && isHttpsUrl(item.url)) {
+                    Linking.openURL(item.url);
+                  }
+                }}
+                style={styles.attributionLink}
+              >
+                <Text variant="caption" tone="accent">
+                  {item.attribution} ↗
+                </Text>
+              </Pressable>
+            ) : (
+              <Text key={`${item.sourceId}-${item.sourceVersion}`} variant="caption" tone="muted">
+                {item.attribution}
+              </Text>
+            )
+          )}
         </Card>
       </View>
 

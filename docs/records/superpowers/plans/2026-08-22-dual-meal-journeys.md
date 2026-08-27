@@ -556,7 +556,7 @@ git commit -m "Build dual meal journeys"
 - Modify: `docs/01_TECHNICAL_SPEC.md`
 - Modify: `docs/03_COLLABORATION_BLUEPRINT.md`
 - Modify: `docs/04_UIUX_SPEC.md`
-- Modify: `docs/05_AI_TOOLING_PLAYBOOK.md`
+- Modify: `docs/agentic/AI_TOOLING_PLAYBOOK.md`
 - Modify: `docs/06_API_KEYS_AND_ENV.md`
 - Modify: `docs/specs/2026-08-13-weekly-meal-prep-design.md`
 - Modify: `docs/specs/2026-08-13-meal-prep-notifications-design.md`

@@ -9,7 +9,7 @@
 
 ## 0. How to read this document
 
-This is the binding technical decision record for HomeChef. Where this document conflicts with an earlier Notion page, **this document wins** and the Notion page should be updated to match. Three such conflicts are resolved explicitly in §2.6.
+This is the binding technical decision record for HomeChef. Its decisions supersede earlier planning notes. Three such conflicts are resolved explicitly in §2.6.
 
 Every decision below is stated as: **what we chose**, **what we rejected**, and **why** — so that neither founder has to re-litigate it at 2am on August 20th.
 
@@ -21,7 +21,7 @@ The product is not a recipe search engine. It is a **decision engine**: it consu
 
 | # | Business outcome (what the user experiences) | Technical constraint it forces |
 |---|---|---|
-| B1 | "I set up my kitchen once and it never asks again." | Durable per-user profile with equipment tier + allergens. Must survive reinstall → server-side, not device-local. Auth required from day one. |
+| B1 | "I set up my kitchen once and it never asks again." | Durable local profile with equipment tier + allergens. An optional sync account adds cross-device recovery without delaying first use. |
 | B2 | "I take a photo of my fridge and it knows what I have." | Open-vocabulary visual recognition. Cannot be a fixed-class model. Output must be machine-parseable, not prose. |
 | B3 | "It shows me meals in four buckets by what I'm missing." | Set-difference of pantry against every recipe's ingredient list, computed for the entire catalog on every query. Must feel instant (<100ms perceived). |
 | B4 | "Three good answers, not four hundred." | Ranking and truncation are product features. The engine must be *opinionated* — a scoring function, not a filter. |
@@ -48,7 +48,7 @@ out of scope.
 
 ### 2.1 Client — React Native 0.86 + Expo 57 + TypeScript 6.0
 
-**Chosen.** Confirmed against both the research document and the existing Notion `Technicalities` page.
+**Chosen.** Confirmed against the research document and the current architecture record.
 
 Justification, in priority order for a 21-day build:
 
@@ -100,7 +100,7 @@ using (user_id = auth.uid());
 
 A misconfigured client cannot leak a roommate's allergen list, because the database refuses to return the rows. That guarantee is worth more than any amount of application-layer discipline.
 
-> **Closed: MongoDB and Firebase.** The Notion `Technicalities` page still lists "MongoDB/Firebase if needed" — that option is closed. A document store pushes the inventory/preferences join into application code, turning our privacy guarantee from an engine-enforced invariant into a code-review promise. Do not reopen; migrating databases mid-sprint is how launch dates get missed.
+> **Closed: MongoDB and Firebase.** Supabase Postgres is the only database for launch. The roommate privacy requirement is a relational constraint enforced by RLS; do not reopen the alternatives.
 
 #### Cost model
 
@@ -145,20 +145,22 @@ Deno.serve(async (req) => {
 });
 ```
 
-### 2.2.1 Authentication — Supabase Auth, federated sign-in
+### 2.2.1 Authentication — local by default, optional sync identity
 
-**DECIDED Aug 12, 2026.** Accounts are mandatory from first launch (B1: "I set up
-my kitchen once and it never asks again" requires a durable server-side profile
-that survives reinstall). Sign-in is **federated via Google**, brokered by
-Supabase Auth.
+**REVISED Aug 27, 2026.** HomeChef creates a local account by default. Equipment
+onboarding is the first action; no identity-provider or network round trip may
+stand between launch and the local decision engine.
 
-Supabase Auth issues the JWT that every RLS policy in §3 keys on, so the
-provider choice and the authorization model are the same decision. No custom
-session handling, no second identity store.
+Google sign-in through Supabase Auth is an optional choice whose sole product
+purpose is cross-device sync and recovery. Supabase Auth issues the JWT used by
+the RLS policies in §3, so synced data retains the same household and personal
+privacy boundaries. Signing out stops sync but never deletes the local kitchen.
 
-**This is what makes the app online-only.** A user cannot reach the
-first screen without a network round trip to an identity provider, so designing
-any downstream layer for offline operation protects a state that cannot occur.
+The Zustand store remains the source of truth for unsigned users. A sync layer
+must reconcile that state through the existing TanStack Query/Supabase seam:
+first sign-in uploads meaningful local state before empty server defaults can
+replace it, and subsequent devices pull the authenticated profile. Sync failure
+falls back to local state without blocking the app.
 
 **Open items — owner RJ:**
 
@@ -166,7 +168,7 @@ any downstream layer for offline operation protects a state that cannot occur.
 |---|---|
 | **Sign in with Apple** | Apple's App Store guidelines have historically required it wherever a third-party social login is offered. If that holds, iOS ships with both or is rejected at review. **Verify against current guidelines before the iOS build.** |
 | **Email fallback** | A federated-only app locks out anyone without a Google account, and makes review-team testing awkward. Supabase magic links cost nothing to add. |
-| **Session persistence** | Sessions must survive app restart, or "never asks again" fails on the second launch. |
+| **Sync reconciliation** | First sign-in must preserve meaningful local data; later devices need deterministic conflict handling instead of last-response-wins replacement. |
 
 ### 2.3 Recipe sources — bundled catalog and optional live expansion
 
@@ -207,7 +209,7 @@ Pin the **stable** string, not `gemini-flash-latest`. The `latest` alias hot-swa
 
 Google's **Interactions API** is now GA and is the recommended surface for new builds. Use it for this integration rather than the older endpoint.
 
-**Accepted tradeoffs:** requires network connectivity (acceptable — the app is online-only by decision, §2.2.1); per-call cost scaling with usage (bounded — capture is infrequent, and this is the app's largest per-user variable cost); and a third-party dependency (mitigated — manual pantry entry is a complete fallback and is required anyway for B7).
+**Accepted tradeoffs:** photo analysis requires network connectivity, while manual pantry entry and the bundled decision engine remain the complete local fallback; per-call cost scales with usage (bounded — capture is infrequent and is the app's largest per-user variable cost); and a third-party dependency is mitigated by the required manual correction path (B7).
 
 **Phase 3 option:** once real user photos accumulate, a distilled on-device model could handle the ~200 most common ingredients locally and fall back to the cloud for the tail. A sound cost optimization, not a launch strategy.
 
@@ -258,9 +260,9 @@ Three places where the sources disagreed, and the resolution:
 
 | # | Conflict | Resolution |
 |---|---|---|
-| 1 | Brief states `PRIMARY_LANGUAGE: Python`; research and Notion both specify TypeScript/React Native. | **TypeScript is the product language.** Python is the *tooling* language and owns the catalog ingest and equipment-enrichment pipeline (§5.2) — a real, load-bearing component that plays directly to existing team fluency. Both standards are specified in the Style Guide. No Python enters the request path; adding a FastAPI layer would introduce a second deploy target for zero product benefit, 21 days from launch. |
-| 2 | Notion `Technicalities` lists "MongoDB or Firebase if needed" alongside Supabase. | **Closed. Supabase Postgres only.** The roommate privacy requirement (B8) is a relational constraint enforced by RLS. Update the Notion page to remove the alternatives so nobody starts a parallel implementation. |
-| 3 | Research recommends pgvector + Reciprocal Rank Fusion hybrid search; Notion specifies a bundled JSON catalog. | **Notion is right for launch.** Reasoning in §4.1 — at ~320 recipes the entire ranking runs client-side in under 10ms. Spoonacular doesn't change this: their terms forbid storing their recipes, so our *stored* catalog stays ~300 regardless of how many we display. |
+| 1 | Brief states `PRIMARY_LANGUAGE: Python`; research and earlier planning record both specify TypeScript/React Native. | **TypeScript is the product language.** Python is the *tooling* language and owns the catalog ingest and equipment-enrichment pipeline (§5.2) — a real, load-bearing component that plays directly to existing team fluency. Both standards are specified in the Style Guide. No Python enters the request path; adding a FastAPI layer would introduce a second deploy target for zero product benefit, 21 days from launch. |
+| 2 | earlier planning record `Technicalities` lists "MongoDB or Firebase if needed" alongside Supabase. | **Closed. Supabase Postgres only.** The roommate privacy requirement (B8) is a relational constraint enforced by RLS. Update the earlier planning record page to remove the alternatives so nobody starts a parallel implementation. |
+| 3 | Research recommends pgvector + Reciprocal Rank Fusion hybrid search; earlier planning record specifies a bundled JSON catalog. | **earlier planning record is right for launch.** Reasoning in §4.1 — at ~320 recipes the entire ranking runs client-side in under 10ms. Spoonacular doesn't change this: their terms forbid storing their recipes, so our *stored* catalog stays ~300 regardless of how many we display. |
 | 4 | Original spec treated Spoonacular as a Phase 2 replacement whose data we would cache into Postgres. | **Wrong, and corrected Aug 3.** Their Terms of Use prohibit storing ingredients, instructions, or derived data beyond a 1-hour cache. Spoonacular is now an optional live query, nothing persisted but `id`/`title`/`imageUrl` (§2.3). |
 
 ---
@@ -497,7 +499,7 @@ The pipeline is a Python package under `tools/catalog/`, run manually, whose out
 
    `unclassified` is the tenth value, and it is load-bearing: it marks recipes whose tagging failed, and `isEquipmentSatisfied` (§4.1) rejects it for every user — including full-kitchen users. Unknown excludes; it does not admit. Collapsing it into `none` once served stove-requiring recipes to microwave-only users as though verified.
 5. **Estimate `total_time_minutes`** from the instructions where absent.
-6. **Human spot-check.** Sample 30 recipes and verify equipment tags by hand. This gate is mandatory — an oven-requiring recipe mislabeled `microwave` is precisely the trust-destroying failure the equipment wedge exists to prevent. **Log the sampled accuracy rate in the Notion status report.**
+6. **Human spot-check.** Sample 30 recipes and verify equipment tags by hand. This gate is mandatory — an oven-requiring recipe mislabeled `microwave` is precisely the trust-destroying failure the equipment wedge exists to prevent. **Log the sampled accuracy rate in the catalog QA record.**
 7. **Emit** `recipes.json` + `ingredients.json` to `src/data/`, and commit them.
 
 Because this runs once at build time, its latency is irrelevant and its cost is a few dollars total. Python is the right tool: the team already writes it, and the ecosystem for this kind of messy-text ETL is unmatched.
@@ -638,10 +640,9 @@ See `../README.md` for current routes and commands.
 | Document | Contents |
 |---|---|
 | `02_STYLE_GUIDE.md` | TypeScript and PEP 8 standards, comment policy, Git commit conventions |
-| `03_COLLABORATION_BLUEPRINT.md` | GitHub Flow, Notion board, Definition of Done, role boundaries |
+| `03_COLLABORATION_BLUEPRINT.md` | GitHub Flow, earlier planning record board, Definition of Done, role boundaries |
 | `04_UIUX_SPEC.md` | Screen inventory, design tokens, interaction rules |
-| `05_AI_TOOLING_PLAYBOOK.md` | How the team uses AI tools without generating slop |
-| `AGENTS.md` | Repo-root context file consumed by coding agents |
+| `CONTRIBUTING.md` | Team setup, branching, pull requests, review, and verification |
 
 ---
 

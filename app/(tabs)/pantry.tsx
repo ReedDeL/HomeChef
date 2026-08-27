@@ -34,7 +34,7 @@ export default function PantryScreen() {
   const router = useRouter();
   const { color, shadow } = useTheme();
   const { width } = useWindowDimensions();
-  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
   const pantry = useKitchenStore((state) => state.pantry);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
   const removePantryItem = useKitchenStore((state) => state.removePantryItem);

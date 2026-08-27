@@ -39,6 +39,8 @@ export default function ScanScreen() {
   const router = useRouter();
   const { color } = useTheme();
   const addPantryItems = useKitchenStore((state) => state.addPantryItems);
+  const onboardingDone = useKitchenStore((state) => state.onboardingDone);
+  const fallbackHref = onboardingDone ? '/pantry' : '/(onboarding)/staples';
 
   const [phase, setPhase] = useState<Phase>('capture');
   const [uris, setUris] = useState<string[]>([]);
@@ -123,8 +125,12 @@ export default function ScanScreen() {
   const confirm = useCallback(() => {
     const acceptedIds = acceptedIngredientIds(candidates);
     addPantryItems(acceptedIds);
-    router.back();
-  }, [candidates, addPantryItems, router]);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(fallbackHref as Parameters<typeof router.replace>[0]);
+    }
+  }, [candidates, addPantryItems, router, fallbackHref]);
 
   const updateCandidate = useCallback(
     (key: string, change: (candidate: PantryCandidate) => PantryCandidate) => {
@@ -147,7 +153,7 @@ export default function ScanScreen() {
               setUris([]);
               setCandidates([]);
             }}
-            fallbackHref="/pantry"
+            fallbackHref={fallbackHref}
           />
         }
         footer={
@@ -206,7 +212,11 @@ export default function ScanScreen() {
     <>
       <Screen
         header={
-          <Header backLabel="Back" backHint="Returns to previous screen" fallbackHref="/pantry" />
+          <Header
+            backLabel="Back"
+            backHint="Returns to previous screen"
+            fallbackHref={fallbackHref}
+          />
         }
         footer={
           <View style={styles.footer}>
@@ -219,8 +229,14 @@ export default function ScanScreen() {
             <PrimaryButton
               label="I'll add them manually"
               variant="ghost"
-              onPress={() => router.back()}
-              accessibilityHint="Returns to the pantry"
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace(fallbackHref as Parameters<typeof router.replace>[0]);
+                }
+              }}
+              accessibilityHint={onboardingDone ? 'Returns to the pantry' : 'Returns to setup'}
             />
           </View>
         }

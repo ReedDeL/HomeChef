@@ -201,7 +201,7 @@ function TimePrompt({
 }: TimePromptProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
 
   return (
     <Screen>

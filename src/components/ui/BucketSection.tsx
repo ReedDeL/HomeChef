@@ -40,7 +40,7 @@ export function BucketSection({ bucket, recipes, onSelectRecipe }: BucketSection
   const meta = BUCKET_META[bucket];
   const [expanded, setExpanded] = useState(!meta.collapsedByDefault);
   const { width } = useWindowDimensions();
-  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
 
   // An empty bucket is not a dead end, it is simply not shown — the screen as a
   // whole is guaranteed non-empty by the relaxation ladder (Technical Spec §4.3).

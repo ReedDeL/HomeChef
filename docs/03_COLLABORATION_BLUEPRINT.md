@@ -24,7 +24,7 @@ Clear ownership prevents the two failure modes of a small founding team: duplica
 
 | | **RJ — CEO** | **Harshal — CTO** | **Third seat** |
 |---|---|---|---|
-| **Owns** | Business development, marketing engineering, agentic engineering, tech sales, product & project management, overall planning and context | Software engineering, prompt engineering, iOS/Xcode, technical architecture, code correctness | To be assigned at kickoff — see §1.2 |
+| **Owns** | Business development, marketing engineering, automation engineering, tech sales, product & project management, overall planning and context | Software engineering, prompt engineering, iOS/Xcode, technical architecture, code correctness | To be assigned at kickoff — see §1.2 |
 | **Decides alone** | Scope cuts, launch date, positioning, pricing, vendor purchases, ticket priority | Architecture, library choices, data model, code structure, merge approval | — |
 | **Cannot decide alone** | Architecture, data model | Scope, launch date, anything with a recurring cost | — |
 | **Launch-blocking tasks** | API keys into Supabase (Aug 4), TheMealDB supporter payment (Aug 17), App Store submission (Aug 17), Supabase keep-alive (Aug 20) | bundled catalog pipeline + equipment enrichment (Aug 9), photo→pantry pipeline, decision engine, Spoonacular expansion + quota guard | — |
@@ -109,69 +109,33 @@ in GitHub rather than copied into this document.
 
 ---
 
-## 3. Task Tracking — Notion Board
+## 3. Task Tracking — Repository Work Queue
 
-**Tool: Notion.** The team's existing `Project Management` database already has the exact three-column status model (`Not started` / `In progress` / `Done`) and a `By Status` board view. Migrating to Jira 21 days from launch would cost setup time and split the team's context across two tools for no gain — the status reports, product vision, and technicalities pages all live in Notion already.
+GitHub issues and pull requests are the repository-visible work queue. Each work item carries an outcome-shaped title, one owner, acceptance criteria, a status, and blockers. The repository and pull request are the source of truth for code changes; repository automation does not edit external workspaces.
 
-The three-column model specified in the brief maps directly:
+### 3.1 Status discipline
 
-| Brief | Notion `Status` | Means |
-|---|---|---|
-| **To Do** | `Not started` | Defined, unblocked, ready to pick up |
-| **In Progress** | `In progress` | Someone is actively working it — assignee set |
-| **Done** | `Done` | Definition of Done fully met (§4) |
+- **Ready:** defined, unblocked, and small enough to finish in under two days.
+- **In progress:** actively being worked today; each person holds at most two active items.
+- **Blocked:** marked clearly with the dependency and owner of the next action.
+- **Done:** every applicable Definition of Done item is met.
 
-### 3.1 Column discipline
-
-The columns are worthless without rules about what may enter them.
-
-**Entry into `Not started`:**
-- Has a clear, outcome-shaped title (`Add equipment filter to results`, not `equipment stuff`)
-- Has an assignee
-- Has a priority (High / Medium / Low)
-- Is genuinely unblocked — if it is waiting on something, note the blocker in the ticket body
-- Is small enough to finish in under two days. Bigger than that, split it.
-
-**Entry into `In progress`:**
-- Work has actually started, today
-- **A person holds at most 2 cards here at once.** This is the single most important rule on the board. Work-in-progress limits are what convert a task board from a wish list into a scheduling tool. Three people × 2 = 6 cards maximum in flight.
-- If you are blocked, move the card **back** to `Not started` with the blocker noted. Do not leave it parked in `In progress` — that hides the block from your teammates, which in an async team means it stays hidden for a day.
-
-**Entry into `Done`:**
-- **Every** Definition of Done item met. No partial credit. `Done` means shippable.
-
-### 3.2 Fields
-
-Using the existing schema:
+### 3.2 Issue fields
 
 | Field | Use |
 |---|---|
-| **Project name** | Imperative outcome. Mirrors commit style. |
-| **Status** | The three columns |
-| **Assignee** | Exactly one person. Shared ownership is no ownership. |
-| **Priority** | `High` = blocks Aug 24 · `Medium` = launch scope, has slack · `Low` = post-launch |
-| **Start date / End date** | Drives the existing Gantt view — critical with a fixed deadline |
-| **Team** | Existing options repurposed: `Product Design` = engineering/UX work · `Business Development` = RJ's launch-blocking commercial tasks |
+| Title | Imperative outcome that names the user or engineering result |
+| Owner | Exactly one accountable person |
+| Status | Ready, In progress, Blocked, or Done |
+| Priority | High blocks launch; Medium is launch scope; Low is post-launch |
+| Acceptance criteria | Observable behavior and verification requirements |
+| Blocker | Dependency, decision, or missing access that prevents progress |
 
 ### 3.3 Async cadence
 
-No standing meetings. Three lightweight rituals instead:
-
-| Ritual | When | Format | Owner |
-|---|---|---|---|
-| **Daily written check-in** | By 10am, in the Notion `Status Reports` table | Done since last / doing today / blocked by | Each person |
-| **Blocker escalation** | Immediately, always | Move card back, tag the other founder in the ticket | Whoever is blocked |
-| **Go/No-Go review** | Aug 9 | Synchronous — 30 min. The only required meeting before launch. | RJ |
-
-The `Status Reports` table already exists and is in use (entries on Aug 1 and Aug 2). We are formalizing a habit the team already has rather than introducing a new one — which is why it will actually stick.
-
-### 3.4 Board hygiene
-
-- Update your card's status **when the state changes**, not at end of day. A stale board is worse than no board, because it produces confident wrong decisions.
-- If a card sits in `In progress` more than 3 days, it was too big. Split it.
-- Every `High` priority card maps to a risk in Technical Spec §8 or to the MVP scope in §1.1. If it maps to neither, it is not `High`.
-
----
+- Record a short daily check-in in the active issue or pull request: done, next, and blocked.
+- Escalate blockers immediately in the issue or pull request that owns the work.
+- Hold the scheduled go/no-go review only when a decision cannot be made asynchronously.
 
 ## 4. Definition of Done
 
@@ -224,7 +188,7 @@ The `Status Reports` table already exists and is in use (entries on Aug 1 and Au
 - [ ] Quota impact of the change estimated and noted in the PR
 
 **Documentation**
-- [ ] User-facing change reflected in the Notion status report
+- [ ] User-facing change reflected in the project change log
 - [ ] Architectural change reflected in `docs/01_TECHNICAL_SPEC.md`
 - [ ] New environment variable documented in `.env.example`
 
@@ -257,21 +221,16 @@ summary together when the gate changes.
 
 | Channel | Use | Response expectation |
 |---|---|---|
-| **Notion status table** | Daily check-ins, decisions, context | Read daily |
-| **GitHub PR comments** | Anything about specific code | 12 hours |
-| **Notion ticket comments** | Anything about specific work | 12 hours |
-| **Direct message** | Genuinely blocking, needs an answer now | Fast — use sparingly, or it stops meaning anything |
-| **Synchronous call** | Aug 9 go/no-go, and true emergencies only | Scheduled |
+| **GitHub issue or pull request** | Code-specific work, review, blockers, and verification | 12 hours |
+| **Repository decision record** | Durable product and architecture decisions | Before implementation |
+| **Direct message** | Genuinely blocking questions that need an answer now | Fast; use sparingly |
+| **Synchronous call** | Launch gate or true emergency only | Scheduled |
 
-**Write decisions down where the work lives.** A decision made in a DM does not exist — the third teammate never sees it, and neither does the version of you debugging this in November. Decision → the relevant Notion page or `docs/` file.
-
----
+**Write decisions down where the work lives.** A decision made only in a direct message does not exist for the teammate debugging this in November. Put it in the relevant issue, pull request, or repository document.
 
 ## 7. Schedule and status
 
-The live Feature Gantt in Notion is the only daily status source. This document
-defines process, not a dated second schedule. Launch remains August 24, 2026;
-feature freeze and submission decisions belong on the board.
+The launch checklist and repository change log are the daily status sources. This document defines process, not a second dated schedule. Launch remains August 24, 2026; feature-freeze and submission decisions belong in the relevant issue or decision record.
 
 ---
 
@@ -279,15 +238,12 @@ feature freeze and submission decisions belong on the board.
 
 | Function | Tool | Owner |
 |---|---|---|
-| Source control | GitHub — GitHub Flow | Harshal |
-| Task tracking | Notion `Project Management` board | RJ |
-| Documentation | Notion + `docs/` in repo | RJ |
-| CI/CD | GitHub Actions + Expo EAS | Harshal |
+| Source control | GitHub Flow | Harshal |
+| Task tracking | GitHub issues and pull requests | RJ |
+| Documentation | Repository docs under docs/ | RJ |
+| CI/CD | GitHub Actions and Expo EAS | Harshal |
 | Backend | Supabase | RJ (account) / Harshal (schema) |
-| Editor | VS Code, committed workspace settings | Both |
+| Editor | VS Code and local workspace settings | Both |
 | iOS builds | Xcode | Harshal |
-| AI assistance | See `05_AI_TOOLING_PLAYBOOK.md` | Both |
-
----
 
 *Application42 · HomeChef · Collaborative Tools & Workflow Blueprint v0.1.0 · August 3, 2026*

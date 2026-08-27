@@ -16,7 +16,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 # "1" is TheMealDB's free public test key. A supporter key lifts the rate limit
-# and is on the Notion board for Aug 17.
+# and is tracked in docs/plans/2026-08-22-owned-recipe-catalog-roadmap.md.
 _API_KEY = os.environ.get("THEMEALDB_API_KEY", "1")
 _BASE_URL = f"https://www.themealdb.com/api/json/v1/{_API_KEY}"
 

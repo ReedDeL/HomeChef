@@ -45,8 +45,7 @@ recorded with its rationale in Decisions 1–4 below.
 1. Every screen asks **one** question and offers **one** primary action.
 2. Onboarding leads with the camera, so the user sees the product's central
    capability before paying any setup cost.
-3. The results screen emits 3–4 answers, per `AGENTS.md` ("It consumes
-   constraints and emits 3-4 answers. Showing more options is a regression").
+3. The results screen emits 3–4 answers, matching the product decision-engine constraint.
 4. The one-decision rule is enforced by a shared layout primitive, not by
    reviewer memory.
 5. `src/engine/` is untouched. It already takes a `Recipe[]` and returns
@@ -63,7 +62,7 @@ recorded with its rationale in Decisions 1–4 below.
   Recipe screen, which ends in a plain scrollable steps list.
 - Tier 2 / Spoonacular integration. Unrelated; the results screen renders
   whatever the engine returns regardless of tier.
-- Voice. Out of scope per `AGENTS.md`.
+- Voice. Out of scope for the launch build.
 - Real email/password auth. The photo plan's anonymous session is what these
   screens use.
 - Rebuilding the decision engine, the adapters, or `useDecision`. All exist
@@ -108,8 +107,7 @@ becomes §3.4, a skip destination, rather than a mandatory step.
 ### 3. Results shows one bucket
 
 `docs/04_UIUX_SPEC.md` §5 stacks all four buckets on one screen — up to
-sixteen cards. `AGENTS.md` says the engine emits 3–4 answers. These have been
-in conflict since both documents were written; §5 loses.
+sixteen cards. The product decision-engine constraint is 3–4 answers; §5 loses.
 
 The results screen renders **`ready` only, maximum four cards**. The remaining
 three buckets collapse into one row:
@@ -151,8 +149,7 @@ the most important screen in the product. `useDecision` already defaults
 `preferredCuisine` to `null`, so this is a UI removal with no engine change.
 Revisit post-launch with usage data.
 
-`AGENTS.md` needs no change — the results decision moves the code *toward*
-what it already says.
+The existing product constraint already covers this; the results decision moves the code toward it.
 
 ### 5. `DecisionScreen` — the rule as a type, not a convention
 

@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
@@ -31,7 +31,13 @@ interface ScreenProps extends PropsWithChildren {
 export function Screen({ children, header, footer, scroll = true }: ScreenProps) {
   const { color } = useTheme();
   const { width } = useWindowDimensions();
-  const { horizontalPadding } = getResponsiveLayout(width);
+  const { horizontalPadding, contentMaxWidth } = getResponsiveLayout(
+    Platform.OS === 'web' ? width : 0
+  );
+  const contentFrame =
+    Platform.OS === 'web'
+      ? ({ alignSelf: 'center', maxWidth: contentMaxWidth, width: '100%' } as const)
+      : undefined;
   const horizontalInset = { paddingHorizontal: horizontalPadding };
 
   return (
@@ -39,24 +45,25 @@ export function Screen({ children, header, footer, scroll = true }: ScreenProps)
       style={[styles.safeArea, { backgroundColor: color.bg }]}
       edges={['top', 'bottom']}
     >
-      {header ? <View style={[styles.header, horizontalInset]}>{header}</View> : null}
+      {header ? <View style={[styles.header, contentFrame, horizontalInset]}>{header}</View> : null}
 
       {scroll ? (
         <ScrollView
-          contentContainerStyle={[styles.content, horizontalInset]}
+          contentContainerStyle={[styles.content, contentFrame, horizontalInset]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.content, styles.flex, horizontalInset]}>{children}</View>
+        <View style={[styles.content, styles.flex, contentFrame, horizontalInset]}>{children}</View>
       )}
 
       {footer ? (
         <View
           style={[
             styles.footer,
+            contentFrame,
             horizontalInset,
             { borderTopColor: color.border, backgroundColor: color.bg },
           ]}

@@ -56,3 +56,8 @@ seconds.
 The August 2026 launch focuses on that core promise across iOS, Android, and
 the web. Product decisions and technical details live in [the project
 documentation](docs/).
+
+## Contributing
+
+Start with the [contribution guide](CONTRIBUTING.md) for local setup, branch
+and commit conventions, pull requests, and verification requirements.

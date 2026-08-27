@@ -15,16 +15,15 @@ points at — a summary that drifts from its source is worse than no summary.
 | 02 | [Shared Style Guide](02_STYLE_GUIDE.md) | Writing code |
 | 03 | [Collaboration Blueprint](03_COLLABORATION_BLUEPRINT.md) | Working with the team — process, roles, schedule |
 | 04 | [UI/UX Specification](04_UIUX_SPEC.md) | Building a screen |
-| 05 | [AI Tooling Playbook](05_AI_TOOLING_PLAYBOOK.md) | Using AI to build faster |
 | 06 | [API Keys & Environment](06_API_KEYS_AND_ENV.md) | Setting up any third-party service — **read before coding** |
 | 07 | [Cloudflare Web Launch](07_WEB_LAUNCH.md) | Publishing the free web launch and verifying privacy |
-| — | [`../AGENTS.md`](../AGENTS.md) | A coding agent (loaded automatically) |
+| — | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Setting up and contributing to the project |
 
 **RJ, read first:** 03 (process, roles, critical path) → 01 §8 (risk register)
 → 04 (product surface).
 
-**Harshal, read first:** 01 (all of it) → 02 (standards) → 05 §5 (the equipment
-prompt you own).
+**Harshal, read first:** 01 (all of it) → 02 (standards) → the relevant feature
+spec for the task.
 
 ---
 
@@ -45,9 +44,9 @@ retained decision record for the bundled-catalog and optional-expansion choice (
 | Question | Answer |
 |---|---|
 | What are we building, and with what? | Technical Spec §1–2 |
-| What is the schedule? | Collaboration Blueprint §7 — and the Notion board for live status |
+| What is the schedule? | Collaboration Blueprint §7 and the repository launch checklist |
 | What are the risks? | Technical Spec §8 (twelve, in full) |
-| What is closed and must not be reopened? | [`../AGENTS.md`](../AGENTS.md) — the "Don't" list |
+| What is closed and must not be reopened? | Technical Spec §8 and the relevant decision record |
 | What is done right now? | [`../README.md`](../README.md) — milestones and known gaps |
 
 ---
