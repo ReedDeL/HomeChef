@@ -76,13 +76,13 @@ ingredients, with the same chip actions and scan entry point.
 
 Mobile remains a vertical reading flow. Desktop uses a split layout: image and
 recipe summary on one side, ingredients and steps on the other, with the same
-missing-ingredient correction and start-cooking actions.
+missing-ingredient correction and recipe actions.
 
-### Onboarding and cook mode
+### Onboarding and decision screens
 
-These remain focused layouts on every viewport. Onboarding should gain only
-comfortable desktop spacing and a bounded reading width; cook mode should keep
-large step text and controls rather than becoming a dense multi-column view.
+These remain focused layouts on every viewport. Onboarding and decision-tree
+steps should gain comfortable desktop spacing and a bounded reading width
+without becoming dense multi-column forms.
 
 ## Implementation boundaries
 
