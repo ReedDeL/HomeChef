@@ -144,12 +144,24 @@ describe('microwave coverage', () => {
   });
 
   // The regression this whole change exists to prevent. Before it, the 76
-  // unclassified recipes were tagged `none`, which the equipment filter treats
+  // unclassified recipes were tagged `none`, which the keyword fallback treats
   // as always satisfied — so they were served to microwave-only users as though
   // verified. Nothing in the catalog may claim `none` unless it was earned.
   it('no longer ships recipes tagged "none" by the keyword fallback', () => {
-    const claimingNone = BUNDLED_CATALOG.filter((r) => r.equipmentRequired.includes('none'));
+    const claimingNone = BUNDLED_CATALOG.filter(
+      (r) => r.equipmentRequired.includes('none') && !r.id.startsWith('hc-staple-')
+    );
     expect(claimingNone).toEqual([]);
+  });
+
+  it('allows verified curated staple recipes to claim no equipment ("none")', () => {
+    const stapleNone = BUNDLED_CATALOG.filter(
+      (r) => r.id.startsWith('hc-staple-') && r.equipmentRequired.includes('none')
+    );
+    expect(stapleNone.length).toBeGreaterThan(0);
+    for (const recipe of stapleNone) {
+      expect(recipe.equipmentRequired).toEqual(['none']);
+    }
   });
 
   it('marks unclassified recipes honestly instead of as no-equipment', () => {
@@ -162,6 +174,48 @@ describe('microwave coverage', () => {
     for (const recipe of unclassified) {
       expect(recipe.equipmentRequired).toEqual(['unclassified']);
     }
+  });
+});
+
+describe('curated staple recipe coverage', () => {
+  it('includes Peanut Butter and Jelly Sandwich when bread, peanut butter, and jam are in pantry', () => {
+    const result = decideWithRelaxation(
+      BUNDLED_CATALOG,
+      new Set(['bread', 'peanut_butter', 'jam']),
+      {
+        equipment: ['microwave'],
+        allergens: [],
+        dietary: [],
+        dislikedRecipeIds: new Set(),
+        skippedRecipeIds: new Set(),
+        preferredCuisine: null,
+      },
+      15
+    );
+
+    const readyIds = result.buckets.ready.map((s) => s.recipe.id);
+    expect(readyIds).toContain('hc-staple-pbj');
+  });
+
+  it('excludes PB&J when peanut allergen is declared', () => {
+    const result = decideWithRelaxation(
+      BUNDLED_CATALOG,
+      new Set(['bread', 'peanut_butter', 'jam']),
+      {
+        equipment: ['microwave'],
+        allergens: ['peanut'],
+        dietary: [],
+        dislikedRecipeIds: new Set(),
+        skippedRecipeIds: new Set(),
+        preferredCuisine: null,
+      },
+      15
+    );
+
+    const allIds = Object.values(result.buckets)
+      .flat()
+      .map((s) => s.recipe.id);
+    expect(allIds).not.toContain('hc-staple-pbj');
   });
 });
 

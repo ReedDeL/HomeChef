@@ -132,6 +132,20 @@ describe('searchIngredientSuggestions', () => {
     expect(whitespaceQuery).toEqual(directSuggestions);
   });
 
+  it('resolves ingredient synonyms such as jelly and pb', () => {
+    const jellyResults = searchIngredientSuggestions('jelly', []);
+    expect(jellyResults).toContain('jam');
+    expect(jellyResults[0]).toBe('jam');
+
+    const pbResults = searchIngredientSuggestions('pb', []);
+    expect(pbResults).toContain('peanut_butter');
+    expect(pbResults[0]).toBe('peanut_butter');
+
+    const scallionResults = searchIngredientSuggestions('scallions', []);
+    expect(scallionResults).toContain('green_onion');
+    expect(scallionResults[0]).toBe('green_onion');
+  });
+
   it('returns empty array when search query matches nothing', () => {
     const results = searchIngredientSuggestions('nonexistent_xyz_ingredient_123', []);
     expect(results).toEqual([]);

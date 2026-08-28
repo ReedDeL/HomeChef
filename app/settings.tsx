@@ -109,6 +109,8 @@ export default function SettingsScreen() {
     (state) => state.setMealPrepReminderLeadMinutes
   );
 
+  const dislikedRecipes = useKitchenStore((state) => state.dislikedRecipes);
+  const resetDislikes = useKitchenStore((state) => state.resetDislikes);
   const reset = useKitchenStore((state) => state.reset);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -483,6 +485,24 @@ export default function SettingsScreen() {
         <Text variant="caption" tone="muted">
           Clear your pantry items, kitchen choices, and restart onboarding.
         </Text>
+
+        {dislikedRecipes.length > 0 ? (
+          <View style={styles.group}>
+            <Text variant="bodyStrong">Hidden suggestions</Text>
+            <Text variant="caption" tone="muted">
+              You have hidden {dislikedRecipes.length}{' '}
+              {dislikedRecipes.length === 1 ? 'recipe' : 'recipes'} with &ldquo;I don&apos;t like
+              this&rdquo;.
+            </Text>
+            <PrimaryButton
+              label="Restore all hidden suggestions"
+              variant="ghost"
+              onPress={() => resetDislikes()}
+              accessibilityHint="Restores all hidden recipes back to your recommendations"
+            />
+          </View>
+        ) : null}
+
         {resetConfirming ? (
           <View style={styles.confirmRow}>
             <PrimaryButton

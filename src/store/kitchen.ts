@@ -154,6 +154,8 @@ interface KitchenState {
   setMealPrepRemindersEnabled: (enabled: boolean) => void;
   setMealPrepReminderLeadMinutes: (minutes: MealPrepReminderLeadMinutes) => void;
   recordDislike: (recipeId: string) => void;
+  removeDislike: (recipeId: string) => void;
+  resetDislikes: () => void;
   recordSkip: (recipeId: string) => void;
   reset: () => void;
 }
@@ -211,6 +213,17 @@ export const useKitchenStore = create<KitchenState>()(
           const updated = [...new Set([...s.dislikedRecipes, recipeId])];
           setJSON(DISLIKED_KEY, updated);
           return { dislikedRecipes: updated };
+        }),
+      removeDislike: (recipeId) =>
+        set((s) => {
+          const updated = s.dislikedRecipes.filter((item) => item !== recipeId);
+          setJSON(DISLIKED_KEY, updated);
+          return { dislikedRecipes: updated };
+        }),
+      resetDislikes: () =>
+        set(() => {
+          setJSON(DISLIKED_KEY, []);
+          return { dislikedRecipes: [] };
         }),
       recordSkip: (recipeId) =>
         set((s) => {
@@ -293,4 +306,12 @@ export function recordSkip(recipeId: string): void {
 
 export function recordDislike(recipeId: string): void {
   useKitchenStore.getState().recordDislike(recipeId);
+}
+
+export function removeDislike(recipeId: string): void {
+  useKitchenStore.getState().removeDislike(recipeId);
+}
+
+export function resetDislikes(): void {
+  useKitchenStore.getState().resetDislikes();
 }

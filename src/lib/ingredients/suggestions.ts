@@ -1,6 +1,8 @@
 import { BUNDLED_CATALOG, INGREDIENT_VOCABULARY, lookupIngredient } from '@/data/catalog';
 import type { IngredientId } from '@/engine/types';
 import { COMMON_PANTRY_IDS } from '@/store/kitchen';
+import { resolveIngredient } from '@/lib/ingredients/resolve';
+import { canonicalSlug, slugify, SYNONYMS } from '@/lib/ingredients/normalize';
 
 /**
  * Enough suggestions to scan and choose from comfortably without overwhelming.
@@ -100,7 +102,8 @@ export function getReplenishingSuggestions(
 }
 
 /**
- * Search the ingredient vocabulary by name, excluding owned pantry items.
+ * Search the ingredient vocabulary by name, including synonyms and aliases,
+ * excluding owned pantry items.
  */
 export function searchIngredientSuggestions(
   query: string,
@@ -113,10 +116,49 @@ export function searchIngredientSuggestions(
   }
 
   const owned = pantry instanceof Set ? pantry : new Set(pantry);
+  const results: IngredientId[] = [];
+  const seen = new Set<IngredientId>();
 
-  return INGREDIENT_VOCABULARY.filter(
-    (entry) => !owned.has(entry.id) && entry.displayName.toLowerCase().includes(term)
-  )
-    .slice(0, limit)
-    .map((entry) => entry.id);
+  const add = (id: IngredientId | null | undefined) => {
+    if (id && !owned.has(id) && !seen.has(id) && lookupIngredient(id) !== undefined) {
+      seen.add(id);
+      results.push(id);
+    }
+  };
+
+  // 1. Direct resolution through synonyms and canonical slugs
+  const resolved = resolveIngredient(term);
+  if (resolved.id) {
+    add(resolved.id);
+  }
+
+  const slug = slugify(term);
+  const canonical = canonicalSlug(term);
+  if (canonical) {
+    add(canonical);
+  }
+
+  for (const [synonymKey, targetId] of Object.entries(SYNONYMS)) {
+    if (synonymKey === slug || synonymKey.startsWith(slug)) {
+      add(targetId);
+    }
+  }
+
+  // 2. Prefix matches on display name
+  for (const entry of INGREDIENT_VOCABULARY) {
+    if (entry.displayName.toLowerCase().startsWith(term)) {
+      add(entry.id);
+      if (results.length >= limit) return results;
+    }
+  }
+
+  // 3. Substring matches on display name
+  for (const entry of INGREDIENT_VOCABULARY) {
+    if (entry.displayName.toLowerCase().includes(term)) {
+      add(entry.id);
+      if (results.length >= limit) return results;
+    }
+  }
+
+  return results.slice(0, limit);
 }

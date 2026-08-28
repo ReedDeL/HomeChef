@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Platform,
   Pressable,
   ScrollView,
@@ -31,8 +32,14 @@ import {
   trackRecommendationsShown,
 } from '@/lib/analytics';
 import { TimeTile } from '@/components/ui/TimeTile';
-import { toEnginePreferences, useKitchenStore } from '@/store/kitchen';
+import {
+  recordDislike,
+  removeDislike,
+  toEnginePreferences,
+  useKitchenStore,
+} from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
+import { useTheme } from '@/theme/useTheme';
 
 /**
  * Spec §4 and §5 — the decision screen, before and after the one input it
@@ -56,6 +63,7 @@ const BUCKET_ORDER: readonly Bucket[] = ['ready', 'missing_few', 'missing_some',
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { color } = useTheme();
 
   const tierId = useKitchenStore((state) => state.tierId);
   const extras = useKitchenStore((state) => state.extras);
@@ -72,6 +80,16 @@ export default function HomeScreen() {
    * chose is honoured exactly — even though that returns fewer answers.
    */
   const [strict, setStrict] = useState(false);
+  const [undoDislike, setUndoDislike] = useState<{ id: string; title: string } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const preferences = useMemo(
     () =>
@@ -116,6 +134,54 @@ export default function HomeScreen() {
     setTimeLimit(minutes);
   };
 
+  const handleDislikeRecipe = (recipeId: string) => {
+    const target = BUNDLED_CATALOG.find((r) => r.id === recipeId);
+    const targetTitle = target?.title ?? 'Recipe';
+
+    let replacementTitle: string | null = null;
+    if (decision) {
+      for (const bucket of BUCKET_ORDER) {
+        const list = decision.buckets[bucket];
+        const idx = list.findIndex((s) => s.recipe.id === recipeId);
+        if (idx !== -1) {
+          if (list.length > 4) {
+            replacementTitle = list[4]?.recipe.title ?? null;
+          }
+          break;
+        }
+      }
+    }
+
+    recordDislike(recipeId);
+
+    if (replacementTitle) {
+      AccessibilityInfo.announceForAccessibility(
+        `Removed ${targetTitle}. Replaced with ${replacementTitle}.`
+      );
+    } else {
+      AccessibilityInfo.announceForAccessibility(`Removed ${targetTitle}.`);
+    }
+
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+    setUndoDislike({ id: recipeId, title: targetTitle });
+    undoTimeoutRef.current = setTimeout(() => {
+      setUndoDislike(null);
+    }, 6000);
+  };
+
+  const handleUndoDislike = () => {
+    if (!undoDislike) return;
+    const { id, title } = undoDislike;
+    removeDislike(id);
+    AccessibilityInfo.announceForAccessibility(`Restored ${title} to recommendations.`);
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+    setUndoDislike(null);
+  };
+
   if (decision === null || timeLimit === null) {
     return (
       <TimePrompt
@@ -158,6 +224,32 @@ export default function HomeScreen() {
       }
     >
       <ScrollView contentContainerStyle={styles.results} showsVerticalScrollIndicator={false}>
+        {undoDislike ? (
+          <View
+            accessibilityLiveRegion="polite"
+            style={[
+              styles.undoBanner,
+              { backgroundColor: color.surface, borderColor: color.border },
+            ]}
+          >
+            <Text variant="caption" tone="muted" style={styles.undoText}>
+              Removed &ldquo;{undoDislike.title}&rdquo;
+            </Text>
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`Undo removing ${undoDislike.title}`}
+              accessibilityHint="Restores this recipe to suggestions"
+              onPress={handleUndoDislike}
+              style={styles.undoButton}
+            >
+              <Text variant="caption" tone="accent">
+                Undo
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <RelaxationBanner
           relaxations={decision.appliedRelaxations}
           revertLabel={`Keep ${formatDuration(timeLimit)}`}
@@ -170,21 +262,57 @@ export default function HomeScreen() {
             bucket={bucket}
             recipes={decision.buckets[bucket]}
             onSelectRecipe={(recipeId) => router.push(`/recipe/${recipeId}`)}
+            onDislikeRecipe={handleDislikeRecipe}
           />
         ))}
 
         {totalResults === 0 ? (
-          <Card variant="alt">
-            <Text variant="heading">Nothing fits {formatDuration(timeLimit)} exactly.</Text>
-            <Text variant="body" tone="muted">
-              You asked us to hold that limit, so we did. We can widen it slightly instead.
-            </Text>
-            <PrimaryButton
-              label="Show me what's close"
-              onPress={() => setStrict(false)}
-              accessibilityHint="Widens the time limit and shows results again"
-            />
-          </Card>
+          strict ? (
+            <Card variant="alt">
+              <Text variant="heading">Nothing fits {formatDuration(timeLimit)} exactly.</Text>
+              <Text variant="body" tone="muted">
+                You asked us to hold that limit, so we did. We can widen it slightly instead.
+              </Text>
+              <PrimaryButton
+                label="Show me what's close"
+                onPress={() => setStrict(false)}
+                accessibilityHint="Widens the time limit and shows results again"
+              />
+            </Card>
+          ) : dislikedRecipes.length > 0 ? (
+            <Card variant="alt">
+              <Text variant="heading">No meals fit your preferences right now.</Text>
+              <Text variant="body" tone="muted">
+                You&apos;ve removed suggestions you didn&apos;t want. You can widen your time limit
+                or reset hidden suggestions in Settings.
+              </Text>
+              {undoDislike ? (
+                <PrimaryButton
+                  label={`Undo removing ${undoDislike.title}`}
+                  onPress={handleUndoDislike}
+                  accessibilityHint="Restores the recipe you just removed"
+                />
+              ) : (
+                <PrimaryButton
+                  label="Open Settings"
+                  onPress={() => router.push('/settings')}
+                  accessibilityHint="Opens app settings to manage preferences"
+                />
+              )}
+            </Card>
+          ) : (
+            <Card variant="alt">
+              <Text variant="heading">No meals fit your preferences right now.</Text>
+              <Text variant="body" tone="muted">
+                Try updating your pantry or widening your kitchen equipment in Settings.
+              </Text>
+              <PrimaryButton
+                label="Update pantry"
+                onPress={() => router.push('/pantry')}
+                accessibilityHint="Opens your pantry to add ingredients"
+              />
+            </Card>
+          )
         ) : null}
       </ScrollView>
     </Screen>
@@ -365,5 +493,25 @@ const styles = StyleSheet.create({
     minWidth: 44,
     justifyContent: 'center',
     alignItems: 'flex-end',
+  },
+  undoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: space.md,
+  },
+  undoText: {
+    flex: 1,
+  },
+  undoButton: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: space.sm,
   },
 });

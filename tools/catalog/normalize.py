@@ -41,6 +41,10 @@ SYNONYMS: dict[str, str] = {
     "beef_mince": "ground_beef",
     "prawns": "shrimp",
     "prawn": "shrimp",
+    "jelly": "jam",
+    "jellies": "jam",
+    "peanutbutter": "peanut_butter",
+    "pb": "peanut_butter",
 }
 
 # Descriptors that qualify an ingredient without changing what it is. Stripped

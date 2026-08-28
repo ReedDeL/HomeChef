@@ -288,18 +288,41 @@ export function searchVocabulary(query: string, limit = 20): readonly Vocabulary
   const term = query.trim().toLowerCase();
   if (term.length === 0) return [];
 
-  const prefix: VocabularyEntry[] = [];
-  const contains: VocabularyEntry[] = [];
+  const results: VocabularyEntry[] = [];
+  const seen = new Set<string>();
 
-  for (const entry of INGREDIENT_VOCABULARY) {
-    const name = entry.displayName.toLowerCase();
-    if (name.startsWith(term)) prefix.push(entry);
-    else if (name.includes(term)) contains.push(entry);
+  const add = (entry: VocabularyEntry | undefined) => {
+    if (entry && !seen.has(entry.id)) {
+      seen.add(entry.id);
+      results.push(entry);
+    }
+  };
 
-    if (prefix.length >= limit) break;
+  // 1. Direct resolved / synonym match
+  const resolved = resolveIngredient(term);
+  if (resolved.id) {
+    add(lookupIngredient(resolved.id));
   }
 
-  return [...prefix, ...contains].slice(0, limit);
+  // 2. Prefix matches
+  for (const entry of INGREDIENT_VOCABULARY) {
+    const name = entry.displayName.toLowerCase();
+    if (name.startsWith(term)) {
+      add(entry);
+      if (results.length >= limit) return results;
+    }
+  }
+
+  // 3. Substring matches
+  for (const entry of INGREDIENT_VOCABULARY) {
+    const name = entry.displayName.toLowerCase();
+    if (name.includes(term)) {
+      add(entry);
+      if (results.length >= limit) return results;
+    }
+  }
+
+  return results.slice(0, limit);
 }
 
 /** True when the id exists in the bundled vocabulary. */

@@ -52,6 +52,43 @@ describe('decide — hard constraints eliminate', () => {
     );
     expect(flatIds(result)).toEqual(['yes']);
   });
+
+  it('reveals the next eligible ranked recipe when a top recipe is disliked', () => {
+    // 5 recipes, top 4 are selected initially
+    const catalog = Array.from({ length: 5 }, (_, i) =>
+      makeRecipe({ id: `r${i}`, totalTimeMinutes: 10 + i, ingredients: [ingredient('egg')] })
+    );
+    const initial = decide(catalog, pantry('egg'), makePrefs(), 30);
+    expect(initial.buckets.ready.map((s) => s.recipe.id)).toEqual(['r0', 'r1', 'r2', 'r3']);
+
+    // Disliking r1 removes r1, preserves r0, r2, r3 in order, and reveals r4 as the replacement
+    const updated = decide(
+      catalog,
+      pantry('egg'),
+      makePrefs({ dislikedRecipeIds: new Set(['r1']) }),
+      30
+    );
+    expect(updated.buckets.ready.map((s) => s.recipe.id)).toEqual(['r0', 'r2', 'r3', 'r4']);
+  });
+
+  it('preserves stable relative ordering and scores for unaffected recipes', () => {
+    const catalog = [
+      makeRecipe({ id: 'r0', totalTimeMinutes: 10, ingredients: [ingredient('egg')] }),
+      makeRecipe({ id: 'r1', totalTimeMinutes: 15, ingredients: [ingredient('egg')] }),
+      makeRecipe({ id: 'r2', totalTimeMinutes: 20, ingredients: [ingredient('egg')] }),
+    ];
+    const initial = decide(catalog, pantry('egg'), makePrefs(), 30);
+    const updated = decide(
+      catalog,
+      pantry('egg'),
+      makePrefs({ dislikedRecipeIds: new Set(['r0']) }),
+      30
+    );
+
+    expect(updated.buckets.ready.map((s) => s.recipe.id)).toEqual(['r1', 'r2']);
+    expect(updated.buckets.ready[0]?.score).toBe(initial.buckets.ready[1]?.score);
+    expect(updated.buckets.ready[1]?.score).toBe(initial.buckets.ready[2]?.score);
+  });
 });
 
 describe('decide — bucketing and truncation', () => {

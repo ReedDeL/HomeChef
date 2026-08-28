@@ -5,6 +5,8 @@ import type { Recipe } from '@/engine/types';
 import {
   COMMON_ALLERGENS,
   EQUIPMENT_TIERS,
+  recordDislike,
+  removeDislike,
   toEnginePreferences,
   useKitchenStore,
 } from '@/store/kitchen';
@@ -194,6 +196,16 @@ describe('useKitchenStore meal-prep reminder preferences', () => {
     expect(prefs.dislikedRecipeIds.has('recipe-disliked-1')).toBe(true);
     expect(prefs.skippedRecipeIds.has('recipe-skipped-1')).toBe(true);
 
+    useKitchenStore.getState().removeDislike('recipe-disliked-1');
+    expect(useKitchenStore.getState().dislikedRecipes).not.toContain('recipe-disliked-1');
+    const restoredPrefs = toEnginePreferences(useKitchenStore.getState());
+    expect(restoredPrefs.dislikedRecipeIds.has('recipe-disliked-1')).toBe(false);
+
+    useKitchenStore.getState().recordDislike('recipe-disliked-2');
+    expect(useKitchenStore.getState().dislikedRecipes).toContain('recipe-disliked-2');
+    useKitchenStore.getState().resetDislikes();
+    expect(useKitchenStore.getState().dislikedRecipes).toEqual([]);
+
     useKitchenStore.getState().reset();
 
     expect(useKitchenStore.getState().dislikedRecipes).toEqual([]);
@@ -202,5 +214,18 @@ describe('useKitchenStore meal-prep reminder preferences', () => {
     const resetPrefs = toEnginePreferences(useKitchenStore.getState());
     expect(resetPrefs.dislikedRecipeIds.size).toBe(0);
     expect(resetPrefs.skippedRecipeIds.size).toBe(0);
+  });
+
+  it('supports exported recordDislike, removeDislike, and resetDislikes helper functions', () => {
+    recordDislike('standalone-1');
+    expect(useKitchenStore.getState().dislikedRecipes).toContain('standalone-1');
+
+    removeDislike('standalone-1');
+    expect(useKitchenStore.getState().dislikedRecipes).not.toContain('standalone-1');
+
+    recordDislike('standalone-2');
+    expect(useKitchenStore.getState().dislikedRecipes).toContain('standalone-2');
+    useKitchenStore.getState().resetDislikes();
+    expect(useKitchenStore.getState().dislikedRecipes).toEqual([]);
   });
 });
