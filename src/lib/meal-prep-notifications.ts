@@ -45,6 +45,13 @@ const client: LocalNotificationClient = {
 
 const scheduler = createMealPrepReminderScheduler(client, () => new Date());
 
+export type MealPrepReminderPermission = 'granted' | 'denied' | 'undetermined' | 'unsupported';
+
+export async function getMealPrepReminderPermission(): Promise<MealPrepReminderPermission> {
+  const status = (await Notifications.getPermissionsAsync()).status;
+  return status === 'granted' ? 'granted' : status === 'undetermined' ? 'undetermined' : 'denied';
+}
+
 export async function requestMealPrepReminderPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.status === 'granted') return true;

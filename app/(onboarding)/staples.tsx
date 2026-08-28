@@ -14,7 +14,7 @@ import { trackOnboardingCompleted } from '@/lib/analytics';
 import { space } from '@/theme/tokens';
 
 /**
- * Spec §3 — the pantry starter (Step 3 of 3).
+ * Spec §3 — the pantry starter (Step 4 of 4).
  *
  * Pre-populating and asking the user to *remove* what they lack is the whole
  * trick: it is faster than adding twenty items, and it teaches the correction
@@ -56,23 +56,23 @@ export default function StaplesScreen() {
       header={
         <Header
           onBack={back}
-          backLabel="Allergies"
-          backHint="Returns to allergies and diet (Step 2)"
-          fallbackHref="/(onboarding)/restrictions"
+          backLabel="Goals"
+          backHint="Returns to goals (Step 3)"
+          fallbackHref="/(onboarding)/goals"
         />
       }
       footer={
         <StepFooter
           onBack={back}
           backLabel="Back"
-          backHint="Returns to allergies and diet (Step 2)"
+          backHint="Returns to goals (Step 3)"
           onForward={finish}
           forwardLabel="Show me meals"
           forwardHint="Finishes setup and opens the app"
         />
       }
     >
-      <StepIndicator currentStep={3} totalSteps={3} label="Pantry Starter" />
+      <StepIndicator currentStep={4} totalSteps={4} label="Pantry Starter" />
 
       <View style={styles.intro}>
         <Text variant="display">We assumed you have these.</Text>

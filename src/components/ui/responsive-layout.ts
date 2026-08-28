@@ -5,6 +5,8 @@ export type ResponsiveMode = 'mobile' | 'tablet' | 'desktop';
 export interface ResponsiveLayout {
   mode: ResponsiveMode;
   isDesktop: boolean;
+  /** Desktop has room to show every cuisine choice; phones keep a thumb-friendly rail. */
+  cuisineFilter: 'wrap' | 'scroll';
   horizontalPadding: number;
   contentMaxWidth: number | undefined;
   columnGap: number;
@@ -24,6 +26,7 @@ export function getResponsiveLayout(width: number): ResponsiveLayout {
   return {
     mode: isDesktop ? 'desktop' : isTablet ? 'tablet' : 'mobile',
     isDesktop,
+    cuisineFilter: isDesktop ? 'wrap' : 'scroll',
     horizontalPadding: isDesktop ? layout.desktopGutter : isTablet ? space.lg : space.md,
     contentMaxWidth: isDesktop ? layout.desktopMaxWidth : undefined,
     columnGap: isDesktop ? layout.desktopColumnGap : space.md,

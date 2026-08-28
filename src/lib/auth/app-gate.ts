@@ -4,7 +4,15 @@ export { authRoute, type AuthRoute, type AuthRouteInput } from './session-route'
 
 export type AppGatePhase = 'loading' | 'redirecting' | 'ready';
 
-const APP_ROUTE_NAMES = ['(tabs)', 'cook/[id]', 'recipe/[id]', 'scan', 'settings'] as const;
+const APP_ROUTE_NAMES = [
+  '(tabs)',
+  'cook/[id]',
+  'recipe/[id]',
+  'scan',
+  'settings',
+  'kitchen-setup',
+  'reminders',
+] as const;
 
 export const ROOT_ROUTE_NAMES = ['loading', '(onboarding)', ...APP_ROUTE_NAMES] as const;
 

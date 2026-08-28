@@ -10,6 +10,7 @@ import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { BUNDLED_CATALOG, lookupIngredient } from '@/data/catalog';
+import { getPortionGuidance } from '@/engine/portion-guidance';
 import { trackRecipeOpened } from '@/lib/analytics';
 import { formatCuisine, formatDuration, formatEquipment } from '@/lib/format';
 import { recordDislike, useKitchenStore } from '@/store/kitchen';
@@ -32,10 +33,18 @@ export default function RecipeScreen() {
   const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
 
   const pantry = useKitchenStore((state) => state.pantry);
+  const bodyGoal = useKitchenStore((state) => state.bodyGoal);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
 
   const recipe = useMemo(() => BUNDLED_CATALOG.find((candidate) => candidate.id === id), [id]);
   const openedRecipeId = useRef<string | null>(null);
+  const portionGuidance = useMemo(
+    () =>
+      recipe
+        ? getPortionGuidance({ recipe, bodyProfile: null, bodyGoal, satietyLevel: null })
+        : null,
+    [recipe, bodyGoal]
+  );
 
   useEffect(() => {
     if (!recipe || openedRecipeId.current === recipe.id) return;
@@ -94,7 +103,6 @@ export default function RecipeScreen() {
               accessible={false}
             />
           ) : null}
-
           <View style={styles.intro}>
             <Text variant="title">{recipe.title}</Text>
             <Text variant="caption" tone="muted">
@@ -103,7 +111,6 @@ export default function RecipeScreen() {
               {recipe.cuisine ? ` · ${formatCuisine(recipe.cuisine)}` : ''}
             </Text>
           </View>
-
           {missing.length > 0 ? (
             <Card variant="alt">
               <Text variant="heading" tone="near">
@@ -128,7 +135,15 @@ export default function RecipeScreen() {
                 You have everything.
               </Text>
             </Card>
-          )}
+          )}{' '}
+          {portionGuidance ? (
+            <Card variant="alt">
+              <Text variant="heading">{portionGuidance.label}</Text>
+              <Text variant="caption" tone="muted">
+                {portionGuidance.disclaimer}
+              </Text>
+            </Card>
+          ) : null}
         </View>
 
         <View style={styles.recipeDetails}>

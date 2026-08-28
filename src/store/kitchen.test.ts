@@ -3,14 +3,18 @@ import { describe, expect, it } from 'vitest';
 import { hasAllergen } from '@/engine/filter-hard';
 import type { Recipe } from '@/engine/types';
 import {
+  APPLIANCE_SECTION_DESCRIPTION,
+  APPLIANCE_SECTION_TITLE,
   COMMON_ALLERGENS,
   EQUIPMENT_TIERS,
+  EXTRA_APPLIANCES,
   recordDislike,
   removeDislike,
   toEnginePreferences,
   useKitchenStore,
 } from '@/store/kitchen';
-import { INGREDIENT_VOCABULARY } from '@/data/catalog';
+import { INGREDIENT_VOCABULARY, BUNDLED_CATALOG } from '@/data/catalog';
+import { decide } from '@/engine/decide';
 
 type Constraints = Parameters<typeof toEnginePreferences>[0];
 
@@ -123,6 +127,39 @@ describe('EQUIPMENT_TIERS', () => {
   });
 });
 
+describe('Kitchen appliance copy', () => {
+  it('uses universal functional subtitles for every equipment tier', () => {
+    expect(EQUIPMENT_TIERS.map((tier) => tier.subtitle)).toEqual([
+      'Cook using only a microwave',
+      'Microwave plus electric kettle or boiling water',
+      'Stove, oven, and standard cookware',
+    ]);
+    for (const tier of EQUIPMENT_TIERS) {
+      expect(tier.subtitle).not.toMatch(/dorm|range|basics/i);
+    }
+  });
+
+  it('exposes a direct appliance section with independently selectable options', () => {
+    expect(APPLIANCE_SECTION_TITLE).toBe('Kitchen appliances');
+    expect(APPLIANCE_SECTION_DESCRIPTION).toContain('expand the meals');
+    expect(EXTRA_APPLIANCES.map((appliance) => appliance.label)).toEqual([
+      'Air fryer',
+      'Rice cooker',
+      'Blender',
+      'Toaster oven',
+    ]);
+
+    const prefs = toEnginePreferences({
+      ...base,
+      tierId: 'microwave',
+      extras: EXTRA_APPLIANCES.map((appliance) => appliance.id),
+    });
+    expect(prefs.equipment).toEqual(
+      expect.arrayContaining(['microwave', 'air_fryer', 'rice_cooker', 'blender', 'toaster_oven'])
+    );
+  });
+});
+
 describe('useKitchenStore themeMode', () => {
   it('defaults to system theme mode and updates on setThemeMode', () => {
     expect(useKitchenStore.getState().themeMode).toBe('system');
@@ -227,5 +264,182 @@ describe('useKitchenStore meal-prep reminder preferences', () => {
     expect(useKitchenStore.getState().dislikedRecipes).toContain('standalone-2');
     useKitchenStore.getState().resetDislikes();
     expect(useKitchenStore.getState().dislikedRecipes).toEqual([]);
+  });
+});
+
+describe('useKitchenStore pantry responsiveness with decision engine', () => {
+  it('updates decision engine ready and missing buckets immediately when store pantry changes', () => {
+    useKitchenStore.getState().reset();
+    const prefs = toEnginePreferences(useKitchenStore.getState(), null);
+
+    // Add egg, butter, and bread to pantry
+    useKitchenStore.getState().addPantryItems(['egg', 'butter', 'bread']);
+
+    // Scrambled eggs is now ready (has egg, butter, salt, black_pepper)
+    // Grilled cheese is missing cheddar_cheese (missing_few)
+    const initialPantry = new Set(useKitchenStore.getState().pantry);
+    const initialDecision = decide(BUNDLED_CATALOG, initialPantry, prefs, 30);
+    expect(initialDecision.buckets.ready.map((s) => s.recipe.id)).toContain(
+      'hc-staple-scrambled-eggs'
+    );
+
+    expect(initialDecision.buckets.ready.map((s) => s.recipe.id)).not.toContain(
+      'hc-staple-grilled-cheese'
+    );
+
+    // Add cheddar_cheese via togglePantryItem -> grilled cheese becomes ready
+    useKitchenStore.getState().togglePantryItem('cheddar_cheese');
+    const updatedPantry = new Set(useKitchenStore.getState().pantry);
+    const updatedDecision = decide(BUNDLED_CATALOG, updatedPantry, prefs, 30);
+    expect(updatedDecision.buckets.ready.map((s) => s.recipe.id)).toContain(
+      'hc-staple-grilled-cheese'
+    );
+
+    // Remove butter via removePantryItem -> grilled-cheese and scrambled-eggs both leave ready
+    useKitchenStore.getState().removePantryItem('butter');
+    const butterlessPantry = new Set(useKitchenStore.getState().pantry);
+    const butterlessDecision = decide(BUNDLED_CATALOG, butterlessPantry, prefs, 30);
+    expect(butterlessDecision.buckets.ready.map((s) => s.recipe.id)).not.toContain(
+      'hc-staple-grilled-cheese'
+    );
+    expect(butterlessDecision.buckets.ready.map((s) => s.recipe.id)).not.toContain(
+      'hc-staple-scrambled-eggs'
+    );
+
+    // Clean up
+    useKitchenStore.getState().reset();
+  });
+});
+
+describe('useKitchenStore body goals and metrics', () => {
+  it('persists goal and optional metrics in the local store boundary', () => {
+    useKitchenStore.getState().reset();
+    useKitchenStore.getState().setBodyGoal('lose');
+    useKitchenStore.getState().setBodyMetrics({ heightCentimeters: 168, weightKilograms: 68.5 });
+
+    expect(useKitchenStore.getState().bodyGoal).toBe('lose');
+    expect(useKitchenStore.getState().bodyMetrics).toEqual({
+      heightCentimeters: 168,
+      weightKilograms: 68.5,
+    });
+    expect(toEnginePreferences(useKitchenStore.getState()).bodyGoal).toBe('lose');
+
+    useKitchenStore.getState().clearBodyData();
+    expect(useKitchenStore.getState().bodyGoal).toBeNull();
+    expect(useKitchenStore.getState().bodyMetrics).toEqual({
+      heightCentimeters: null,
+      weightKilograms: null,
+    });
+  });
+
+  it('clears goal and body metrics with the full local reset', () => {
+    useKitchenStore.getState().setBodyGoal('gain');
+    useKitchenStore.getState().setBodyMetrics({ heightCentimeters: 180, weightKilograms: 80 });
+    useKitchenStore.getState().reset();
+
+    expect(useKitchenStore.getState().bodyGoal).toBeNull();
+    expect(useKitchenStore.getState().bodyMetrics).toEqual({
+      heightCentimeters: null,
+      weightKilograms: null,
+    });
+  });
+});
+describe('non-destructive kitchen setup management', () => {
+  it('updates hard equipment feasibility while preserving pantry and preferences', () => {
+    useKitchenStore.getState().reset();
+    useKitchenStore.getState().addPantryItems(['egg', 'butter', 'bread']);
+    useKitchenStore.getState().toggleAllergen('peanut');
+    useKitchenStore.getState().toggleDietary('vegetarian');
+    useKitchenStore.getState().recordSkip('setup-skipped-recipe');
+    useKitchenStore.getState().setTier('full');
+
+    const catalog: Recipe[] = [
+      {
+        id: 'setup-stove-recipe',
+        title: 'Stovetop eggs',
+        imageUrl: null,
+        cuisine: 'american',
+        totalTimeMinutes: 10,
+        equipmentRequired: ['stove'],
+        dietaryTags: ['vegetarian'],
+        ingredients: [{ id: 'egg', measure: '1', allergenGroups: ['egg'] }],
+        instructions: 'Cook on the stove.',
+        baseServings: 1,
+        energyKcalPerServing: null,
+        nutritionProvenance: null,
+        nutritionConfidence: 'unavailable',
+        source: 'bundled',
+      },
+      {
+        id: 'setup-microwave-recipe',
+        title: 'Microwave eggs',
+        imageUrl: null,
+        cuisine: 'american',
+        totalTimeMinutes: 5,
+        equipmentRequired: ['microwave'],
+        dietaryTags: ['vegetarian'],
+        ingredients: [{ id: 'egg', measure: '1', allergenGroups: ['egg'] }],
+        instructions: 'Beat the egg and microwave until set.',
+        baseServings: 1,
+        energyKcalPerServing: null,
+        nutritionProvenance: null,
+        nutritionConfidence: 'unavailable',
+        source: 'bundled',
+      },
+    ];
+
+    const before = useKitchenStore.getState();
+    const pantryBefore = [...before.pantry];
+    const allergensBefore = [...before.allergens];
+    const dietaryBefore = [...before.dietary];
+    const skippedBefore = [...before.skippedRecipes];
+
+    const fullDecision = decide(catalog, new Set(pantryBefore), toEnginePreferences(before), 30);
+    expect(fullDecision.buckets.ready.map((item) => item.recipe.id)).toEqual(
+      expect.arrayContaining(['setup-microwave-recipe', 'setup-stove-recipe'])
+    );
+
+    useKitchenStore.getState().setTier('microwave');
+    useKitchenStore.getState().toggleExtra('air_fryer');
+
+    const after = useKitchenStore.getState();
+    const microwaveDecision = decide(
+      catalog,
+      new Set(after.pantry),
+      toEnginePreferences(after),
+      30
+    );
+
+    expect(microwaveDecision.buckets.ready.map((item) => item.recipe.id)).toEqual([
+      'setup-microwave-recipe',
+    ]);
+    expect(toEnginePreferences(after).equipment).toEqual(
+      expect.arrayContaining(['microwave', 'air_fryer'])
+    );
+    expect(after.pantry).toEqual(pantryBefore);
+    expect(after.allergens).toEqual(allergensBefore);
+    expect(after.dietary).toEqual(dietaryBefore);
+    expect(after.skippedRecipes).toEqual(skippedBefore);
+
+    useKitchenStore.getState().reset();
+  });
+});
+
+describe('useKitchenStore meal-prep reminder onboarding', () => {
+  it('starts with first-visit guidance and persists completion', () => {
+    useKitchenStore.getState().reset();
+    expect(useKitchenStore.getState().mealPrepReminderOnboardingComplete).toBe(false);
+
+    useKitchenStore.getState().setMealPrepReminderOnboardingComplete(true);
+
+    expect(useKitchenStore.getState().mealPrepReminderOnboardingComplete).toBe(true);
+  });
+
+  it('clears onboarding completion when local data is reset', () => {
+    useKitchenStore.getState().setMealPrepReminderOnboardingComplete(true);
+
+    useKitchenStore.getState().reset();
+
+    expect(useKitchenStore.getState().mealPrepReminderOnboardingComplete).toBe(false);
   });
 });

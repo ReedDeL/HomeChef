@@ -1,6 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -14,6 +23,18 @@ import {
   type MealPrepReminderLeadMinutes,
 } from '@/lib/meal-prep-reminder';
 import { trackSettingsUpdated } from '@/lib/analytics';
+import type { BodyGoal } from '@/contracts/meal-journeys';
+import {
+  formatMeasurement,
+  centimetersToFeetInches,
+  heightToCentimeters,
+  isValidInches,
+  kilogramsToWeight,
+  parseOptionalMeasurement,
+  weightToKilograms,
+  type HeightUnit,
+  type WeightUnit,
+} from '@/lib/body-profile';
 import { signInWithGoogle, signOut } from '@/lib/auth/google';
 import { useAuthSession } from '@/lib/auth/useAuthSession';
 import { isHttpsUrl, mergeAttributions, type CatalogAttribution } from '@/lib/catalog';
@@ -25,12 +46,15 @@ import { Text } from '@/components/ui/Text';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
+  APPLIANCE_SECTION_DESCRIPTION,
+  APPLIANCE_SECTION_TITLE,
   EQUIPMENT_TIERS,
   EXTRA_APPLIANCES,
   useKitchenStore,
   type ThemeMode,
 } from '@/store/kitchen';
 import { space } from '@/theme/tokens';
+import { useTheme } from '@/theme/useTheme';
 
 const REMINDER_LEAD_LABELS: Record<MealPrepReminderLeadMinutes, string> = {
   0: 'At cook time',
@@ -66,6 +90,15 @@ const THEME_OPTIONS: readonly {
   },
 ];
 
+const GOAL_OPTIONS: readonly { id: BodyGoal; label: string; subtitle: string }[] = [
+  { id: 'lose', label: 'Lose weight', subtitle: 'Prioritize lighter choices' },
+  {
+    id: 'maintain',
+    label: 'Maintain weight',
+    subtitle: 'Use balanced recommendations',
+  },
+  { id: 'gain', label: 'Gain weight', subtitle: 'Prioritize nutrient-dense choices' },
+];
 const DEFAULT_ATTRIBUTIONS: readonly CatalogAttribution[] = [
   {
     sourceId: 'homechef-authored',
@@ -84,6 +117,7 @@ const DEFAULT_ATTRIBUTIONS: readonly CatalogAttribution[] = [
  */
 export default function SettingsScreen() {
   const router = useRouter();
+  const { color } = useTheme();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthSession();
 
   const attributionsQuery = useCatalogAttributions();
@@ -102,6 +136,12 @@ export default function SettingsScreen() {
   const toggleAllergen = useKitchenStore((state) => state.toggleAllergen);
   const toggleDietary = useKitchenStore((state) => state.toggleDietary);
 
+  const bodyGoal = useKitchenStore((state) => state.bodyGoal);
+  const bodyMetrics = useKitchenStore((state) => state.bodyMetrics);
+  const setBodyGoal = useKitchenStore((state) => state.setBodyGoal);
+  const setBodyMetrics = useKitchenStore((state) => state.setBodyMetrics);
+  const clearBodyData = useKitchenStore((state) => state.clearBodyData);
+
   const mealPrepRemindersEnabled = useKitchenStore((state) => state.mealPrepRemindersEnabled);
   const mealPrepReminderLeadMinutes = useKitchenStore((state) => state.mealPrepReminderLeadMinutes);
   const setMealPrepRemindersEnabled = useKitchenStore((state) => state.setMealPrepRemindersEnabled);
@@ -116,7 +156,79 @@ export default function SettingsScreen() {
   const [signInError, setSignInError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [resetConfirming, setResetConfirming] = useState(false);
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>('cm');
+  const [weightDraft, setWeightDraft] = useState(() =>
+    formatMeasurement(bodyMetrics.weightKilograms)
+  );
+  const [heightDraft, setHeightDraft] = useState(() =>
+    formatMeasurement(bodyMetrics.heightCentimeters)
+  );
+  const [heightInchesDraft, setHeightInchesDraft] = useState('');
+  const [bodyMetricsError, setBodyMetricsError] = useState<string | null>(null);
 
+  const changeWeightUnit = (nextUnit: WeightUnit) => {
+    if (nextUnit === weightUnit) return;
+    const input = parseOptionalMeasurement(weightDraft);
+    if (input !== null) {
+      setWeightDraft(
+        formatMeasurement(kilogramsToWeight(weightToKilograms(input, weightUnit), nextUnit))
+      );
+    }
+    setWeightUnit(nextUnit);
+  };
+
+  const changeHeightUnit = (nextUnit: HeightUnit) => {
+    if (nextUnit === heightUnit) return;
+    const value = parseOptionalMeasurement(heightDraft);
+    const inches = parseOptionalMeasurement(heightInchesDraft);
+    if (heightUnit === 'ft-in' && inches !== null && !isValidInches(inches)) {
+      setBodyMetricsError('Enter inches from 0 up to 11.9.');
+      return;
+    }
+    if (value !== null) {
+      if (nextUnit === 'ft-in') {
+        const converted = centimetersToFeetInches(
+          heightToCentimeters(value, heightUnit, inches ?? 0)
+        );
+        setHeightDraft(String(converted.feet));
+        setHeightInchesDraft(formatMeasurement(converted.inches));
+      } else {
+        setHeightDraft(formatMeasurement(heightToCentimeters(value, heightUnit, inches ?? 0)));
+      }
+    }
+    if (nextUnit === 'cm') setHeightInchesDraft('');
+    setHeightUnit(nextUnit);
+    setBodyMetricsError(null);
+  };
+
+  const commitBodyMetrics = () => {
+    const weightInput = parseOptionalMeasurement(weightDraft);
+    const heightInput = parseOptionalMeasurement(heightDraft);
+    const inchesInput = parseOptionalMeasurement(heightInchesDraft);
+    const weightKilograms =
+      weightInput === null ? null : weightToKilograms(weightInput, weightUnit);
+    const heightCentimeters =
+      heightInput === null ? null : heightToCentimeters(heightInput, heightUnit, inchesInput ?? 0);
+    if (
+      (weightDraft.trim().length > 0 && weightInput === null) ||
+      (heightDraft.trim().length > 0 && heightInput === null) ||
+      (heightUnit === 'ft-in' && heightInchesDraft.trim().length > 0 && inchesInput === null) ||
+      (heightUnit === 'ft-in' && inchesInput !== null && !isValidInches(inchesInput)) ||
+      (heightUnit === 'ft-in' &&
+        heightDraft.trim().length === 0 &&
+        heightInchesDraft.trim().length > 0) ||
+      (weightKilograms !== null && (weightKilograms < 35 || weightKilograms > 300)) ||
+      (heightCentimeters !== null && (heightCentimeters < 120 || heightCentimeters > 230))
+    ) {
+      setBodyMetricsError(
+        'Enter a weight between 35 and 300 kg and a height between 120 and 230 cm.'
+      );
+      return;
+    }
+    setBodyMetricsError(null);
+    setBodyMetrics({ heightCentimeters, weightKilograms });
+  };
   const updateTheme = (value: ThemeMode) => {
     setThemeMode(value);
     trackSettingsUpdated({ setting: 'theme', value });
@@ -325,13 +437,19 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* Kitchen Equipment Section */}
+      {/* Kitchen Setup Section */}
       <View style={styles.section}>
-        <Text variant="heading">Kitchen Equipment</Text>
+        <Text variant="heading">Kitchen setup</Text>
         <Text variant="caption" tone="muted">
-          Only recipes matching your appliances are recommended.
+          Choose a primary kitchen setup, then add the appliances you use.
         </Text>
 
+        <PrimaryButton
+          label="Open Kitchen Setup"
+          variant="ghost"
+          onPress={() => router.push('/kitchen-setup')}
+          accessibilityHint="Opens the dedicated Kitchen Setup screen without changing your pantry"
+        />
         <View
           style={styles.group}
           accessibilityRole="radiogroup"
@@ -350,7 +468,10 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        <Text variant="bodyStrong">Extra appliances</Text>
+        <Text variant="bodyStrong">{APPLIANCE_SECTION_TITLE}</Text>
+        <Text variant="caption" tone="muted">
+          {APPLIANCE_SECTION_DESCRIPTION}
+        </Text>
         <View style={styles.chipRow}>
           {EXTRA_APPLIANCES.map((appliance) => (
             <Chip
@@ -359,7 +480,8 @@ export default function SettingsScreen() {
               selected={extras.includes(appliance.id)}
               onPress={() => updateExtra(appliance.id)}
               accessibilityLabel={appliance.label}
-              accessibilityHint="Toggles this appliance in your kitchen"
+              accessibilityHint="Adds or removes this appliance from your kitchen"
+              accessibilityRole="checkbox"
             />
           ))}
         </View>
@@ -369,7 +491,7 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text variant="heading">Allergies & Dietary Restrictions</Text>
         <Text variant="caption" tone="muted">
-          Hard safety constraints that the engine will never relax.
+          Select anything HomeChef should always exclude from recommendations.
         </Text>
 
         <Text variant="bodyStrong">Allergens</Text>
@@ -387,6 +509,9 @@ export default function SettingsScreen() {
         </View>
 
         <Text variant="bodyStrong">Dietary Presets</Text>
+        <Text variant="caption" tone="muted">
+          Select the eating patterns you want HomeChef to use when choosing recipes.
+        </Text>
         <View style={styles.chipRow}>
           {DIETARY_PRESETS.map((preset) => (
             <Chip
@@ -402,10 +527,154 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text variant="heading">Goals & portions</Text>
+        <Text variant="caption" tone="muted">
+          Choose a goal to guide meal recommendations. Height and weight are optional and stay on
+          this device for portion estimates.
+        </Text>
+        <View
+          style={styles.group}
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Weight goal"
+          accessibilityHint="Choose a goal to adjust meal recommendations"
+        >
+          {GOAL_OPTIONS.map((option) => (
+            <SelectableCard
+              key={option.id}
+              title={option.label}
+              subtitle={option.subtitle}
+              selected={bodyGoal === option.id}
+              onPress={() => setBodyGoal(option.id)}
+              accessibilityHint={`Selects ${option.label.toLowerCase()} recommendations`}
+            />
+          ))}
+        </View>
+        <PrimaryButton
+          label="Not now / Skip"
+          variant="ghost"
+          onPress={() => setBodyGoal(null)}
+          accessibilityHint="Uses standard balanced recommendations"
+        />
+        <View style={styles.bodyFields}>
+          <Text variant="bodyStrong">Optional body details</Text>
+          <View style={styles.metricRow}>
+            <TextInput
+              value={weightDraft}
+              onChangeText={setWeightDraft}
+              onBlur={commitBodyMetrics}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder="Weight"
+              placeholderTextColor={color.textMuted}
+              accessibilityLabel="Current weight"
+              accessibilityHint="Optional current weight used only for portion estimates"
+              style={[styles.metricInput, { color: color.text, borderColor: color.border }]}
+            />
+            <View
+              style={styles.chipRow}
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Weight unit"
+              accessibilityHint="Choose kilograms or pounds; the value is converted"
+            >
+              <Chip
+                label="kg"
+                selected={weightUnit === 'kg'}
+                onPress={() => changeWeightUnit('kg')}
+                accessibilityLabel="Kilograms"
+                accessibilityHint="Uses kilograms"
+              />
+              <Chip
+                label="lb"
+                selected={weightUnit === 'lb'}
+                onPress={() => changeWeightUnit('lb')}
+                accessibilityLabel="Pounds"
+                accessibilityHint="Uses pounds"
+              />
+            </View>
+          </View>
+          <View style={styles.metricRow}>
+            <TextInput
+              value={heightDraft}
+              onChangeText={setHeightDraft}
+              onBlur={commitBodyMetrics}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder={heightUnit === 'cm' ? 'Height' : 'Feet'}
+              placeholderTextColor={color.textMuted}
+              accessibilityLabel={heightUnit === 'cm' ? 'Height in centimeters' : 'Height in feet'}
+              accessibilityHint="Optional height used only for portion estimates"
+              style={[styles.metricInput, { color: color.text, borderColor: color.border }]}
+            />
+            {heightUnit === 'ft-in' ? (
+              <TextInput
+                value={heightInchesDraft}
+                onChangeText={setHeightInchesDraft}
+                onBlur={commitBodyMetrics}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
+                placeholder="Inches"
+                placeholderTextColor={color.textMuted}
+                accessibilityLabel="Height in inches"
+                accessibilityHint="Optional inches portion of height"
+                style={[styles.metricInput, { color: color.text, borderColor: color.border }]}
+              />
+            ) : null}
+            <View
+              style={styles.chipRow}
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Height unit"
+              accessibilityHint="Choose centimeters or feet and inches; the value is converted"
+            >
+              <Chip
+                label="cm"
+                selected={heightUnit === 'cm'}
+                onPress={() => changeHeightUnit('cm')}
+                accessibilityLabel="Centimeters"
+                accessibilityHint="Uses centimeters"
+              />
+              <Chip
+                label="ft-in"
+                selected={heightUnit === 'ft-in'}
+                onPress={() => changeHeightUnit('ft-in')}
+                accessibilityLabel="Feet and inches"
+                accessibilityHint="Uses feet and inches"
+              />
+            </View>
+          </View>
+          <Text variant="caption" tone="muted">
+            Used only to personalize portion estimates on this device. Estimate only—adjust to your
+            hunger.
+          </Text>
+          {bodyMetricsError ? (
+            <Text variant="caption" tone="danger" accessibilityLiveRegion="polite">
+              {bodyMetricsError}
+            </Text>
+          ) : null}
+          <PrimaryButton
+            label="Clear body data"
+            variant="ghost"
+            onPress={() => {
+              clearBodyData();
+              setWeightDraft('');
+              setHeightDraft('');
+              setHeightInchesDraft('');
+              setBodyMetricsError(null);
+            }}
+            accessibilityHint="Permanently removes your goal, height, and weight from this device"
+          />
+        </View>
+      </View>
+      <View style={styles.section}>
         <Text variant="heading">Meal-prep reminders</Text>
         <Text variant="caption" tone="muted">
           Get a reminder when a future weekly meal-prep plan needs you to start cooking.
         </Text>
+        <PrimaryButton
+          label="Open Reminders"
+          variant="ghost"
+          onPress={() => router.push('/reminders')}
+          accessibilityHint="Opens the dedicated reminder setup and upcoming reminders screen"
+        />
         <View style={styles.reminderToggle}>
           <Text variant="bodyStrong">Start-cooking reminders</Text>
           <Switch
@@ -535,6 +804,17 @@ const styles = StyleSheet.create({
   section: { gap: space.sm, marginTop: space.sm },
   group: { gap: space.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  bodyFields: { gap: space.sm },
+  metricRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.xs },
+  metricInput: {
+    minHeight: 44,
+    minWidth: 100,
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: space.md,
+    fontSize: 17,
+  },
   reminderToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   attributionLink: { minHeight: 32, justifyContent: 'center', marginTop: space.xs },
   confirmRow: { gap: space.sm },

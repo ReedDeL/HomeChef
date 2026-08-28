@@ -6,89 +6,12 @@
 Use one prompt per focused task. Each prompt is intentionally self-contained so it can be
 copied into a new coding session without the rest of this document.
 
-Recommended order: fix pantry-driven recommendation freshness first (Prompt 3), then add
-negative feedback (Prompt 2). The remaining prompts can be completed independently. Goals and
+Recommended order: The remaining prompts can be completed independently. Goals and
 reminder onboarding are product-scope changes, so those prompts require documentation decisions
-before implementation. Catalog gaps and synonym support (Prompt 8), authentic microwave meals (Prompt 9),
-universal onboarding copy (Prompt 10), seamless kitchen management (Prompt 11), and the weekly
-meal prep grocery reversal journey (Prompt 12) address critical usability and feature completeness.
-
-## Prompt 2: Add persistent “I don't like this” feedback
-
-```text
-Add an “I don't like this” action to HomeChef meal recommendations and make it produce a fresh,
-personalized replacement.
-
-Before editing, read docs/agentic/OPERATING_SYSTEM.md, docs/00_PRODUCT_DIRECTION.md,
-docs/04_UIUX_SPEC.md, and the current recommendation, recipe-card, decision-engine, and kitchen
-store code. Inspect the existing diff and preserve unrelated work.
-
-Current problem: users cannot reject a visible suggestion from the recommendation surface.
-HomeChef therefore keeps presenting food the user has explicitly decided they do not want.
-
-Required behavior:
-- Every visible recommendation exposes a secondary action labeled “I don't like this.”
-- Activating it records a durable dislike for that recipe, removes the recipe from the current
-  results, and reveals the next eligible recipe from the same stable ranking and constraints.
-- The dislike survives an app restart and affects future Now and Plan recommendations wherever
-  the shared preference contract applies.
-- A disliked recipe must be excluded, not merely moved lower. Existing allergen, dietary, and
-  equipment constraints remain absolute, and the action must not change the pantry.
-- Do not randomize or replace unrelated cards. Preserve already-visible results and reveal the
-  next valid candidate when possible.
-- If no replacement exists, show a calm, explained state with an obvious recovery path. Never
-  leave an unexplained blank section.
-- Provide a short undo opportunity if it can be implemented without weakening persistence or
-  creating conflicting preference states.
-
-Reuse the existing dislike preference/store boundary if one exists instead of creating a
-parallel storage mechanism. Keep weak “skip” and strong “dislike” signals distinct. Add an
-approved analytics event only if the current analytics contract has an established pattern for
-explicit recommendation feedback.
-
-Tests must prove persistence, exclusion across a new recommendation run, immediate replacement,
-stable ordering of unaffected results, empty-replacement behavior, and accessible names/states.
-Announce the replacement to assistive technology and preserve logical focus. Complete the code
-and tests, run focused checks followed by npm run check, and review the final diff.
-```
-
-## Prompt 3: Make “Any” recommendations respond to pantry changes
-
-```text
-Diagnose and fix HomeChef recommendations staying the same after the pantry changes when the
-cuisine preference is “Any.”
-
-Read docs/agentic/OPERATING_SYSTEM.md, docs/00_PRODUCT_DIRECTION.md, docs/04_UIUX_SPEC.md, and
-the current recommendation engine, relaxation policy, pantry store, adapters, and relevant
-tests. Inspect the working-tree diff before editing.
-
-Reproduce the problem first with a controlled pantry change. Trace the complete data path from
-the persisted pantry through the screen selector and engine input to feasibility buckets and
-ranking. Determine whether the cause is stale state, memoization/cache keys, canonical-ID
-normalization, a ranking rule that ignores pantry readiness, or presentation retaining an old
-result set. Fix the actual cause rather than forcing variety with randomness.
-
-Required behavior:
-- A recommendation run always uses the latest committed pantry snapshot.
-- Adding or removing an ingredient immediately updates recipe pantry-fit counts and buckets.
-- When a changed ingredient materially improves or worsens recipe feasibility, the stable
-  ranking and visible recommendations update accordingly.
-- “Any” means no cuisine preference. It must not select a canned result set or bypass pantry
-  scoring.
-- Identical pantry, preferences, and time inputs remain deterministic.
-- An irrelevant ingredient is allowed to leave the ranking unchanged; do not shuffle results
-  merely to look fresh.
-- Hard constraints are never relaxed. Any time or cuisine relaxation remains visible.
-
-Add a regression test using catalog fixtures where one known ingredient change moves at least
-one recipe between pantry-fit states and changes the expected ranking. Cover both adding and
-removing the ingredient, plus a screen/store integration test that catches stale memoized state.
-If the catalog cannot support a clear fixture, add a small test-only fixture rather than
-weakening the assertion.
-
-Complete the implementation and tests. Run the focused engine and screen tests, then npm run
-check. Report the root cause and review the final diff for unrelated changes.
-```
+before implementation. Authentic microwave meals (Prompt 9), universal onboarding copy (Prompt 10),
+polish the settings action (Prompt 5), desktop cuisine filters (Prompt 6), seamless kitchen
+management (Prompt 11), and the weekly meal prep grocery reversal journey (Prompt 12) address
+critical usability and feature completeness.
 
 ## Prompt 4: Add caloric goals and weight gain/loss onboarding page before pantry staples
 
@@ -249,69 +172,6 @@ preset, confirmed-plan-only scheduling, chronological display, stale cancellatio
 handling, web fallback, settings/plan navigation, and accessibility. Complete documentation,
 implementation, and tests. Run focused checks, physical-device verification where available,
 and npm run check; clearly report any device-only verification still required.
-```
-
-## Prompt 8: Expand catalog with common everyday staple recipes and ingredient synonyms
-
-```text
-Add common household staple recipes (such as a Peanut Butter & Jelly sandwich) and support for
-everyday ingredient synonyms (e.g. “jelly” -> “jam”) to HomeChef's catalog and pantry search.
-
-Before editing, read docs/agentic/OPERATING_SYSTEM.md, docs/00_PRODUCT_DIRECTION.md,
-docs/01_TECHNICAL_SPEC.md, docs/specs/2026-08-22-owned-recipe-catalog-design.md, and
-docs/plans/2026-08-22-owned-recipe-catalog-roadmap.md. Inspect the existing diff and preserve
-unrelated work.
-
-Current problem:
-Hands-on testing revealed that the app lacks very common, elementary household recipes and basic
-everyday ingredient synonyms.
-Example observed during testing:
-- A user added “bread” and “peanut butter” to their pantry and searched for “jelly”.
-- “jelly” did not exist in the ingredient vocabulary, so the user had to manually substitute “jam”.
-- After adding “bread”, “peanut butter”, and “jam”, HomeChef found zero available sandwich recipes
-  (no PB&J or basic sandwich was available in the recommendation results).
-
-Why this happens:
-1. Provider-Derived Dataset Skew: The current transitional recipe bundle (src/data/recipes.json,
-   ~812 recipes) was imported from a legacy recipe-provider dataset that heavily skews toward
-   published dinner entrees, regional specialty dishes, and multi-step cooked meals (e.g., Caldereta,
-   Peanut Butter Chicken, Battenberg cake, Num Pang baguette). It lacks elementary 2-3 ingredient
-   assembly staples and quick snacks that ordinary households prepare every day.
-2. Ingredient Vocabulary Gaps: The canonical vocabulary (src/data/ingredients.json) includes “jam”
-   (id: “jam”) but omits “jelly”, with no synonym or alias mapping mechanism (e.g., “jelly” -> “jam”,
-   “scallions” -> “green onions”). When a user types a common word like “jelly”, search returns empty.
-3. Transitional Dataset Freeze vs. Owned Catalog Roadmap: The transitional bundle is read-only and
-   non-rebuildable. The new rights-cleared owned catalog pipeline (tools/catalog/) is under development,
-   but a curated seed of basic everyday staples (PB&J, classic grilled cheese, toast with butter/jam,
-   simple scrambled eggs, tuna sandwich, etc.) has not yet been integrated into the offline fallback
-   or hosted releases.
-
-Required behavior:
-- Ingredient Search & Synonym Mapping:
-  - Add synonym/alias resolution to ingredient search so typing common synonyms like “jelly”
-    resolves to or suggests the canonical ingredient (e.g., “jam” or adds a canonical “jelly”).
-  - Ensure the ingredient vocabulary covers common pantry terms and household staples.
-- Everyday Staple Recipes:
-  - Curate and seed a core set of foundational everyday recipes (e.g., Peanut Butter and Jelly
-    Sandwich, Classic Grilled Cheese, Scrambled Eggs, Buttered Toast, Cinnamon Toast, Tuna Salad
-    Sandwich, Simple Oatmeal).
-  - Each staple recipe must define accurate total time (<= 5-10 minutes), equipment (e.g. none or
-    skillet/toaster if applicable), allergens (e.g. peanut, wheat/gluten, dairy, eggs), and dietary
-    attributes (vegetarian, vegan, etc.) according to hard constraint standards.
-- Recommendation Match Behavior:
-  - When pantry contains bread, peanut butter, and jam (or jelly), the recommendation engine must
-    reliably surface a Peanut Butter & Jelly Sandwich in the “You have it all” (ready) bucket.
-  - Partial pantry states (e.g., bread + peanut butter) must accurately show PB&J with “Need: jam”
-    in the “Missing 1 ingredient” bucket.
-
-Tests & Verification:
-- Add unit and engine tests verifying that searching for common aliases (“jelly”) finds the
-  expected ingredient item.
-- Add decision engine tests proving that standard staple ingredient sets (e.g. bread + peanut butter +
-  jam/jelly, bread + cheddar cheese + butter) return the expected staple recipes in the ready bucket.
-- Verify that hard constraints (e.g., peanut allergen filter, gluten intolerance) strictly exclude
-  these new recipes when applicable.
-- Complete implementation, run focused tests and npm run check, and review the final diff.
 ```
 
 ## Prompt 9: Curate authentic microwave meals and improve microwave recommendations

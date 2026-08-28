@@ -46,7 +46,8 @@ The three primary destinations are:
 - **Plan**
 - **Pantry**
 
-Settings is secondary.
+Settings is secondary. Reminders is a secondary destination reachable from
+Settings and a confirmed weekly plan. It is not a fourth primary tab.
 
 Legacy cook-mode routes may remain during transition, but they are not part of
 the current product and should not shape new UI work.

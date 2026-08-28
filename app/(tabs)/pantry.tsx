@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
   Platform,
-  Pressable,
   StyleSheet,
   TextInput,
   useWindowDimensions,
@@ -13,6 +12,7 @@ import {
 import { IngredientChip } from '@/components/ui/IngredientChip';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
+import { SettingsAction } from '@/components/ui/SettingsAction';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { lookupIngredient } from '@/data/catalog';
@@ -88,18 +88,7 @@ export default function PantryScreen() {
           </Text>
         </View>
 
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-          onPress={() => router.push('/settings')}
-          style={styles.settingsButton}
-        >
-          <Text variant="caption" tone="accent">
-            ⚙️ Settings
-          </Text>
-        </Pressable>
+        <SettingsAction onPress={() => router.push('/settings')} style={styles.settingsAction} />
       </View>
 
       <View
@@ -189,13 +178,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   intro: { gap: space.sm, flex: 1 },
-  settingsButton: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingTop: space.xs,
-  },
+  settingsAction: { marginTop: space.xs },
   group: { gap: space.sm },
   pantryLayout: { gap: space.lg },
   inventoryPanel: { gap: space.lg },

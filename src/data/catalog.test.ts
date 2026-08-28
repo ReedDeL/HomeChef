@@ -117,7 +117,7 @@ describe('microwave coverage', () => {
     // merge step, src/data/ is regenerated without it and this is the only
     // thing that notices.
     const seeded = BUNDLED_CATALOG.filter((r) => r.id.startsWith('hc-mw-'));
-    expect(seeded.length).toBe(20);
+    expect(seeded.length).toBe(27);
   });
 
   it('gives the microwave-only user recipes reachable within an hour', () => {

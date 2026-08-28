@@ -1,9 +1,44 @@
-import type { PlanLinkedGroceryNeed } from '@/contracts/meal-journeys';
+import type { PlanLinkedGroceryNeed, WeeklyMealPlan } from '@/contracts/meal-journeys';
 import type { IngredientId, Recipe } from '@/engine/types';
 
 export interface PlanGroceryEntry {
   date: string;
   recipe: Recipe;
+}
+
+/**
+ * Resolve the concrete meal names behind one grouped grocery need.
+ *
+ * Grocery needs intentionally store stable recipe IDs rather than copied
+ * titles. This presentation helper keeps that contract small while ensuring
+ * the What to get surface explains exactly which meals use each ingredient.
+ */
+export function getPlanGroceryNeedMealNames(
+  need: PlanLinkedGroceryNeed,
+  recipes: readonly Recipe[]
+): string[] {
+  return need.recipeIds.map(
+    (recipeId) => recipes.find((recipe) => recipe.id === recipeId)?.title ?? recipeId
+  );
+}
+
+/** Recalculate a plan's linked grocery snapshot against the current pantry. */
+export function recomputePlanGroceryNeeds(
+  plan: WeeklyMealPlan,
+  recipes: readonly Recipe[],
+  pantry: ReadonlySet<IngredientId>,
+  limit = 12
+): WeeklyMealPlan {
+  const groceryEntries = plan.entries.flatMap((entry) => {
+    if (entry.kind !== 'recipe') return [];
+    const recipe = recipes.find((candidate) => candidate.id === entry.recipeId);
+    return recipe ? [{ date: entry.date, recipe }] : [];
+  });
+
+  return {
+    ...plan,
+    groceryNeeds: derivePlanLinkedGroceryNeeds(groceryEntries, pantry, limit),
+  };
 }
 
 interface GroceryReferences {

@@ -198,7 +198,7 @@ def test_release_deduplicates_identical_recipes_independent_of_source_order(tmp_
     ]
     assert len(external) == 1
     assert [row.source_id for row in external[0].provenance] == ["first", "second"]
-    assert release.counts == {"recipes": 21, "offlineRecipes": 21, "quarantined": 0}
+    assert release.counts == {"recipes": 28, "offlineRecipes": 28, "quarantined": 0}
 
 
 def test_release_includes_homechef_authored_seeds_in_offline_and_vocabulary(tmp_path: Path) -> None:

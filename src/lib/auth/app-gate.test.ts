@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { appGatePhase, needsRouteReplacement, rootRouteIsAvailable } from '@/lib/auth/app-gate';
 
-const DYNAMIC_APP_ROUTES = ['cook/[id]', 'recipe/[id]'] as const;
+const DYNAMIC_APP_ROUTES = ['cook/[id]', 'recipe/[id]', 'kitchen-setup', 'reminders'] as const;
 
 describe('app gate routing', () => {
   it('replaces an app route with onboarding for a new local user', () => {

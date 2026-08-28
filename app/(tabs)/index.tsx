@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { SettingsAction } from '@/components/ui/SettingsAction';
 import { RelaxationBanner } from '@/components/ui/RelaxationBanner';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -72,6 +73,7 @@ export default function HomeScreen() {
   const pantry = useKitchenStore((state) => state.pantry);
   const dislikedRecipes = useKitchenStore((state) => state.dislikedRecipes);
   const skippedRecipes = useKitchenStore((state) => state.skippedRecipes);
+  const bodyGoal = useKitchenStore((state) => state.bodyGoal);
 
   const [timeLimit, setTimeLimit] = useState<Minutes | null>(null);
   const [cuisine, setCuisine] = useState<string | null>(null);
@@ -94,10 +96,10 @@ export default function HomeScreen() {
   const preferences = useMemo(
     () =>
       toEnginePreferences(
-        { tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes },
+        { tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal },
         cuisine
       ),
-    [tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, cuisine]
+    [tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal, cuisine]
   );
 
   const pantrySet = useMemo(() => new Set(pantry), [pantry]);
@@ -206,20 +208,7 @@ export default function HomeScreen() {
           backLabel={formatDuration(timeLimit)}
           backAccessibilityLabel={`${formatDuration(timeLimit)}. Change the time.`}
           backHint="Returns to the time picker"
-          rightAction={
-            <Pressable
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-              onPress={() => router.push('/settings')}
-              style={styles.settingsButton}
-            >
-              <Text variant="caption" tone="accent">
-                ⚙️ Settings
-              </Text>
-            </Pressable>
-          }
+          rightAction={<SettingsAction onPress={() => router.push('/settings')} />}
         />
       }
     >
@@ -355,18 +344,7 @@ function TimePrompt({
                 {greeting()}
               </Text>
             </View>
-            <Pressable
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-              onPress={() => router.push('/settings')}
-              style={styles.settingsButton}
-            >
-              <Text variant="caption" tone="accent">
-                ⚙️ Settings
-              </Text>
-            </Pressable>
+            <SettingsAction onPress={() => router.push('/settings')} />
           </View>
 
           <Text variant="display">How much time do you have?</Text>
@@ -387,29 +365,20 @@ function TimePrompt({
             <Text variant="caption" tone="muted">
               Feeling like something?
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.cuisineRow}
-            >
-              <Chip
-                label="Any"
-                selected={cuisine === null}
-                onPress={() => onSelectCuisine(null)}
-                accessibilityLabel="Any cuisine"
-                accessibilityHint="Removes the cuisine preference"
-              />
-              {CUISINE_OPTIONS.map((option) => (
-                <Chip
-                  key={option.value}
-                  label={option.label}
-                  selected={cuisine === option.value}
-                  onPress={() => onSelectCuisine(cuisine === option.value ? null : option.value)}
-                  accessibilityLabel={option.label}
-                  accessibilityHint="Prefers this cuisine, but never at the cost of an empty screen"
-                />
-              ))}
-            </ScrollView>
+            {responsive.cuisineFilter === 'wrap' ? (
+              <View style={[styles.cuisineRow, styles.desktopCuisineRow]}>
+                <CuisineOptions cuisine={cuisine} onSelectCuisine={onSelectCuisine} />
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.cuisineScroll}
+                contentContainerStyle={styles.cuisineRow}
+              >
+                <CuisineOptions cuisine={cuisine} onSelectCuisine={onSelectCuisine} />
+              </ScrollView>
+            )}
           </View>
 
           <PrimaryButton
@@ -460,6 +429,35 @@ function TimePrompt({
   );
 }
 
+interface CuisineOptionsProps {
+  cuisine: string | null;
+  onSelectCuisine: (cuisine: string | null) => void;
+}
+
+function CuisineOptions({ cuisine, onSelectCuisine }: CuisineOptionsProps) {
+  return (
+    <>
+      <Chip
+        label="Any"
+        selected={cuisine === null}
+        onPress={() => onSelectCuisine(null)}
+        accessibilityLabel="Any cuisine"
+        accessibilityHint="Removes the cuisine preference"
+      />
+      {CUISINE_OPTIONS.map((option) => (
+        <Chip
+          key={option.value}
+          label={option.label}
+          selected={cuisine === option.value}
+          onPress={() => onSelectCuisine(cuisine === option.value ? null : option.value)}
+          accessibilityLabel={option.label}
+          accessibilityHint="Prefers this cuisine, but never at the cost of an empty screen"
+        />
+      ))}
+    </>
+  );
+}
+
 /** The 6pm user is the one this product is for; the greeting says we noticed. */
 function greeting(): string {
   const hour = new Date().getHours();
@@ -470,13 +468,20 @@ function greeting(): string {
 
 const styles = StyleSheet.create({
   promptLayout: { gap: space.lg },
-  desktopPromptLayout: { flexDirection: 'row', alignItems: 'stretch' },
-  promptPanel: { gap: space.lg },
-  desktopPanel: { flex: 1, padding: space.xl, borderRadius: radius.lg },
-  contextPanel: { flex: 1, justifyContent: 'center', minHeight: 260 },
+  desktopPromptLayout: { flexDirection: 'row', alignItems: 'stretch', minWidth: 0 },
+  promptPanel: { gap: space.lg, minWidth: 0 },
+  desktopPanel: { flex: 1, padding: space.xl, borderRadius: radius.lg, minWidth: 0 },
+  contextPanel: { flex: 1, justifyContent: 'center', minHeight: 260, minWidth: 0 },
   tileRow: { flexDirection: 'row', gap: space.sm },
   optional: { gap: space.sm },
   cuisineRow: { flexDirection: 'row', gap: space.sm, paddingRight: space.lg },
+  cuisineScroll: { width: '100%', maxWidth: '100%', minWidth: 0 },
+  desktopCuisineRow: {
+    width: '100%',
+    maxWidth: '100%',
+    flexWrap: 'wrap',
+    paddingRight: 0,
+  },
   pantryLink: { minHeight: 44, justifyContent: 'center' },
   results: { gap: space.lg, paddingBottom: space.xl },
   topRow: {
@@ -487,12 +492,6 @@ const styles = StyleSheet.create({
   },
   brandGreeting: {
     gap: space.xs,
-  },
-  settingsButton: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
   },
   undoBanner: {
     flexDirection: 'row',

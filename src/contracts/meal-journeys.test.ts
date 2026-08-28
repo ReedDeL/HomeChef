@@ -246,6 +246,14 @@ describe('continuous onboarding and reminders', () => {
 });
 
 describe('weeklyMealPlanSchema', () => {
+  it('accepts an intentionally unplanned day without treating it as a safety failure', () => {
+    const entries = weeklyEntries.map((entry, index) =>
+      index === 3
+        ? { kind: 'day_of_decision' as const, date: entry.date, reason: 'not_planned' as const }
+        : entry
+    );
+    expect(weeklyMealPlanSchema.safeParse({ ...validWeeklyPlan, entries }).success).toBe(true);
+  });
   it('accepts exactly seven consecutive dated entries', () => {
     expect(weeklyMealPlanSchema.parse(validWeeklyPlan).entries).toHaveLength(7);
     expect(

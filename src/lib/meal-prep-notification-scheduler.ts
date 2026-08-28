@@ -36,27 +36,29 @@ export function createMealPrepReminderScheduler(
   client: LocalNotificationClient,
   now: () => Date
 ): MealPrepReminderScheduler {
-  async function clear(): Promise<void> {
+  let pending: Promise<void> = Promise.resolve();
+
+  async function clearInternal(): Promise<void> {
     const identifiers = client.getIdentifiers();
     await Promise.all(identifiers.map((identifier) => client.cancel(identifier)));
     client.setIdentifiers([]);
   }
 
-  async function sync(
+  async function syncInternal(
     entries: readonly MealPrepReminderEntry[],
     settings: MealPrepReminderSettings
   ): Promise<void> {
     if (!settings.enabled) {
-      await clear();
+      await clearInternal();
       return;
     }
     if (!(await client.hasPermission())) {
-      await clear();
+      await clearInternal();
       return;
     }
 
     await client.ensureChannel();
-    await clear();
+    await clearInternal();
 
     const identifiers: string[] = [];
     for (const entry of entries) {
@@ -77,6 +79,21 @@ export function createMealPrepReminderScheduler(
     }
 
     client.setIdentifiers(identifiers);
+  }
+
+  function clear(): Promise<void> {
+    const operation = pending.then(() => clearInternal());
+    pending = operation.catch(() => undefined);
+    return operation;
+  }
+
+  function sync(
+    entries: readonly MealPrepReminderEntry[],
+    settings: MealPrepReminderSettings
+  ): Promise<void> {
+    const operation = pending.then(() => syncInternal(entries, settings));
+    pending = operation.catch(() => undefined);
+    return operation;
   }
 
   return { clear, sync };

@@ -7,12 +7,18 @@ import { Screen } from '@/components/ui/Screen';
 import { StepFooter } from '@/components/ui/StepFooter';
 import { StepIndicator } from '@/components/ui/StepIndicator';
 import { Text } from '@/components/ui/Text';
-import { EQUIPMENT_TIERS, EXTRA_APPLIANCES, useKitchenStore } from '@/store/kitchen';
+import {
+  APPLIANCE_SECTION_DESCRIPTION,
+  APPLIANCE_SECTION_TITLE,
+  EQUIPMENT_TIERS,
+  EXTRA_APPLIANCES,
+  useKitchenStore,
+} from '@/store/kitchen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { space } from '@/theme/tokens';
 
 /**
- * Spec §3 — the first screen anyone sees (Step 1 of 3).
+ * Spec §3 — the first screen anyone sees (Step 1 of 4).
  *
  * Equipment leads onboarding because it is the wedge no competitor has: an app
  * that knows you own a microwave and nothing else is immediately, visibly
@@ -37,7 +43,7 @@ export default function EquipmentScreen() {
       }
     >
       <BrandLockup />
-      <StepIndicator currentStep={1} totalSteps={3} label="Kitchen Setup" />
+      <StepIndicator currentStep={1} totalSteps={4} label="Kitchen Setup" />
 
       <View style={styles.intro}>
         <Text variant="display">What&apos;s in your kitchen?</Text>
@@ -65,7 +71,10 @@ export default function EquipmentScreen() {
       </View>
 
       <View style={styles.group}>
-        <Text variant="heading">Anything else?</Text>
+        <Text variant="heading">{APPLIANCE_SECTION_TITLE}</Text>
+        <Text variant="caption" tone="muted">
+          {APPLIANCE_SECTION_DESCRIPTION}
+        </Text>
         <View style={styles.chipRow}>
           {EXTRA_APPLIANCES.map((appliance) => (
             <Chip
@@ -74,7 +83,8 @@ export default function EquipmentScreen() {
               selected={extras.includes(appliance.id)}
               onPress={() => toggleExtra(appliance.id)}
               accessibilityLabel={appliance.label}
-              accessibilityHint="Adds this appliance to your kitchen"
+              accessibilityHint="Adds or removes this appliance from your kitchen"
+              accessibilityRole="checkbox"
             />
           ))}
         </View>

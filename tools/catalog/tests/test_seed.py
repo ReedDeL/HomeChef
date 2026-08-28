@@ -20,7 +20,7 @@ from tools.catalog.seed_loader import SEED_DIR, load_seed_recipes, merge_seed
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VOCABULARY_PATH = REPO_ROOT / "src" / "data" / "ingredients.json"
 
-EXPECTED_SEED_COUNT = 20
+EXPECTED_SEED_COUNT = 27
 
 
 @pytest.fixture(scope="module")

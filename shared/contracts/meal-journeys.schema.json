@@ -375,7 +375,7 @@
                   },
                   "reason": {
                     "type": "string",
-                    "enum": ["no_safe_recipe", "grocery_need_cap"]
+                    "enum": ["no_safe_recipe", "grocery_need_cap", "not_planned"]
                   }
                 },
                 "required": ["kind", "date", "reason"],

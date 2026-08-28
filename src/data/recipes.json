@@ -85517,5 +85517,487 @@
     "source": "bundled",
     "title": "Warm Chickpea and Tomato Bowl",
     "totalTimeMinutes": 6
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-21",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [
+          "gluten",
+          "wheat"
+        ],
+        "id": "pita_bread",
+        "measure": "1 small",
+        "quantity": null,
+        "rawMeasure": "1 small",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "tomato_sauce",
+        "measure": "2 tbsp",
+        "quantity": null,
+        "rawMeasure": "2 tbsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "mozzarella",
+        "measure": "1/3 cup, shredded",
+        "quantity": null,
+        "rawMeasure": "1/3 cup, shredded",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "sweetcorn",
+        "measure": "2 tbsp",
+        "quantity": null,
+        "rawMeasure": "2 tbsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "dried_oregano",
+        "measure": "1/4 tsp",
+        "quantity": null,
+        "rawMeasure": "1/4 tsp",
+        "unit": null
+      }
+    ],
+    "instructions": "Set the pita on a microwave-safe plate and spread the tomato sauce almost to the edge, leaving a narrow rim so it does not run off. Scatter the mozzarella, sweetcorn and oregano evenly over the top. Use cooked or ready-to-eat toppings only; the microwave melts and heats toppings but is not a reliable way to cook raw meat.\n\nMicrowave on high for 60 to 90 seconds, checking after 60 seconds, until the cheese is fully melted and the centre is steaming. Microwave ovens vary, so add 15-second bursts rather than letting the cheese dry out.\n\nLet the pizza stand for 1 minute before eating. The plate and cheese stay hot after the oven stops, and the short rest lets the topping set enough to slice safely.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-21",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Personal Pizza",
+    "totalTimeMinutes": 5
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-22",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [],
+        "id": "tortillas",
+        "measure": "1 large",
+        "quantity": null,
+        "rawMeasure": "1 large",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "refried_beans",
+        "measure": "1/2 cup",
+        "quantity": null,
+        "rawMeasure": "1/2 cup",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "cheddar_cheese",
+        "measure": "1/4 cup, shredded",
+        "quantity": null,
+        "rawMeasure": "1/4 cup, shredded",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "salsa",
+        "measure": "2 tbsp",
+        "quantity": null,
+        "rawMeasure": "2 tbsp",
+        "unit": null
+      }
+    ],
+    "instructions": "Warm the tortilla under a slightly damp paper towel for 15 seconds so it rolls without splitting. Spread the refried beans in a strip across the lower third, keeping the edges clear, then add the cheddar and salsa. Fold the bottom up, fold in both sides, and roll firmly into a burrito with the seam underneath.\n\nPlace it seam-side down on a microwave-safe plate and cover with a damp paper towel. Microwave on high for 60 to 90 seconds, turning once, until the beans are steaming hot and the cheese has melted. Add 15-second bursts if the centre is not hot.\n\nLet it stand covered for 1 minute before unwrapping. Steam escapes when the towel is lifted, so open it away from your face and check the centre before eating.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-22",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Bean & Cheese Burrito",
+    "totalTimeMinutes": 5
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-23",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [
+          "egg"
+        ],
+        "id": "egg",
+        "measure": "1 large",
+        "quantity": null,
+        "rawMeasure": "1 large",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "milk",
+        "measure": "1 tbsp",
+        "quantity": null,
+        "rawMeasure": "1 tbsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "tortillas",
+        "measure": "1 small",
+        "quantity": null,
+        "rawMeasure": "1 small",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "cheddar_cheese",
+        "measure": "2 tbsp, shredded",
+        "quantity": null,
+        "rawMeasure": "2 tbsp, shredded",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "salsa",
+        "measure": "1 tbsp",
+        "quantity": null,
+        "rawMeasure": "1 tbsp",
+        "unit": null
+      }
+    ],
+    "instructions": "Beat the egg and milk thoroughly with a fork in a large microwave-safe mug until the yolk and white are completely combined. This prevents an intact yolk from bursting as it heats. Microwave on high for 30 seconds, stir and scrape the sides, then continue in 15-second bursts until the egg is set but still moist, about 60 to 90 seconds total; it should reach 160°F.\n\nWarm the tortilla under a damp paper towel for 15 seconds. Tip the scrambled egg into the centre, add the cheddar and salsa, fold in the sides and roll into a burrito. Return it seam-side down to the plate and microwave for 20 to 30 seconds, until the cheese softens.\n\nLet the burrito stand for 1 minute before eating. Check that the centre is hot and open it carefully because steam collects inside the fold.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-23",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Breakfast Burrito",
+    "totalTimeMinutes": 7
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-24",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [],
+        "id": "flour_tortilla",
+        "measure": "1 large",
+        "quantity": null,
+        "rawMeasure": "1 large",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "cheddar_cheese",
+        "measure": "1/3 cup, shredded",
+        "quantity": null,
+        "rawMeasure": "1/3 cup, shredded",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "salsa",
+        "measure": "2 tbsp",
+        "quantity": null,
+        "rawMeasure": "2 tbsp",
+        "unit": null
+      }
+    ],
+    "instructions": "Lay the tortilla flat on a microwave-safe plate and scatter the cheddar over one half, leaving a small border so melted cheese does not run over the edge. Fold the bare half over the cheese and press gently so the fold stays closed. Use only ready-to-eat fillings in this microwave version; it is designed to melt cheese and warm the tortilla, not cook raw meat.\n\nMicrowave on high for 45 seconds, then check the cheese. Continue in 15-second bursts until the cheese is melted and the tortilla is warm, usually 60 to 90 seconds total. Letting the tortilla heat gradually keeps it flexible instead of tough.\n\nLet it stand for 1 minute, then cut into wedges and serve with the salsa. The melted cheese remains very hot after heating, so test a small corner before taking a full bite.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-24",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Cheese Quesadilla",
+    "totalTimeMinutes": 4
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-25",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [
+          "gluten",
+          "wheat"
+        ],
+        "id": "macaroni",
+        "measure": "1/3 cup",
+        "quantity": null,
+        "rawMeasure": "1/3 cup",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "water",
+        "measure": "2/3 cup",
+        "quantity": null,
+        "rawMeasure": "2/3 cup",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "milk",
+        "measure": "2 tbsp",
+        "quantity": null,
+        "rawMeasure": "2 tbsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "butter",
+        "measure": "1 tsp",
+        "quantity": null,
+        "rawMeasure": "1 tsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "cheddar_cheese",
+        "measure": "1/3 cup, shredded",
+        "quantity": null,
+        "rawMeasure": "1/3 cup, shredded",
+        "unit": null
+      }
+    ],
+    "instructions": "Put the macaroni and water in a very large microwave-safe mug or bowl; leave at least half the vessel empty because pasta water foams. Microwave on high for 2 minutes, stir carefully, and repeat in 1-minute bursts until the pasta is tender and most of the water has been absorbed, about 5 to 6 minutes total. Add a tablespoon of water if the pasta is still firm but the mug is dry.\n\nStir in the milk, butter and shredded cheddar while the pasta is hot. Microwave for 30 seconds, stir until smooth, and add another 15 seconds only if the cheese has not melted. The mixture will thicken as it cools.\n\nLet the mug stand for 1 minute before eating. Stir once more, check the centre is hot, and handle the mug with a cloth because both the vessel and sauce retain heat.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-25",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Mug Mac & Cheese",
+    "totalTimeMinutes": 8
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-26",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [],
+        "id": "russet_potato",
+        "measure": "1 medium",
+        "quantity": null,
+        "rawMeasure": "1 medium",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "butter",
+        "measure": "1 tbsp",
+        "quantity": null,
+        "rawMeasure": "1 tbsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "dairy"
+        ],
+        "id": "cheddar_cheese",
+        "measure": "1/4 cup, shredded",
+        "quantity": null,
+        "rawMeasure": "1/4 cup, shredded",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "salt",
+        "measure": "to taste",
+        "quantity": null,
+        "rawMeasure": "to taste",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "black_pepper",
+        "measure": "to taste",
+        "quantity": null,
+        "rawMeasure": "to taste",
+        "unit": null
+      }
+    ],
+    "instructions": "Scrub the potato and pat it dry. Pierce it deeply in six to eight places with a fork so steam can escape; an unpierced potato can burst. Put it on a microwave-safe plate and microwave on high for 4 minutes. Turn it over and continue for 2 to 3 minutes, until a knife slides into the centre easily.\n\nLet the potato stand for 2 minutes before opening it. The centre continues cooking during this rest and the steam pressure settles. Split it carefully, fluff the flesh with a fork, and work in the butter, salt and black pepper.\n\nTop with the cheddar and microwave for 30 to 45 seconds, until the cheese melts. Let it stand for another 30 seconds, then check the centre and serve; the potato and filling will be extremely hot immediately after heating.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-26",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Loaded Baked Potato",
+    "totalTimeMinutes": 8
+  },
+  {
+    "allergenStatus": "verified",
+    "baseServings": 1.0,
+    "cuisine": null,
+    "dietaryStatus": "verified",
+    "dietaryTags": [],
+    "energyKcalPerServing": null,
+    "equipmentRequired": [
+      "microwave"
+    ],
+    "id": "hc-mw-27",
+    "imageUrl": null,
+    "ingredients": [
+      {
+        "allergenGroups": [],
+        "id": "rice",
+        "measure": "1 cup, cooked or instant",
+        "quantity": null,
+        "rawMeasure": "1 cup, cooked or instant",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "stir_fry_vegetables",
+        "measure": "1 cup, frozen mixed vegetables",
+        "quantity": null,
+        "rawMeasure": "1 cup, frozen mixed vegetables",
+        "unit": null
+      },
+      {
+        "allergenGroups": [
+          "soy",
+          "gluten"
+        ],
+        "id": "soy_sauce",
+        "measure": "1 tbsp",
+        "quantity": null,
+        "rawMeasure": "1 tbsp",
+        "unit": null
+      },
+      {
+        "allergenGroups": [],
+        "id": "sesame_seed_oil",
+        "measure": "1 tsp",
+        "quantity": null,
+        "rawMeasure": "1 tsp",
+        "unit": null
+      }
+    ],
+    "instructions": "Put the cooked or instant rice and frozen mixed vegetables in a large microwave-safe bowl. Break up any compacted rice and cover the bowl with a vented microwave lid or a plate left slightly ajar so steam can escape. Microwave on high for 2 minutes, stir from the edges into the centre, then heat for 1 to 2 minutes more until the vegetables are tender and the rice is steaming throughout.\n\nStir in the soy sauce and sesame seed oil. If the centre is not hot, return the bowl for another 30 seconds; reheating in short bursts prevents the rice from drying out. Use rice that was refrigerated promptly and reheat it only once.\n\nLet the bowl stand covered for 1 minute so the heat evens out, then uncover away from your face and stir again before eating. The bowl, steam and sauce will all be hot.",
+    "nutritionConfidence": "unavailable",
+    "nutritionProvenance": null,
+    "provenance": [
+      {
+        "archiveSha256": "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+        "sourceId": "homechef-authored",
+        "sourceRecipeId": "hc-mw-27",
+        "sourceVersion": "microwave-seed-1"
+      }
+    ],
+    "source": "bundled",
+    "title": "Microwave Steamed Rice & Veggie Bowl",
+    "totalTimeMinutes": 7
   }
 ]

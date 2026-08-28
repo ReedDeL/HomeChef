@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { derivePlanLinkedGroceryNeeds, type PlanGroceryEntry } from '@/engine/plan-grocery-needs';
+import type { WeeklyMealPlan } from '@/contracts/meal-journeys';
+import {
+  derivePlanLinkedGroceryNeeds,
+  getPlanGroceryNeedMealNames,
+  recomputePlanGroceryNeeds,
+  type PlanGroceryEntry,
+} from '@/engine/plan-grocery-needs';
 import { ingredient, makeRecipe, pantry } from '@/engine/__fixtures__';
 
 describe('derivePlanLinkedGroceryNeeds', () => {
@@ -99,5 +105,59 @@ describe('derivePlanLinkedGroceryNeeds', () => {
         0
       )
     ).toThrow(RangeError);
+  });
+});
+
+describe('weekly-plan grocery presentation and pantry updates', () => {
+  it('projects the actual meal names for a grouped ingredient need', () => {
+    const recipes = [
+      makeRecipe({ id: 'recipe-a', title: 'Lemon rice' }),
+      makeRecipe({ id: 'recipe-b', title: 'Chickpea stew' }),
+    ];
+
+    expect(
+      getPlanGroceryNeedMealNames(
+        { ingredientId: 'onion', recipeIds: ['recipe-b', 'recipe-a'], dates: ['2026-08-24'] },
+        recipes
+      )
+    ).toEqual(['Chickpea stew', 'Lemon rice']);
+  });
+
+  it('recomputes needs after purchased ingredients enter the pantry while preserving the plan', () => {
+    const recipes = [
+      makeRecipe({
+        id: 'recipe-a',
+        ingredients: [ingredient('rice'), ingredient('onion')],
+      }),
+    ];
+    const plan: WeeklyMealPlan = {
+      weekStart: '2026-08-24',
+      entries: [
+        {
+          kind: 'recipe',
+          date: '2026-08-24',
+          recipeId: 'recipe-a',
+          plannedMealTime: '2026-08-24T18:30:00-04:00',
+          statedRelaxations: [],
+          portionGuidance: null,
+        },
+        ...Array.from({ length: 6 }, (_, index) => ({
+          kind: 'day_of_decision' as const,
+          date: `2026-08-${String(25 + index).padStart(2, '0')}`,
+          reason: 'not_planned' as const,
+        })),
+      ],
+      status: 'confirmed',
+      groceryNeeds: [
+        { ingredientId: 'onion', recipeIds: ['recipe-a'], dates: ['2026-08-24'] },
+        { ingredientId: 'rice', recipeIds: ['recipe-a'], dates: ['2026-08-24'] },
+      ],
+      statedRelaxations: [],
+    };
+
+    const updated = recomputePlanGroceryNeeds(plan, recipes, pantry('rice', 'onion'));
+    expect(updated.status).toBe('confirmed');
+    expect(updated.entries).toEqual(plan.entries);
+    expect(updated.groceryNeeds).toEqual([]);
   });
 });

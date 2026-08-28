@@ -246,4 +246,15 @@ describe('getPortionGuidance', () => {
     });
     expect(Object.keys(guidance ?? {})).toEqual(['servings', 'label', 'disclaimer']);
   });
+
+  it('supports goal-only onboarding when no full body profile is available', () => {
+    expect(
+      getPortionGuidance({
+        recipe: nutritionReadyRecipe,
+        bodyProfile: null,
+        bodyGoal: 'lose',
+        satietyLevel: null,
+      })
+    ).toMatchObject({ servings: 1, label: 'Start with 1 serving' });
+  });
 });
