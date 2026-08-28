@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
+  AccessibilityInfo,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,13 +15,16 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { INGREDIENT_VOCABULARY } from '@/data/catalog';
-import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
+import { lookupIngredient } from '@/data/catalog';
+import {
+  DEFAULT_SUGGESTION_COUNT,
+  MAX_SEARCH_RESULTS,
+  getReplenishingSuggestions,
+  searchIngredientSuggestions,
+} from '@/lib/ingredients/suggestions';
+import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-
-/** Enough to choose from, few enough to scan. */
-const MAX_SEARCH_RESULTS = 24;
 
 /**
  * Spec §8 — view, add, correct.
@@ -42,19 +46,36 @@ export default function PantryScreen() {
   const [query, setQuery] = useState('');
 
   const suggestions = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    const owned = new Set(pantry);
-
+    const term = query.trim();
     if (term.length === 0) {
-      return COMMON_PANTRY_IDS.filter((id) => !owned.has(id));
+      return getReplenishingSuggestions(pantry, DEFAULT_SUGGESTION_COUNT);
     }
-
-    return INGREDIENT_VOCABULARY.filter(
-      (entry) => !owned.has(entry.id) && entry.displayName.toLowerCase().includes(term)
-    )
-      .slice(0, MAX_SEARCH_RESULTS)
-      .map((entry) => entry.id);
+    return searchIngredientSuggestions(term, pantry, MAX_SEARCH_RESULTS);
   }, [query, pantry]);
+
+  const handleAddIngredient = useCallback(
+    (id: string) => {
+      togglePantryItem(id);
+      const item = lookupIngredient(id);
+      const name = item?.displayName ?? id;
+      if (typeof AccessibilityInfo?.announceForAccessibility === 'function') {
+        AccessibilityInfo.announceForAccessibility(`Added ${name} to pantry.`);
+      }
+    },
+    [togglePantryItem]
+  );
+
+  const handleRemoveIngredient = useCallback(
+    (id: string) => {
+      removePantryItem(id);
+      const item = lookupIngredient(id);
+      const name = item?.displayName ?? id;
+      if (typeof AccessibilityInfo?.announceForAccessibility === 'function') {
+        AccessibilityInfo.announceForAccessibility(`Removed ${name} from pantry.`);
+      }
+    },
+    [removePantryItem]
+  );
 
   return (
     <Screen>
@@ -108,8 +129,8 @@ export default function PantryScreen() {
                 key={id}
                 id={id}
                 inPantry
-                onToggle={removePantryItem}
-                onRemove={removePantryItem}
+                onToggle={handleRemoveIngredient}
+                onRemove={handleRemoveIngredient}
               />
             ))}
           </View>
@@ -141,15 +162,17 @@ export default function PantryScreen() {
             ]}
           />
 
-          <View style={styles.chipRow}>
+          <View style={styles.chipRow} accessibilityLiveRegion="polite">
             {suggestions.map((id) => (
-              <IngredientChip key={id} id={id} onToggle={togglePantryItem} />
+              <IngredientChip key={id} id={id} onToggle={handleAddIngredient} />
             ))}
           </View>
 
-          {query.trim().length > 0 && suggestions.length === 0 ? (
+          {suggestions.length === 0 ? (
             <Text variant="caption" tone="muted">
-              Nothing matching &ldquo;{query.trim()}&rdquo; in our ingredient list yet.
+              {query.trim().length > 0
+                ? `Nothing matching “${query.trim()}” in our ingredient list yet.`
+                : 'You\u2019ve added all suggested ingredients! Use search above to find more.'}
             </Text>
           ) : null}
         </View>
