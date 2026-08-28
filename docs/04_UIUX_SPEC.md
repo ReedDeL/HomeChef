@@ -22,9 +22,9 @@ HomeChef uses:
 
 - strong food photography;
 - bold, clean system type;
-- a warm neutral canvas;
-- orange as the primary action color;
-- green for ready matches;
+- a warm cream canvas with restrained oat surfaces;
+- terracotta as the primary brand and action color;
+- herb green for ready matches;
 - amber for small pantry gaps;
 - red only for allergen warnings;
 - large rounded controls;

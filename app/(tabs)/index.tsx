@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { BrandLockup } from '@/components/BrandLockup';
 import { BucketSection } from '@/components/ui/BucketSection';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -220,9 +221,12 @@ function TimePrompt({
       >
         <View style={[styles.promptPanel, responsive.isDesktop && styles.desktopPanel]}>
           <View style={styles.topRow}>
-            <Text variant="caption" tone="muted">
-              {greeting()}
-            </Text>
+            <View style={styles.brandGreeting}>
+              <BrandLockup compact />
+              <Text variant="caption" tone="muted">
+                {greeting()}
+              </Text>
+            </View>
             <Pressable
               accessible
               accessibilityRole="button"
@@ -352,6 +356,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     minHeight: 32,
+  },
+  brandGreeting: {
+    gap: space.xs,
   },
   settingsButton: {
     minHeight: 44,

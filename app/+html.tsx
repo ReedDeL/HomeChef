@@ -27,7 +27,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Paints the browser chrome to match the app instead of flashing white. */}
         <meta name="theme-color" content={palette.light.bg} media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content={palette.dark.bg} media="(prefers-color-scheme: dark)" />
-        <link rel="icon" href={FAVICON_HREF} />
+        <link rel="icon" type="image/png" href="/favicon.png" />
         <title>HomeChef</title>
 
         <ScrollViewStyleReset />
@@ -37,16 +37,6 @@ export default function Root({ children }: PropsWithChildren) {
     </html>
   );
 }
-
-/**
- * An inline SVG emoji, so the favicon costs no asset file and no extra request.
- */
-const FAVICON_HREF =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
-      '<text y=".9em" font-size="90">🍳</text></svg>'
-  );
 
 /**
  * Only what cannot be expressed in React Native styles belongs here: the page

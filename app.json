@@ -21,7 +21,8 @@
     ],
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./public/favicon.png"
     },
     "extra": {
       "router": {},
