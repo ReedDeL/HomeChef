@@ -40,10 +40,10 @@ def authored_release_source() -> ReleaseSource:
         id=AUTHORED_SOURCE_ID,
         version=AUTHORED_SOURCE_VERSION,
         title="HomeChef-authored microwave seed catalog",
-        archiveUrl="https://homechef.app/catalog/authored/microwave-seed-1",
+        archiveUrl="https://raw.githubusercontent.com/ReedDeL/HomeChef/master/tools/catalog/seed/microwave.json",
         sha256=AUTHORED_ARCHIVE_SHA256,
         licenseName="HomeChef-authored original content",
-        licenseUrl="https://homechef.app/catalog/rights",
+        licenseUrl="https://github.com/ReedDeL/HomeChef/blob/master/docs/specs/2026-08-22-owned-recipe-catalog-design.md",
         attribution="HomeChef-authored microwave seed catalog.",
         status="approved",
     )
