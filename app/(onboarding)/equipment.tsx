@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { BrandLockup } from '@/components/BrandLockup';
 import { Chip } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
 import { StepFooter } from '@/components/ui/StepFooter';
@@ -35,6 +36,7 @@ export default function EquipmentScreen() {
         />
       }
     >
+      <BrandLockup />
       <StepIndicator currentStep={1} totalSteps={3} label="Kitchen Setup" />
 
       <View style={styles.intro}>
