@@ -71,7 +71,7 @@ const DEFAULT_ATTRIBUTIONS: readonly CatalogAttribution[] = [
     sourceId: 'homechef-authored',
     sourceVersion: 'microwave-seed-1',
     attribution: 'HomeChef-authored open-source catalog',
-    url: 'https://homechef.app/catalog/rights',
+    url: 'https://github.com/ReedDeL/HomeChef/blob/master/docs/specs/2026-08-22-owned-recipe-catalog-design.md',
   },
 ];
 
@@ -230,8 +230,26 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   return (
-    <Screen header={<Header backLabel="Back" fallbackHref="/" />}>
+    <Screen
+      header={
+        <Header
+          backLabel="Back"
+          backAccessibilityLabel="Back"
+          backHint="Returns to the previous screen"
+          onBack={handleBack}
+          fallbackHref="/"
+        />
+      }
+    >
       <View style={styles.header}>
         <Text variant="display">Settings</Text>
         <Text variant="body" tone="muted">

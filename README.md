@@ -67,3 +67,8 @@ complete, tested, understandable, and trustworthy.
 
 Start with [Product Direction](docs/00_PRODUCT_DIRECTION.md). Technical,
 experience, and operating documents are indexed in [docs/](docs/).
+
+## Contributing
+
+Start with the [contribution guide](CONTRIBUTING.md) for local setup, branch
+and commit conventions, pull requests, and verification requirements.
