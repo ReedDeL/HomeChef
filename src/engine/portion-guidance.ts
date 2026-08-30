@@ -44,6 +44,8 @@ const DISCLAIMER = 'Estimate only—adjust to your hunger.' as const;
 export interface PortionGuidanceInput {
   recipe: Recipe;
   bodyProfile: BodyProfile | null;
+  /** Goal-only onboarding can provide this without collecting a full profile. */
+  bodyGoal?: BodyGoal | null;
   satietyLevel: MealSatietyLevel | null;
 }
 
@@ -52,8 +54,11 @@ export interface PortionGuidanceInput {
  * boundary stays explicit because quarter rounding masks all three baselines
  * in the final presentation for the current satiety adjustments.
  */
-export function getGoalBasedServingBaseline(profile: BodyProfile | null): number {
-  const goal: unknown = profile?.goal;
+export function getGoalBasedServingBaseline(
+  profile: BodyProfile | null,
+  fallbackGoal: BodyGoal | null | undefined = null
+): number {
+  const goal: unknown = profile?.goal ?? fallbackGoal;
   return isBodyGoal(goal) ? GOAL_BASELINES[goal] : GOAL_BASELINES.maintain;
 }
 
@@ -73,7 +78,7 @@ export function getPortionGuidance(input: PortionGuidanceInput): PortionGuidance
   const startingServings =
     validProfile !== null && !validProfile.pregnant && !validProfile.breastfeeding
       ? calculateEnergyBasedServings(validProfile, energyKcalPerServing)
-      : getGoalBasedServingBaseline(profile);
+      : getGoalBasedServingBaseline(profile, input.bodyGoal);
   const satietyAdjustment =
     input.satietyLevel === null ? 0 : SATIETY_ADJUSTMENTS[input.satietyLevel];
   const servings = clamp(roundToNearestQuarter(startingServings + satietyAdjustment), 0.75, 1.5);

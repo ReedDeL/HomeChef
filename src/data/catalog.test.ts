@@ -117,7 +117,7 @@ describe('microwave coverage', () => {
     // merge step, src/data/ is regenerated without it and this is the only
     // thing that notices.
     const seeded = BUNDLED_CATALOG.filter((r) => r.id.startsWith('hc-mw-'));
-    expect(seeded.length).toBe(20);
+    expect(seeded.length).toBe(27);
   });
 
   it('gives the microwave-only user recipes reachable within an hour', () => {
@@ -144,24 +144,73 @@ describe('microwave coverage', () => {
   });
 
   // The regression this whole change exists to prevent. Before it, the 76
-  // unclassified recipes were tagged `none`, which the equipment filter treats
+  // unclassified recipes were tagged `none`, which the keyword fallback treats
   // as always satisfied — so they were served to microwave-only users as though
   // verified. Nothing in the catalog may claim `none` unless it was earned.
   it('no longer ships recipes tagged "none" by the keyword fallback', () => {
-    const claimingNone = BUNDLED_CATALOG.filter((r) => r.equipmentRequired.includes('none'));
+    const claimingNone = BUNDLED_CATALOG.filter(
+      (r) => r.equipmentRequired.includes('none') && !r.id.startsWith('hc-staple-')
+    );
     expect(claimingNone).toEqual([]);
   });
 
-  it('marks unclassified recipes honestly instead of as no-equipment', () => {
+  it('allows verified curated staple recipes to claim no equipment ("none")', () => {
+    const stapleNone = BUNDLED_CATALOG.filter(
+      (r) => r.id.startsWith('hc-staple-') && r.equipmentRequired.includes('none')
+    );
+    expect(stapleNone.length).toBeGreaterThan(0);
+    for (const recipe of stapleNone) {
+      expect(recipe.equipmentRequired).toEqual(['none']);
+    }
+  });
+
+  it('quarantines unclassified recipes instead of shipping them', () => {
     const unclassified = BUNDLED_CATALOG.filter((r) =>
       r.equipmentRequired.includes('unclassified')
     );
-    // A backlog, not a statistic: these are excluded from every user's results
-    // until the enrichment pass classifies them.
-    expect(unclassified.length).toBeGreaterThan(0);
-    for (const recipe of unclassified) {
-      expect(recipe.equipmentRequired).toEqual(['unclassified']);
-    }
+    expect(unclassified).toEqual([]);
+  });
+});
+
+describe('curated staple recipe coverage', () => {
+  it('includes Peanut Butter and Jelly Sandwich when bread, peanut butter, and jam are in pantry', () => {
+    const result = decideWithRelaxation(
+      BUNDLED_CATALOG,
+      new Set(['bread', 'peanut_butter', 'jam']),
+      {
+        equipment: ['microwave'],
+        allergens: [],
+        dietary: [],
+        dislikedRecipeIds: new Set(),
+        skippedRecipeIds: new Set(),
+        preferredCuisine: null,
+      },
+      15
+    );
+
+    const readyIds = result.buckets.ready.map((s) => s.recipe.id);
+    expect(readyIds).toContain('hc-staple-pbj');
+  });
+
+  it('excludes PB&J when peanut allergen is declared', () => {
+    const result = decideWithRelaxation(
+      BUNDLED_CATALOG,
+      new Set(['bread', 'peanut_butter', 'jam']),
+      {
+        equipment: ['microwave'],
+        allergens: ['peanut'],
+        dietary: [],
+        dislikedRecipeIds: new Set(),
+        skippedRecipeIds: new Set(),
+        preferredCuisine: null,
+      },
+      15
+    );
+
+    const allIds = Object.values(result.buckets)
+      .flat()
+      .map((s) => s.recipe.id);
+    expect(allIds).not.toContain('hc-staple-pbj');
   });
 });
 

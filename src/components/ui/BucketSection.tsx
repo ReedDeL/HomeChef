@@ -34,13 +34,19 @@ interface BucketSectionProps {
   bucket: Bucket;
   recipes: readonly ScoredRecipe[];
   onSelectRecipe: (recipeId: string) => void;
+  onDislikeRecipe?: (recipeId: string) => void;
 }
 
-export function BucketSection({ bucket, recipes, onSelectRecipe }: BucketSectionProps) {
+export function BucketSection({
+  bucket,
+  recipes,
+  onSelectRecipe,
+  onDislikeRecipe,
+}: BucketSectionProps) {
   const meta = BUCKET_META[bucket];
   const [expanded, setExpanded] = useState(!meta.collapsedByDefault);
   const { width } = useWindowDimensions();
-  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
 
   // An empty bucket is not a dead end, it is simply not shown — the screen as a
   // whole is guaranteed non-empty by the relaxation ladder (Technical Spec §4.3).
@@ -78,7 +84,7 @@ export function BucketSection({ bucket, recipes, onSelectRecipe }: BucketSection
       >
         {visible.map((scored) => (
           <View key={scored.recipe.id} style={responsive.isDesktop && styles.desktopCard}>
-            <RecipeCard scored={scored} onPress={onSelectRecipe} />
+            <RecipeCard scored={scored} onPress={onSelectRecipe} onDislike={onDislikeRecipe} />
           </View>
         ))}
       </View>

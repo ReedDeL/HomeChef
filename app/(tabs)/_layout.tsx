@@ -4,7 +4,7 @@ import { type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 /**
- * Two tabs, and there will not be a third for launch. Home is the product;
+ * The primary journeys are Cook/Now, Plan, and Pantry. Home is the product;
  * Pantry exists because the pantry is always somewhat wrong and correcting it
  * has to be reachable from anywhere (risk R3).
  */
@@ -28,6 +28,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="pantry"
         options={{ title: 'Pantry', tabBarAccessibilityLabel: 'Pantry, what you have' }}
+      />
+      <Tabs.Screen
+        name="plan"
+        options={{ title: 'Plan', tabBarAccessibilityLabel: 'Plan, plan your week' }}
       />
     </Tabs>
   );

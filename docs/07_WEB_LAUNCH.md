@@ -68,7 +68,7 @@ approved by the repository owner.
 
    These four `EXPO_PUBLIC_` values are deliberately compiled into the web
    bundle. Do not add a Supabase service-role key, Gemini key, Spoonacular key,
-   PostHog personal API key, or Discord webhook.
+   PostHog personal API key, or messaging integration webhook.
 
 6. Select **Save and Deploy**. Cloudflare assigns a `*.pages.dev` HTTPS URL.
 7. Add a custom domain only after the `pages.dev` release passes the checklist.

@@ -18,7 +18,7 @@ from tools.catalog.pipeline import (
     write_release,
 )
 from tools.catalog.rights import RightsManifest, RightsSource
-from tools.catalog.seed_loader import load_seed_recipes
+from tools.catalog.seed_loader import authored_release_source, load_seed_recipes
 
 
 def source(source_id: str = "fixture-source", archive: Path | None = None) -> RightsSource:
@@ -198,7 +198,12 @@ def test_release_deduplicates_identical_recipes_independent_of_source_order(tmp_
     ]
     assert len(external) == 1
     assert [row.source_id for row in external[0].provenance] == ["first", "second"]
-    assert release.counts == {"recipes": 21, "offlineRecipes": 21, "quarantined": 0}
+    expected_count = len(load_seed_recipes()) + 1
+    assert release.counts == {
+        "recipes": expected_count,
+        "offlineRecipes": expected_count,
+        "quarantined": 0,
+    }
 
 
 def test_release_includes_homechef_authored_seeds_in_offline_and_vocabulary(tmp_path: Path) -> None:
@@ -245,15 +250,16 @@ def test_release_emits_checksum_pinned_source_rows_for_every_recipe_provenance(
                 provenance.archive_sha256,
             ) in release_sources
 
+    expected_authored = authored_release_source()
     authored = release_sources[
         (
-            "homechef-authored",
-            "microwave-seed-1",
-            "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc",
+            expected_authored.id,
+            expected_authored.version,
+            expected_authored.sha256,
         )
     ]
-    assert authored.license_name == "HomeChef-authored original content"
-    assert authored.attribution == "HomeChef-authored microwave seed catalog."
+    assert authored.license_name == expected_authored.license_name
+    assert authored.attribution == expected_authored.attribution
 
 
 def test_release_rejects_when_approved_archives_have_no_valid_external_recipes(

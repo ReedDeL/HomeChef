@@ -42,7 +42,9 @@ export function HeaderBackButton({
     <Pressable
       accessible
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? `Back to ${label}`}
+      accessibilityLabel={
+        accessibilityLabel ?? (label.toLowerCase() === 'back' ? 'Back' : `Back to ${label}`)
+      }
       accessibilityHint={accessibilityHint}
       onPress={handlePress}
       style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }, style]}

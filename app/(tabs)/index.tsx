@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Platform,
   Pressable,
   ScrollView,
@@ -9,11 +10,13 @@ import {
   View,
 } from 'react-native';
 
+import { BrandLockup } from '@/components/BrandLockup';
 import { BucketSection } from '@/components/ui/BucketSection';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { SettingsAction } from '@/components/ui/SettingsAction';
 import { RelaxationBanner } from '@/components/ui/RelaxationBanner';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -30,8 +33,14 @@ import {
   trackRecommendationsShown,
 } from '@/lib/analytics';
 import { TimeTile } from '@/components/ui/TimeTile';
-import { toEnginePreferences, useKitchenStore } from '@/store/kitchen';
+import {
+  recordDislike,
+  removeDislike,
+  toEnginePreferences,
+  useKitchenStore,
+} from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
+import { useTheme } from '@/theme/useTheme';
 
 /**
  * Spec §4 and §5 — the decision screen, before and after the one input it
@@ -55,12 +64,16 @@ const BUCKET_ORDER: readonly Bucket[] = ['ready', 'missing_few', 'missing_some',
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { color } = useTheme();
 
   const tierId = useKitchenStore((state) => state.tierId);
   const extras = useKitchenStore((state) => state.extras);
   const allergens = useKitchenStore((state) => state.allergens);
   const dietary = useKitchenStore((state) => state.dietary);
   const pantry = useKitchenStore((state) => state.pantry);
+  const dislikedRecipes = useKitchenStore((state) => state.dislikedRecipes);
+  const skippedRecipes = useKitchenStore((state) => state.skippedRecipes);
+  const bodyGoal = useKitchenStore((state) => state.bodyGoal);
 
   const [timeLimit, setTimeLimit] = useState<Minutes | null>(null);
   const [cuisine, setCuisine] = useState<string | null>(null);
@@ -69,10 +82,24 @@ export default function HomeScreen() {
    * chose is honoured exactly — even though that returns fewer answers.
    */
   const [strict, setStrict] = useState(false);
+  const [undoDislike, setUndoDislike] = useState<{ id: string; title: string } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const preferences = useMemo(
-    () => toEnginePreferences({ tierId, extras, allergens, dietary }, cuisine),
-    [tierId, extras, allergens, dietary, cuisine]
+    () =>
+      toEnginePreferences(
+        { tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal },
+        cuisine
+      ),
+    [tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal, cuisine]
   );
 
   const pantrySet = useMemo(() => new Set(pantry), [pantry]);
@@ -109,6 +136,54 @@ export default function HomeScreen() {
     setTimeLimit(minutes);
   };
 
+  const handleDislikeRecipe = (recipeId: string) => {
+    const target = BUNDLED_CATALOG.find((r) => r.id === recipeId);
+    const targetTitle = target?.title ?? 'Recipe';
+
+    let replacementTitle: string | null = null;
+    if (decision) {
+      for (const bucket of BUCKET_ORDER) {
+        const list = decision.buckets[bucket];
+        const idx = list.findIndex((s) => s.recipe.id === recipeId);
+        if (idx !== -1) {
+          if (list.length > 4) {
+            replacementTitle = list[4]?.recipe.title ?? null;
+          }
+          break;
+        }
+      }
+    }
+
+    recordDislike(recipeId);
+
+    if (replacementTitle) {
+      AccessibilityInfo.announceForAccessibility(
+        `Removed ${targetTitle}. Replaced with ${replacementTitle}.`
+      );
+    } else {
+      AccessibilityInfo.announceForAccessibility(`Removed ${targetTitle}.`);
+    }
+
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+    setUndoDislike({ id: recipeId, title: targetTitle });
+    undoTimeoutRef.current = setTimeout(() => {
+      setUndoDislike(null);
+    }, 6000);
+  };
+
+  const handleUndoDislike = () => {
+    if (!undoDislike) return;
+    const { id, title } = undoDislike;
+    removeDislike(id);
+    AccessibilityInfo.announceForAccessibility(`Restored ${title} to recommendations.`);
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+    setUndoDislike(null);
+  };
+
   if (decision === null || timeLimit === null) {
     return (
       <TimePrompt
@@ -133,24 +208,37 @@ export default function HomeScreen() {
           backLabel={formatDuration(timeLimit)}
           backAccessibilityLabel={`${formatDuration(timeLimit)}. Change the time.`}
           backHint="Returns to the time picker"
-          rightAction={
-            <Pressable
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-              onPress={() => router.push('/settings')}
-              style={styles.settingsButton}
-            >
-              <Text variant="caption" tone="accent">
-                ⚙️ Settings
-              </Text>
-            </Pressable>
-          }
+          rightAction={<SettingsAction onPress={() => router.push('/settings')} />}
         />
       }
     >
       <ScrollView contentContainerStyle={styles.results} showsVerticalScrollIndicator={false}>
+        {undoDislike ? (
+          <View
+            accessibilityLiveRegion="polite"
+            style={[
+              styles.undoBanner,
+              { backgroundColor: color.surface, borderColor: color.border },
+            ]}
+          >
+            <Text variant="caption" tone="muted" style={styles.undoText}>
+              Removed &ldquo;{undoDislike.title}&rdquo;
+            </Text>
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`Undo removing ${undoDislike.title}`}
+              accessibilityHint="Restores this recipe to suggestions"
+              onPress={handleUndoDislike}
+              style={styles.undoButton}
+            >
+              <Text variant="caption" tone="accent">
+                Undo
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <RelaxationBanner
           relaxations={decision.appliedRelaxations}
           revertLabel={`Keep ${formatDuration(timeLimit)}`}
@@ -163,21 +251,57 @@ export default function HomeScreen() {
             bucket={bucket}
             recipes={decision.buckets[bucket]}
             onSelectRecipe={(recipeId) => router.push(`/recipe/${recipeId}`)}
+            onDislikeRecipe={handleDislikeRecipe}
           />
         ))}
 
         {totalResults === 0 ? (
-          <Card variant="alt">
-            <Text variant="heading">Nothing fits {formatDuration(timeLimit)} exactly.</Text>
-            <Text variant="body" tone="muted">
-              You asked us to hold that limit, so we did. We can widen it slightly instead.
-            </Text>
-            <PrimaryButton
-              label="Show me what's close"
-              onPress={() => setStrict(false)}
-              accessibilityHint="Widens the time limit and shows results again"
-            />
-          </Card>
+          strict ? (
+            <Card variant="alt">
+              <Text variant="heading">Nothing fits {formatDuration(timeLimit)} exactly.</Text>
+              <Text variant="body" tone="muted">
+                You asked us to hold that limit, so we did. We can widen it slightly instead.
+              </Text>
+              <PrimaryButton
+                label="Show me what's close"
+                onPress={() => setStrict(false)}
+                accessibilityHint="Widens the time limit and shows results again"
+              />
+            </Card>
+          ) : dislikedRecipes.length > 0 ? (
+            <Card variant="alt">
+              <Text variant="heading">No meals fit your preferences right now.</Text>
+              <Text variant="body" tone="muted">
+                You&apos;ve removed suggestions you didn&apos;t want. You can widen your time limit
+                or reset hidden suggestions in Settings.
+              </Text>
+              {undoDislike ? (
+                <PrimaryButton
+                  label={`Undo removing ${undoDislike.title}`}
+                  onPress={handleUndoDislike}
+                  accessibilityHint="Restores the recipe you just removed"
+                />
+              ) : (
+                <PrimaryButton
+                  label="Open Settings"
+                  onPress={() => router.push('/settings')}
+                  accessibilityHint="Opens app settings to manage preferences"
+                />
+              )}
+            </Card>
+          ) : (
+            <Card variant="alt">
+              <Text variant="heading">No meals fit your preferences right now.</Text>
+              <Text variant="body" tone="muted">
+                Try updating your pantry or widening your kitchen equipment in Settings.
+              </Text>
+              <PrimaryButton
+                label="Update pantry"
+                onPress={() => router.push('/pantry')}
+                accessibilityHint="Opens your pantry to add ingredients"
+              />
+            </Card>
+          )
         ) : null}
       </ScrollView>
     </Screen>
@@ -201,7 +325,7 @@ function TimePrompt({
 }: TimePromptProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0, false);
+  const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
 
   return (
     <Screen>
@@ -214,21 +338,13 @@ function TimePrompt({
       >
         <View style={[styles.promptPanel, responsive.isDesktop && styles.desktopPanel]}>
           <View style={styles.topRow}>
-            <Text variant="caption" tone="muted">
-              {greeting()}
-            </Text>
-            <Pressable
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              accessibilityHint="Opens app settings for theme, kitchen, and dietary preferences"
-              onPress={() => router.push('/settings')}
-              style={styles.settingsButton}
-            >
-              <Text variant="caption" tone="accent">
-                ⚙️ Settings
+            <View style={styles.brandGreeting}>
+              <BrandLockup compact />
+              <Text variant="caption" tone="muted">
+                {greeting()}
               </Text>
-            </Pressable>
+            </View>
+            <SettingsAction onPress={() => router.push('/settings')} />
           </View>
 
           <Text variant="display">How much time do you have?</Text>
@@ -249,29 +365,20 @@ function TimePrompt({
             <Text variant="caption" tone="muted">
               Feeling like something?
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.cuisineRow}
-            >
-              <Chip
-                label="Any"
-                selected={cuisine === null}
-                onPress={() => onSelectCuisine(null)}
-                accessibilityLabel="Any cuisine"
-                accessibilityHint="Removes the cuisine preference"
-              />
-              {CUISINE_OPTIONS.map((option) => (
-                <Chip
-                  key={option.value}
-                  label={option.label}
-                  selected={cuisine === option.value}
-                  onPress={() => onSelectCuisine(cuisine === option.value ? null : option.value)}
-                  accessibilityLabel={option.label}
-                  accessibilityHint="Prefers this cuisine, but never at the cost of an empty screen"
-                />
-              ))}
-            </ScrollView>
+            {responsive.cuisineFilter === 'wrap' ? (
+              <View style={[styles.cuisineRow, styles.desktopCuisineRow]}>
+                <CuisineOptions cuisine={cuisine} onSelectCuisine={onSelectCuisine} />
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.cuisineScroll}
+                contentContainerStyle={styles.cuisineRow}
+              >
+                <CuisineOptions cuisine={cuisine} onSelectCuisine={onSelectCuisine} />
+              </ScrollView>
+            )}
           </View>
 
           <PrimaryButton
@@ -322,6 +429,35 @@ function TimePrompt({
   );
 }
 
+interface CuisineOptionsProps {
+  cuisine: string | null;
+  onSelectCuisine: (cuisine: string | null) => void;
+}
+
+function CuisineOptions({ cuisine, onSelectCuisine }: CuisineOptionsProps) {
+  return (
+    <>
+      <Chip
+        label="Any"
+        selected={cuisine === null}
+        onPress={() => onSelectCuisine(null)}
+        accessibilityLabel="Any cuisine"
+        accessibilityHint="Removes the cuisine preference"
+      />
+      {CUISINE_OPTIONS.map((option) => (
+        <Chip
+          key={option.value}
+          label={option.label}
+          selected={cuisine === option.value}
+          onPress={() => onSelectCuisine(cuisine === option.value ? null : option.value)}
+          accessibilityLabel={option.label}
+          accessibilityHint="Prefers this cuisine, but never at the cost of an empty screen"
+        />
+      ))}
+    </>
+  );
+}
+
 /** The 6pm user is the one this product is for; the greeting says we noticed. */
 function greeting(): string {
   const hour = new Date().getHours();
@@ -332,13 +468,20 @@ function greeting(): string {
 
 const styles = StyleSheet.create({
   promptLayout: { gap: space.lg },
-  desktopPromptLayout: { flexDirection: 'row', alignItems: 'stretch' },
-  promptPanel: { gap: space.lg },
-  desktopPanel: { flex: 1, padding: space.xl, borderRadius: radius.lg },
-  contextPanel: { flex: 1, justifyContent: 'center', minHeight: 260 },
+  desktopPromptLayout: { flexDirection: 'row', alignItems: 'stretch', minWidth: 0 },
+  promptPanel: { gap: space.lg, minWidth: 0 },
+  desktopPanel: { flex: 1, padding: space.xl, borderRadius: radius.lg, minWidth: 0 },
+  contextPanel: { flex: 1, justifyContent: 'center', minHeight: 260, minWidth: 0 },
   tileRow: { flexDirection: 'row', gap: space.sm },
   optional: { gap: space.sm },
   cuisineRow: { flexDirection: 'row', gap: space.sm, paddingRight: space.lg },
+  cuisineScroll: { width: '100%', maxWidth: '100%', minWidth: 0 },
+  desktopCuisineRow: {
+    width: '100%',
+    maxWidth: '100%',
+    flexWrap: 'wrap',
+    paddingRight: 0,
+  },
   pantryLink: { minHeight: 44, justifyContent: 'center' },
   results: { gap: space.lg, paddingBottom: space.xl },
   topRow: {
@@ -347,10 +490,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 32,
   },
-  settingsButton: {
+  brandGreeting: {
+    gap: space.xs,
+  },
+  undoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: space.md,
+  },
+  undoText: {
+    flex: 1,
+  },
+  undoButton: {
     minHeight: 44,
     minWidth: 44,
     justifyContent: 'center',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: space.sm,
   },
 });

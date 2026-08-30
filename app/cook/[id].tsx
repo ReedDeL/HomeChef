@@ -18,7 +18,9 @@ import {
   type MealVerdict,
 } from '@/lib/cook-completion';
 import { recordMealSatiety } from '@/lib/queries/preferences';
+import { recordLocalMealSatiety } from '@/lib/meal-satiety';
 import { supabase } from '@/lib/supabase';
+
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -135,10 +137,16 @@ export default function CookModeScreen() {
     mutationFn: async (level: MealSatietyLevel) => {
       if (!recipe) throw new Error('Recipe not found.');
 
-      const { data, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      if (!data.user) throw new Error('Sign in is required to save a hunger stat.');
-      await recordMealSatiety({ recipeId: recipe.id, level });
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) {
+          await recordMealSatiety({ recipeId: recipe.id, level });
+          return;
+        }
+      } catch {
+        // Fall back to local storage on network/auth error
+      }
+      recordLocalMealSatiety(recipe.id, level);
     },
     onSuccess: finishCompletion,
   });
@@ -283,7 +291,13 @@ export default function CookModeScreen() {
             accessibilityHint={
               isFirstStep ? 'Returns to recipe view' : 'Moves to the previous cooking step'
             }
-            onPress={isFirstStep ? () => router.back() : handleBack}
+            onPress={
+              isFirstStep
+                ? () =>
+                    router.canGoBack() ? router.back() : router.replace(`/recipe/${recipe.id}`)
+                : handleBack
+            }
+
             style={({ pressed }) => [
               styles.cookNavButton,
               styles.cookNavBack,

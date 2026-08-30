@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { STAPLE_INGREDIENT_IDS, lookupIngredient } from '@/data/catalog';
+import type { BodyGoal, WeeklyMealPlan } from '@/contracts/meal-journeys';
 import type { DietaryTag, Equipment, IngredientId, UserPreferences } from '@/engine/types';
+import { clearLocalMealSatiety } from '@/lib/meal-satiety';
 import type { MealPrepReminderLeadMinutes } from '@/lib/meal-prep-reminder';
 import { getJSON, setJSON, storage } from '@/lib/storage';
 
@@ -27,24 +29,29 @@ export interface EquipmentTier {
   equipment: readonly Equipment[];
 }
 
+/** Shared language for appliance choices across onboarding and Settings. */
+export const APPLIANCE_SECTION_TITLE = 'Kitchen appliances';
+export const APPLIANCE_SECTION_DESCRIPTION =
+  'Add appliances you use to expand the meals HomeChef can recommend.';
+
 /** Spec §3: three tiers, single-select, subtitle does the explaining. */
 export const EQUIPMENT_TIERS: readonly EquipmentTier[] = [
   {
     id: 'microwave',
     label: 'Microwave only',
-    subtitle: 'Dorm room basics',
+    subtitle: 'Cook using only a microwave',
     equipment: ['microwave'],
   },
   {
     id: 'kettle',
     label: 'Microwave + kettle',
-    subtitle: 'A little more range',
+    subtitle: 'Microwave plus electric kettle or boiling water',
     equipment: ['microwave', 'kettle'],
   },
   {
     id: 'full',
     label: 'Full kitchen',
-    subtitle: 'Stove and oven',
+    subtitle: 'Stove, oven, and standard cookware',
     equipment: ['microwave', 'stove', 'oven', 'kettle'],
   },
 ];
@@ -123,6 +130,14 @@ export const DIETARY_PRESETS: readonly { id: DietaryTag; label: string }[] = [
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+export interface BodyMetrics {
+  heightCentimeters: number | null;
+  weightKilograms: number | null;
+}
+
+const DISLIKED_KEY = 'homechef-disliked';
+const SKIPPED_KEY = 'homechef-skipped';
+
 interface KitchenState {
   tierId: string;
   extras: Equipment[];
@@ -134,6 +149,14 @@ interface KitchenState {
   themeMode: ThemeMode;
   mealPrepRemindersEnabled: boolean;
   mealPrepReminderLeadMinutes: MealPrepReminderLeadMinutes;
+  mealPrepReminderOnboardingComplete: boolean;
+  dislikedRecipes: string[];
+  skippedRecipes: string[];
+  /** Optional local-only goal and metrics. Never sent to analytics. */
+  bodyGoal: BodyGoal | null;
+  bodyMetrics: BodyMetrics;
+  weeklyPlan: WeeklyMealPlan | null;
+  checkedPlanGroceryNeeds: string[];
 
   setTier: (tierId: string) => void;
   toggleExtra: (equipment: Equipment) => void;
@@ -147,6 +170,17 @@ interface KitchenState {
   setThemeMode: (mode: ThemeMode) => void;
   setMealPrepRemindersEnabled: (enabled: boolean) => void;
   setMealPrepReminderLeadMinutes: (minutes: MealPrepReminderLeadMinutes) => void;
+  setMealPrepReminderOnboardingComplete: (complete: boolean) => void;
+  recordDislike: (recipeId: string) => void;
+  removeDislike: (recipeId: string) => void;
+  resetDislikes: () => void;
+  recordSkip: (recipeId: string) => void;
+  setBodyGoal: (goal: BodyGoal | null) => void;
+  setBodyMetrics: (metrics: Partial<BodyMetrics>) => void;
+  clearBodyData: () => void;
+  setWeeklyPlan: (plan: WeeklyMealPlan | null) => void;
+  togglePlanGroceryNeed: (ingredientId: string) => void;
+  clearPlanGroceryChecks: () => void;
   reset: () => void;
 }
 
@@ -180,6 +214,13 @@ export const useKitchenStore = create<KitchenState>()(
       themeMode: 'system',
       mealPrepRemindersEnabled: false,
       mealPrepReminderLeadMinutes: 0,
+      mealPrepReminderOnboardingComplete: false,
+      dislikedRecipes: getJSON<string[]>(DISLIKED_KEY) ?? [],
+      skippedRecipes: getJSON<string[]>(SKIPPED_KEY) ?? [],
+      bodyGoal: null,
+      bodyMetrics: { heightCentimeters: null, weightKilograms: null },
+      weeklyPlan: null,
+      checkedPlanGroceryNeeds: [],
 
       setTier: (tierId) => set({ tierId }),
       toggleExtra: (equipment) => set((s) => ({ extras: toggle(s.extras, equipment) })),
@@ -196,7 +237,59 @@ export const useKitchenStore = create<KitchenState>()(
       setMealPrepRemindersEnabled: (mealPrepRemindersEnabled) => set({ mealPrepRemindersEnabled }),
       setMealPrepReminderLeadMinutes: (mealPrepReminderLeadMinutes) =>
         set({ mealPrepReminderLeadMinutes }),
-      reset: () =>
+      setMealPrepReminderOnboardingComplete: (mealPrepReminderOnboardingComplete) =>
+        set({ mealPrepReminderOnboardingComplete }),
+      recordDislike: (recipeId) =>
+        set((s) => {
+          const updated = [...new Set([...s.dislikedRecipes, recipeId])];
+          setJSON(DISLIKED_KEY, updated);
+          return { dislikedRecipes: updated };
+        }),
+      removeDislike: (recipeId) =>
+        set((s) => {
+          const updated = s.dislikedRecipes.filter((item) => item !== recipeId);
+          setJSON(DISLIKED_KEY, updated);
+          return { dislikedRecipes: updated };
+        }),
+      resetDislikes: () =>
+        set(() => {
+          setJSON(DISLIKED_KEY, []);
+          return { dislikedRecipes: [] };
+        }),
+      recordSkip: (recipeId) =>
+        set((s) => {
+          const updated = [...new Set([...s.skippedRecipes, recipeId])];
+          setJSON(SKIPPED_KEY, updated);
+          return { skippedRecipes: updated };
+        }),
+      setBodyGoal: (bodyGoal) => set({ bodyGoal }),
+      setBodyMetrics: (metrics) =>
+        set((state) => ({
+          bodyMetrics: {
+            heightCentimeters:
+              metrics.heightCentimeters === undefined
+                ? state.bodyMetrics.heightCentimeters
+                : metrics.heightCentimeters,
+            weightKilograms:
+              metrics.weightKilograms === undefined
+                ? state.bodyMetrics.weightKilograms
+                : metrics.weightKilograms,
+          },
+        })),
+      clearBodyData: () =>
+        set({ bodyGoal: null, bodyMetrics: { heightCentimeters: null, weightKilograms: null } }),
+      setWeeklyPlan: (weeklyPlan) => set({ weeklyPlan, checkedPlanGroceryNeeds: [] }),
+      togglePlanGroceryNeed: (ingredientId) =>
+        set((state) => ({
+          checkedPlanGroceryNeeds: state.checkedPlanGroceryNeeds.includes(ingredientId)
+            ? state.checkedPlanGroceryNeeds.filter((id) => id !== ingredientId)
+            : [...state.checkedPlanGroceryNeeds, ingredientId],
+        })),
+      clearPlanGroceryChecks: () => set({ checkedPlanGroceryNeeds: [] }),
+      reset: () => {
+        setJSON(DISLIKED_KEY, []);
+        setJSON(SKIPPED_KEY, []);
+        clearLocalMealSatiety();
         set({
           tierId: DEFAULT_TIER_ID,
           extras: [],
@@ -207,7 +300,15 @@ export const useKitchenStore = create<KitchenState>()(
           themeMode: 'system',
           mealPrepRemindersEnabled: false,
           mealPrepReminderLeadMinutes: 0,
-        }),
+          mealPrepReminderOnboardingComplete: false,
+          dislikedRecipes: [],
+          skippedRecipes: [],
+          bodyGoal: null,
+          bodyMetrics: { heightCentimeters: null, weightKilograms: null },
+          weeklyPlan: null,
+          checkedPlanGroceryNeeds: [],
+        });
+      },
     }),
     { name: 'homechef-kitchen', storage: zustandStorage }
   )
@@ -221,7 +322,11 @@ export const useKitchenStore = create<KitchenState>()(
  * mirroring what `src/lib/adapters/from-database.ts` does for Postgres rows.
  */
 export function toEnginePreferences(
-  state: Pick<KitchenState, 'tierId' | 'extras' | 'allergens' | 'dietary'>,
+  state: Pick<KitchenState, 'tierId' | 'extras' | 'allergens' | 'dietary'> & {
+    dislikedRecipes?: readonly string[];
+    skippedRecipes?: readonly string[];
+    bodyGoal?: BodyGoal | null;
+  },
   preferredCuisine: string | null = null
 ): UserPreferences {
   const tier = EQUIPMENT_TIERS.find((candidate) => candidate.id === state.tierId);
@@ -234,18 +339,23 @@ export function toEnginePreferences(
     (id) => COMMON_ALLERGENS.find((allergen) => allergen.id === id)?.groups ?? []
   );
 
+  const disliked = state.dislikedRecipes
+    ? new Set(state.dislikedRecipes)
+    : new Set(getJSON<string[]>(DISLIKED_KEY) ?? []);
+  const skipped = state.skippedRecipes
+    ? new Set(state.skippedRecipes)
+    : new Set(getJSON<string[]>(SKIPPED_KEY) ?? []);
+
   return {
     equipment: [...new Set([...base, ...state.extras])],
     allergens: [...new Set(allergenGroups)],
     dietary: state.dietary,
-    dislikedRecipeIds: new Set(getJSON<string[]>(DISLIKED_KEY) ?? []),
-    skippedRecipeIds: new Set(getJSON<string[]>(SKIPPED_KEY) ?? []),
+    dislikedRecipeIds: disliked,
+    skippedRecipeIds: skipped,
     preferredCuisine,
+    bodyGoal: state.bodyGoal,
   };
 }
-
-const DISLIKED_KEY = 'homechef-disliked';
-const SKIPPED_KEY = 'homechef-skipped';
 
 /**
  * `skipped` is a weak negative signal and `disliked` a strong one; the engine
@@ -253,13 +363,17 @@ const SKIPPED_KEY = 'homechef-skipped';
  * though the UI records them from adjacent gestures.
  */
 export function recordSkip(recipeId: string): void {
-  const current = new Set(getJSON<string[]>(SKIPPED_KEY) ?? []);
-  current.add(recipeId);
-  setJSON(SKIPPED_KEY, [...current]);
+  useKitchenStore.getState().recordSkip(recipeId);
 }
 
 export function recordDislike(recipeId: string): void {
-  const current = new Set(getJSON<string[]>(DISLIKED_KEY) ?? []);
-  current.add(recipeId);
-  setJSON(DISLIKED_KEY, [...current]);
+  useKitchenStore.getState().recordDislike(recipeId);
+}
+
+export function removeDislike(recipeId: string): void {
+  useKitchenStore.getState().removeDislike(recipeId);
+}
+
+export function resetDislikes(): void {
+  useKitchenStore.getState().resetDislikes();
 }

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * The engine is pure: no React, no imports from src/lib/, no I/O
- * (Technical Spec §4.1; AGENTS.md architecture rules).
+ * (Technical Spec §4.1 architecture rules).
  *
  * Code review is a human process that gets skipped at 2am on August 23, so the
  * rule is also asserted here and enforced by ESLint in CI.

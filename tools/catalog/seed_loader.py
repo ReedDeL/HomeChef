@@ -1,8 +1,8 @@
-"""Hand-curated seed recipes merged into the generated catalog.
+"""HomeChef-authored recipes and pantry vocabulary merged into the catalog.
 
-TheMealDB has two confirmed microwave-only recipes, which is not a catalog --
-it is a rounding error. The microwave-only user is the wedge the product pitch
-leans on, so that gap is filled by hand rather than waited out.
+The authored recipe seed covers the microwave-only wedge and household staples.
+The vocabulary seed preserves the broader pantry and scan language even when a
+smaller attributable recipe release does not happen to use every ingredient.
 
 These live here and not in ``src/data/`` because ``python -m tools.catalog``
 overwrites ``recipes.json`` wholesale on every run. Anything hand-written in the
@@ -19,19 +19,21 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from tools.catalog.models import CatalogIngredient, CatalogRecipe, Equipment, Provenance
+from tools.catalog.models import (
+    CatalogIngredient,
+    CatalogRecipe,
+    Equipment,
+    Provenance,
+    VocabularyEntry,
+)
 from tools.catalog.normalize import allergen_groups_for
 from tools.catalog.rights import ReleaseSource
 
 SEED_DIR = Path(__file__).resolve().parent / "seed"
 
-# Every recipe in microwave.json is written for a microwave and nothing else.
-# That is the point of the file, so it is asserted here rather than repeated
-# twenty times in the JSON where one copy could drift from the rest.
-SEED_EQUIPMENT: tuple[Equipment, ...] = ("microwave",)
 AUTHORED_SOURCE_ID = "homechef-authored"
-AUTHORED_SOURCE_VERSION = "microwave-seed-1"
-AUTHORED_ARCHIVE_SHA256 = "0762d5b70ec21d043a357cc6abafd1e0f44b669bd9aeec8dbda4a91a40bf7fcc"
+AUTHORED_SOURCE_VERSION = "authored-seed-1"
+AUTHORED_ARCHIVE_SHA256 = "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be"
 
 
 def authored_release_source() -> ReleaseSource:
@@ -39,12 +41,12 @@ def authored_release_source() -> ReleaseSource:
     return ReleaseSource(
         id=AUTHORED_SOURCE_ID,
         version=AUTHORED_SOURCE_VERSION,
-        title="HomeChef-authored microwave seed catalog",
-        archiveUrl="https://homechef.app/catalog/authored/microwave-seed-1",
+        title="HomeChef-authored recipe seed catalog",
+        archiveUrl="https://raw.githubusercontent.com/ReedDeL/HomeChef/master/tools/catalog/seed/recipes.json",
         sha256=AUTHORED_ARCHIVE_SHA256,
         licenseName="HomeChef-authored original content",
-        licenseUrl="https://homechef.app/catalog/rights",
-        attribution="HomeChef-authored microwave seed catalog.",
+        licenseUrl="https://github.com/ReedDeL/HomeChef/blob/master/docs/specs/2026-08-22-owned-recipe-catalog-design.md",
+        attribution="HomeChef-authored recipe seed catalog.",
         status="approved",
     )
 
@@ -78,6 +80,7 @@ class SeedRecipe(BaseModel):
     title: str
     total_time_minutes: int = Field(gt=0, alias="totalTimeMinutes")
     cuisine: str | None = None
+    equipment_required: list[Equipment] = Field(min_length=1, alias="equipmentRequired")
     ingredients: list[SeedIngredient] = Field(min_length=1)
     instructions: str
 
@@ -90,7 +93,7 @@ class SeedRecipe(BaseModel):
             image_url=None,
             cuisine=self.cuisine,
             total_time_minutes=self.total_time_minutes,
-            equipment_required=list(SEED_EQUIPMENT),
+            equipment_required=self.equipment_required,
             # Left empty for the same reason the TheMealDB path leaves it empty:
             # dietary is a hard constraint, so a false "vegan" ships a violation.
             dietary_tags=[],
@@ -128,12 +131,21 @@ def load_seed_recipes(seed_dir: Path | None = None) -> list[CatalogRecipe]:
     if not directory.is_dir():
         return []
 
-    recipes: list[CatalogRecipe] = []
-    for path in sorted(directory.glob("*.json")):
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        recipes.extend(SeedRecipe.model_validate(entry).to_catalog_recipe() for entry in payload)
+    path = directory / "recipes.json"
+    if not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return [SeedRecipe.model_validate(entry).to_catalog_recipe() for entry in payload]
 
-    return recipes
+
+def load_seed_vocabulary(seed_dir: Path | None = None) -> list[VocabularyEntry]:
+    """Load the deterministic pantry and scan vocabulary seed."""
+    directory = seed_dir if seed_dir is not None else SEED_DIR
+    path = directory / "vocabulary.json"
+    if not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return [VocabularyEntry.model_validate(entry) for entry in payload]
 
 
 def merge_seed(generated: list[CatalogRecipe], seed: list[CatalogRecipe]) -> list[CatalogRecipe]:

@@ -5,7 +5,7 @@
  * The data layer converts into these types (src/lib/adapters/) and the engine
  * never learns where a recipe came from — the bundled catalog or a live catalog result.
  */
-import type { NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
+import type { BodyGoal, NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
 
 /**
  * Canonical ingredient identifier from src/data/ingredients.json.
@@ -118,6 +118,8 @@ export interface UserPreferences {
   skippedRecipeIds: Set<string>;
   /** Soft preference; the first thing dropped during relaxation after time. */
   preferredCuisine: string | null;
+  /** Optional goal used only as a soft ranking signal. */
+  bodyGoal?: BodyGoal | null;
 }
 
 export interface DailyPlanPreference {

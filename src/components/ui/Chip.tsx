@@ -11,6 +11,8 @@ interface ChipProps {
   onLongPress?: () => void;
   accessibilityLabel: string;
   accessibilityHint?: string;
+  /** Use checkbox semantics for chips that can be selected independently. */
+  accessibilityRole?: 'button' | 'checkbox';
   /** Non-interactive metadata, e.g. the missing-ingredient list on a card. */
   readOnly?: boolean;
 }
@@ -30,6 +32,7 @@ export function Chip({
   onLongPress,
   accessibilityLabel,
   accessibilityHint,
+  accessibilityRole = 'button',
   readOnly = false,
 }: ChipProps) {
   const { color } = useTheme();
@@ -52,8 +55,8 @@ export function Chip({
   return (
     <Pressable
       accessible
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={accessibilityRole === 'checkbox' ? { checked: selected } : { selected }}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       onPress={onPress}

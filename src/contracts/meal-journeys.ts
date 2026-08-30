@@ -183,7 +183,7 @@ export const recipeWeeklyEntrySchema: z.ZodType<RecipeWeeklyEntry> = z
 export const dayOfDecisionWeeklyEntrySchema = z.strictObject({
   kind: z.literal('day_of_decision'),
   date: localDateSchema,
-  reason: z.enum(['no_safe_recipe', 'grocery_need_cap']),
+  reason: z.enum(['no_safe_recipe', 'grocery_need_cap', 'not_planned']),
 });
 export type DayOfDecisionWeeklyEntry = z.infer<typeof dayOfDecisionWeeklyEntrySchema>;
 

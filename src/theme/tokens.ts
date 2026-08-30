@@ -13,32 +13,32 @@ export type ColorScheme = 'light' | 'dark';
  */
 export const palette = {
   light: {
-    bg: '#FFFCF8',
+    bg: '#FFF8EF',
     surface: '#FFFFFF',
-    surfaceAlt: '#F5F0E8',
-    text: '#1A1613',
-    textMuted: '#6B6259',
-    accent: '#D94F14',
+    surfaceAlt: '#F6EBDD',
+    text: '#251B16',
+    textMuted: '#706158',
+    accent: '#C04E31',
     accentText: '#FFFFFF',
-    ready: '#2E7D4F',
-    near: '#C77D12',
-    far: '#8A8079',
-    danger: '#C62828',
-    border: '#E5DDD2',
+    ready: '#34745A',
+    near: '#A45F0A',
+    far: '#81736A',
+    danger: '#B93832',
+    border: '#E8D6C5',
   },
   dark: {
-    bg: '#151312',
-    surface: '#221F1D',
-    surfaceAlt: '#2C2825',
-    text: '#F5F0E8',
-    textMuted: '#A69C91',
-    accent: '#FF7A3D',
-    accentText: '#151312',
-    ready: '#4CAF7D',
-    near: '#E8A33D',
-    far: '#9C938B',
-    danger: '#FF6B6B',
-    border: '#38332F',
+    bg: '#17110E',
+    surface: '#241B17',
+    surfaceAlt: '#30231D',
+    text: '#FFF7EE',
+    textMuted: '#B9A89C',
+    accent: '#F17B5A',
+    accentText: '#2A120B',
+    ready: '#69BD91',
+    near: '#E7A44B',
+    far: '#B1A096',
+    danger: '#FF7A73',
+    border: '#49362C',
   },
 } as const;
 
@@ -94,14 +94,14 @@ export interface ElevationSet {
 export const shadow: Record<ColorScheme, ElevationSet> = {
   light: {
     sm: {
-      shadowColor: '#1A1613',
+      shadowColor: '#251B16',
       shadowOpacity: 0.06,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 2 },
       elevation: 2,
     },
     lg: {
-      shadowColor: '#1A1613',
+      shadowColor: '#251B16',
       shadowOpacity: 0.12,
       shadowRadius: 20,
       shadowOffset: { width: 0, height: 8 },
@@ -127,16 +127,15 @@ export const shadow: Record<ColorScheme, ElevationSet> = {
 };
 
 /**
- * The web build letterboxes the phone layout into a column of this width
- * rather than stretching it across a monitor. 430pt is the iPhone Pro Max
- * logical width — the largest phone the layout is designed for, so nothing
- * reflows differently in the browser than it does on device.
+ * Native and phone-sized web viewports use the compact phone composition.
+ * Wide web viewports use a centered workspace capped at this width so content
+ * can breathe without becoming difficult to scan.
  */
 export const layout = {
   mobileViewportMaxWidth: 430,
   tabletBreakpoint: 640,
   desktopBreakpoint: 960,
-  desktopMaxWidth: 1180,
+  desktopMaxWidth: 1600,
   desktopGutter: 32,
   desktopColumnGap: 24,
 } as const;

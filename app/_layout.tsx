@@ -14,7 +14,6 @@ import {
   ROOT_ROUTE_NAMES,
   rootRouteIsAvailable,
 } from '@/lib/auth/app-gate';
-import { useAuthSession } from '@/lib/auth/useAuthSession';
 import { configureMealPrepNotifications } from '@/lib/meal-prep-notifications';
 import { useKitchenStore } from '@/store/kitchen';
 import { useTheme } from '@/theme/useTheme';
@@ -89,10 +88,10 @@ function AnalyticsProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Keeps signed-out users outside the app, sends a first-run signed-in user
- * through onboarding, and keeps a returning one out of it. Until both stores
- * hydrate, its navigator exposes only a blank route; after that, only the
- * destination group can mount while an explicit replacement finishes.
+ * Sends a first-run local user through onboarding and keeps a returning one
+ * out of it. Until the local store hydrates, its navigator exposes only a
+ * blank route; after that, only the destination group can mount while an
+ * explicit replacement finishes. Account and sync controls live in Settings.
  *
  * The equipment tier and allergen list are hard constraints the engine cannot
  * do without, so this is a gate rather than a prompt: there is no "skip"
@@ -103,11 +102,9 @@ function AppGate() {
   const segments = useSegments();
   const onboardingDone = useKitchenStore((state) => state.onboardingDone);
   const hydrated = useStoreHydrated();
-  const { isAuthenticated, isLoading } = useAuthSession();
-  const target = authRoute({ isAuthenticated, onboardingDone });
-  const currentGroup =
-    segments[0] === '(auth)' || segments[0] === '(onboarding)' ? segments[0] : undefined;
-  const phase = appGatePhase(hydrated, isLoading, currentGroup, target);
+  const target = authRoute({ onboardingDone });
+  const currentSegment = segments[0];
+  const phase = appGatePhase(hydrated, currentSegment, target);
 
   useEffect(() => {
     if (phase === 'redirecting') router.replace(target);

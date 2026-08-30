@@ -116,7 +116,7 @@ export default tseslint.config(
                 'zustand',
               ],
               message:
-                'src/engine/ must stay pure — no React, no I/O, no imports from src/lib/. See Technical Spec §4.1 and AGENTS.md.',
+                'src/engine/ must stay pure — no React, no I/O, no imports from src/lib/. See docs/01_TECHNICAL_SPEC.md §4.1.',
             },
           ],
         },

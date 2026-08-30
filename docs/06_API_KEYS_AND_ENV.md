@@ -220,7 +220,7 @@ Assume compromise the moment a key touches a public repo, a screenshot, a Slack 
 2. **Generate a replacement.**
 3. `supabase secrets set KEY=new_value`
 4. **Purge from git history** if it was ever committed — `git rm --cached` is not enough, the value stays in history. Use `git filter-repo` or BFG.
-5. **Post it in the Notion status report.** No blame; the point is that the other founders know the key changed and why a build might break.
+5. **Record it in the project change log.** No blame; the point is that the other founders know the key changed and why a build might break.
 
 GitHub push protection is enabled on the repo and will block most accidental commits — but it is a backstop, not the plan.
 

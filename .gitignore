@@ -78,16 +78,14 @@ docs/local/
 # Local Python dependency target (python3-venv unavailable on this machine)
 .pydeps/
 
-# Personal Claude Code config and hook state (bills the individual's account,
-# writes to their own Notion connector — not shared team config)
+# Personal local configuration (not shared team configuration)
+.agents/
+# Personal coding-agent instructions are local-only. Shared engineering
+# guidance belongs in CONTRIBUTING.md and docs/.
+AGENTS.md
 CLAUDE.md
 .claude.md
 .claude.local.md
 .claude/
 .claude/settings.local.json
-.claude/.notion-sync-state
-.claude/.notion-sync.log
-
-# Discord status updater state
-.discord-sync-state
-.agents/.discord-sync-state
+docs/agentic/

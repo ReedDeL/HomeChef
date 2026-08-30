@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HomeChef",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "slug": "homechef",
     "scheme": "homechef",
     "plugins": [
@@ -21,7 +21,8 @@
     ],
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./public/favicon.png"
     },
     "extra": {
       "router": {},

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   SATIETY_LEVELS,
+  clearLocalMealSatiety,
+  getLocalMealSatiety,
   isMealSatietyLevel,
+  recordLocalMealSatiety,
   satietyLabel,
   toMealSatietyInsert,
 } from '@/lib/meal-satiety';
@@ -30,5 +33,19 @@ describe('meal satiety domain', () => {
     expect(satietyLabel('still_hungry')).toBe('Still hungry');
     expect(satietyLabel('satisfied')).toBe('Satisfied');
     expect(satietyLabel('too_full')).toBe('Too full');
+  });
+
+  it('persists and clears local meal satiety records for unauthenticated sessions', () => {
+    clearLocalMealSatiety();
+    expect(getLocalMealSatiety()).toEqual([]);
+
+    recordLocalMealSatiety('recipe-123', 'satisfied');
+    const records = getLocalMealSatiety();
+    expect(records).toHaveLength(1);
+    expect(records[0]?.recipeId).toBe('recipe-123');
+    expect(records[0]?.level).toBe('satisfied');
+
+    clearLocalMealSatiety();
+    expect(getLocalMealSatiety()).toEqual([]);
   });
 });

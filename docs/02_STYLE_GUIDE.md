@@ -89,7 +89,7 @@ Both of these encode knowledge that is genuinely unavailable from reading the co
 - Names state intent, not type. `recipes`, not `recipeArray`.
 - Booleans read as assertions: `isReady`, `hasAllergen`, `canMakeNow`.
 - No abbreviations except universally understood ones (`id`, `url`, `api`, `db`).
-- Domain vocabulary is fixed and shared across TypeScript, Python, SQL, and the Notion board:
+- Domain vocabulary is fixed and shared across TypeScript, Python, SQL, and the shared product vocabulary:
 
 | Term | Means | Never call it |
 |---|---|---|
@@ -375,7 +375,7 @@ is outside the current product direction; revisit only with user evidence.
 Refs: Technical Spec 2.5
 ```
 
-Reference the Notion ticket where one exists.
+Reference the repository issue or decision record where one exists.
 
 ### 5.2 Branch names
 

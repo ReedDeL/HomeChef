@@ -92,7 +92,8 @@ The primary destinations are:
 - **Plan** — build one practical weekly meal plan.
 - **Pantry** — scan, review, add, and correct ingredients.
 
-Settings remain secondary.
+Settings remains secondary. Reminders is also a secondary destination, reachable from
+Settings and a confirmed weekly plan; it never becomes a primary tab.
 
 ## Visual direction
 

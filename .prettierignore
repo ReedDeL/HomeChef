@@ -1,4 +1,7 @@
 # Dependencies and build output
+.agents/
+.playwright-cli/
+output/
 node_modules/
 .pydeps/
 .venv/

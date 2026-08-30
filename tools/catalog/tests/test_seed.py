@@ -20,7 +20,8 @@ from tools.catalog.seed_loader import SEED_DIR, load_seed_recipes, merge_seed
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VOCABULARY_PATH = REPO_ROOT / "src" / "data" / "ingredients.json"
 
-EXPECTED_SEED_COUNT = 20
+EXPECTED_SEED_COUNT = 33
+EXPECTED_MICROWAVE_COUNT = 27
 
 
 @pytest.fixture(scope="module")
@@ -51,9 +52,9 @@ class TestSeedLoads:
         assert len(set(ids)) == len(ids)
 
     def test_ids_cannot_collide_with_themealdb(self, seed: list[CatalogRecipe]) -> None:
-        # TheMealDB ids are bare digits. The hc-mw- prefix makes a collision
-        # impossible by construction and the provenance greppable.
-        assert all(recipe.id.startswith("hc-mw-") for recipe in seed)
+        # External ids are bare digits. Authored prefixes make collisions
+        # impossible by construction and keep provenance greppable.
+        assert all(recipe.id.startswith(("hc-mw-", "hc-staple-")) for recipe in seed)
         assert not any(recipe.id.isdigit() for recipe in seed)
 
     def test_merge_rejects_an_id_collision(self, seed: list[CatalogRecipe]) -> None:
@@ -66,17 +67,17 @@ class TestSeedLoads:
 
 
 class TestSeedContent:
-    def test_every_recipe_requires_microwave(self, seed: list[CatalogRecipe]) -> None:
-        # The entire reason the file exists. A seed recipe needing a stove would
-        # be indistinguishable from the problem this set was written to fix.
-        assert all(recipe.equipment_required == ["microwave"] for recipe in seed)
+    def test_microwave_wedge_remains_microwave_only(self, seed: list[CatalogRecipe]) -> None:
+        microwave = [recipe for recipe in seed if recipe.id.startswith("hc-mw-")]
+        assert len(microwave) == EXPECTED_MICROWAVE_COUNT
+        assert all(recipe.equipment_required == ["microwave"] for recipe in microwave)
 
     def test_every_recipe_has_a_positive_cook_time(self, seed: list[CatalogRecipe]) -> None:
         assert all(recipe.total_time_minutes > 0 for recipe in seed)
 
     def test_cook_times_are_plausible_for_a_microwave(self, seed: list[CatalogRecipe]) -> None:
-        # A 40-minute microwave recipe is a tagging mistake, not a slow recipe.
-        assert all(recipe.total_time_minutes <= 20 for recipe in seed)
+        microwave = [recipe for recipe in seed if recipe.id.startswith("hc-mw-")]
+        assert all(recipe.total_time_minutes <= 20 for recipe in microwave)
 
     def test_ingredient_counts_stay_small(self, seed: list[CatalogRecipe]) -> None:
         for recipe in seed:
@@ -91,7 +92,10 @@ class TestSeedContent:
         assert all(recipe.image_url is None for recipe in seed)
 
     def test_instructions_are_substantial(self, seed: list[CatalogRecipe]) -> None:
-        assert all(len(recipe.instructions) > 200 for recipe in seed)
+        microwave = [recipe for recipe in seed if recipe.id.startswith("hc-mw-")]
+        staples = [recipe for recipe in seed if recipe.id.startswith("hc-staple-")]
+        assert all(len(recipe.instructions) > 200 for recipe in microwave)
+        assert all(len(recipe.instructions) > 80 for recipe in staples)
 
 
 class TestSeedVocabulary:
@@ -208,7 +212,9 @@ class TestSeedSafety:
     def test_egg_recipes_tell_the_user_to_beat_or_prick(self, seed: list[CatalogRecipe]) -> None:
         # An intact yolk can burst after heating, in the user's hand or mouth.
         for recipe in seed:
-            if not any(item.id == "egg" for item in recipe.ingredients):
+            if recipe.equipment_required != ["microwave"] or not any(
+                item.id == "egg" for item in recipe.ingredients
+            ):
                 continue
             text = recipe.instructions.lower()
             assert "beat" in text or "prick" in text, recipe.id

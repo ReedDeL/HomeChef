@@ -181,6 +181,11 @@ describe('searchVocabulary', () => {
     expect(searchVocabulary('  ')).toEqual([]);
   });
 
+  it('finds synonym targets such as jelly resolving to jam', () => {
+    const results = searchVocabulary('jelly');
+    expect(results.map((e) => e.id)).toContain('jam');
+  });
+
   it('respects the limit', () => {
     expect(searchVocabulary('a', 5).length).toBeLessThanOrEqual(5);
   });

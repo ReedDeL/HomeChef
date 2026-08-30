@@ -80,10 +80,7 @@ export function CandidateRow({ candidate, onToggle, onCorrect, onDismiss }: Cand
           ) : null}
 
           {flag ? (
-            <Text
-              variant="caption"
-              tone={candidate.unmatchedReason === 'misread' ? 'danger' : 'near'}
-            >
+            <Text variant="caption" tone="near">
               {flag}
             </Text>
           ) : null}

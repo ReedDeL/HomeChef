@@ -1,87 +1,116 @@
-## Design decisions
+# Wikibooks Cookbook source design
 
-### Why Wikibooks, and what we verified
+**Date:** 2026-08-13
+**Status:** Candidate — feasible source, not approved release input
 
-Queried live against the Wikibooks API on 2026-08-13:
+## Decision summary
 
-| Metric | Count |
-|---|---|
-| `Category:Recipes` (pages) | **3,824** |
-| `Category:Recipes with images` | **832** |
-| `Category:Featured recipes` | **40** |
-| `Category:Recipes with metric units` | **895** |
+Use English Wikibooks Cookbook as the first researched open-content source for
+the owned recipe catalog. Acquire it from an official Wikimedia dump at build
+time, extract it into HomeChef's neutral JSONL contract, and keep it
+release-ineligible until checksum, attribution, parser-quality, hard-constraint,
+and parity gates pass.
 
-Parse yield, measured on a random sample of 120 pages (seed 7):
+Do not add a live MediaWiki dependency to the app or to normal catalog builds.
 
-| Property | Share | Projected over 3,824 |
-|---|---|---|
-| Has an `==Ingredients==` section | **100%** | 3,824 |
-| Has a `==Procedure==` section | **96%** | 3,665 |
-| Declares a parseable `time=` | **35%** | 1,338 |
-| **Expected usable recipes** | **~96%** | **~3,650** |
+## Source acquisition boundary
 
-The time figure drove a design decision. Requiring a declared time would have
-cut the corpus to ~1,338 *and* held Wikibooks to a stricter standard than
-TheMealDB, whose 792 recipes have their time estimated by
-`build.estimate_total_minutes` without exception. So: declared time when
-present, estimated otherwise. Net effect is a catalog where 35% of Wikibooks
-rows carry a *better* time than anything shipping today.
+The official `enwikibooks` pages-and-articles XML/BZ2 dump is the discovery
+source. Wikimedia's `latest` path is mutable, so it is acceptable only while
+the manifest entry has `candidate` status. A release must instead identify an
+immutable dated dump, verify it independently, preserve its provenance, and
+produce a checksum-pinned neutral JSONL archive.
 
-The wikitext is far more structured than raw scraping would suggest. A representative page (`Cookbook:20-Minute Beef Stroganoff`) carries:
+The extractor must stream the archive, select `Cookbook:` content pages, and
+retain enough page/revision metadata to reproduce attribution. The existing
+catalog pipeline begins at neutral JSONL; raw MediaWiki XML is not an approved
+`RightsSource`.
 
-```wikitext
-{{recipesummary|category=Beef recipes|servings=4|time=20 minutes|difficulty=2}}
-{{Nutrition Summary|ServingSize=1 serving (440 g)|Cals=487|...}}
+## Why Wikibooks
 
-==Ingredients==
-* {{convert|8|oz|g|abbr=on}} wide [[Cookbook:Pasta|egg noodles]]
-* 1 large (1 [[Cookbook:Cup|cup]]) coarsely-[[Cookbook:Chopping|chopped]] [[Cookbook:Onion|onion]]
+A live API feasibility sample on 2026-08-13 found structured recipe pages with
+ingredient and procedure sections, recipe-summary templates, linked ingredient
+concepts, measurement templates, and linked equipment. Those observations
+justify building an extractor; they are not release counts or a promise of
+usable yield.
 
-==Procedure==
-# Prepare noodles according to package directions and drain.
-# As the noodles are boiling, warm oil in very deep [[Cookbook:Skillet|skillet]] or [[Cookbook:Dutch Oven|Dutch oven]].
-```
+Declared preparation time may be used when trustworthy. Otherwise the existing
+deterministic estimator may supply a clearly derived value. Missing or
+ambiguous data must quarantine the record when it affects a hard constraint.
 
-Four properties matter, and each is better than what TheMealDB gives us:
+Useful structured signals include:
 
-1. **`time=` is declared**, not estimated. TheMealDB has no time field at all — `build.estimate_total_minutes` guesses from prose. Wikibooks states it.
-2. **Ingredients are wikilinked to canonical pages.** `[[Cookbook:Onion|onion]]` is a stable identifier, not a free-text string. This attacks the exact step the Technical Spec §5.2 calls the one where "an error here propagates everywhere."
-3. **`{{convert|8|oz|g}}` is a parsed measurement already** — quantity and unit as separate template arguments.
-4. **Equipment appears as wikilinks** (`[[Cookbook:Skillet|skillet]]`, `[[Cookbook:Dutch Oven|Dutch Oven]]`), giving the equipment pass a structured signal instead of only prose keywords.
+1. `recipesummary` fields such as servings, time, and difficulty;
+2. `Cookbook:` ingredient links as normalization evidence;
+3. `convert` templates with separate quantity and unit arguments;
+4. linked equipment as an additional classification signal.
 
-### The licensing question, answered
+All signals are hints. The normalized output still has to satisfy the same
+source-neutral contract and safety gates as any other source.
 
-**CC BY-SA does not force HomeChef open source.** It is a content license, not a software copyleft like the GPL. Share-alike attaches to the licensed work and its adaptations — the recipe *prose*. It does not reach:
+## Content and provenance contract
 
-- the app source code, the decision engine, or the UI;
-- our derived metadata (equipment tags, time estimates, normalized ingredient IDs) — these are extracted facts, and facts are not copyrightable;
-- ingredient lists, which in the US are generally uncopyrightable as mere listings (*Publications Int'l v. Meredith*).
+Every emitted source record must include:
 
-What it does require, and what this plan implements:
+- stable source and recipe IDs;
+- canonical page URL and revision identity;
+- recipe title, ingredients, and instructions;
+- source license and attribution text;
+- whether HomeChef modified or derived displayed text;
+- deterministic parser version and rejection reason when quarantined.
 
-1. **Attribution** — recipe title, a link back to the source page, the license name and a link to it.
-2. **Indicate modification** — if we rewrite instruction prose, say so.
-3. **Share-alike on the prose** — our adapted recipe text is CC BY-SA 4.0. Someone may copy our recipe text. They may not copy our app.
-4. **No DRM** — no technical restrictions on the licensed text.
+Attribution must survive normalization, hosted loading, offline subset
+generation, and recipe-detail rendering. A record without recoverable
+page-level provenance is not releasable.
 
-> Not legal advice. The share-alike-on-displayed-text obligation is real and worth ten minutes of a lawyer's time before public release, but nothing here threatens the codebase.
+## License obligations
 
-### The image strategy — and why not to scrape
+Wikibooks states that most text is available under CC BY-SA 4.0 and the GFDL,
+while individual media can have different terms. HomeChef must preserve
+page-level evidence rather than assuming every asset shares one license.
 
-Scraping food photography off the open web is the one option to reject outright. Recipe *text* sits in a genuinely permissive legal zone; **photographs do not.** A photo is the most unambiguously copyrightable asset involved, commercial use has no fair-use shelter, and image hosts are exactly where DMCA notices originate. It would trade a solved problem for an unbounded liability.
+For reused or adapted recipe text, the release design must support:
 
-Three clean sources instead, in priority order:
+1. contributor/source attribution and a link to the source page;
+2. a link to the applicable license;
+3. an indication when content was modified;
+4. share-alike handling for adapted licensed text;
+5. no additional technical restrictions on the licensed content.
 
-1. **Wikimedia Commons** (this plan, Task 8). 832 recipes already have images. Verified live: license metadata is machine-readable per file via `extmetadata` → `LicenseShortName`, `Artist`, `NonFree`. Sampled files returned `CC BY-SA 2.5`, `CC BY-SA 4.0`, and `Public domain`, all with no `NonFree` flag. Attribution can be generated automatically, which is the only reason this is tractable at 800+ files.
-2. **Unsplash / Pexels** (not in this plan). Free for commercial use, no attribution required, high quality — but generic. A stock photo of "pasta" is not a photo of *this* recipe, which is a small honesty cost.
-3. **Generated imagery** (not in this plan). Owned outright and stylistically consistent, but synthetic food photography misrepresents the dish.
+Source registration is not legal approval. Attribution and share-alike behavior
+require review before public activation.
 
-For the ~3,000 recipes with no Commons image, the answer is **no image**, matching the existing seed-recipe precedent in `seed_loader.py:69` — *"A wrong or placeholder photo is worse than none."*
+## Image policy
 
-### The risk that decides whether this is worth doing
+Recipe text and imagery are separate rights decisions. The initial source can
+ship with no images. If Commons images are added later, each file must have
+machine-readable authorship, source, and a positively allowed commercial
+license. Unknown, non-commercial, ambiguous, and fair-use media are rejected.
+A missing image is better than an unsafe or misleading one.
 
-`equipment.py:53` is unambiguous: an unclassified recipe is **excluded from every user's result set** until enrichment classifies it. Unknown excludes; it does not admit.
+## Hard-constraint gate
 
-So importing 3,824 recipes that the keyword pass cannot classify adds **catalog weight, not usable answers.** Task 9 measures this before Task 10 decides whether to ship. If the unclassified rate on Wikibooks exceeds ~35%, the import is inert until LLM enrichment runs, and this plan has not yet delivered value. Treat Task 9's number as the go/no-go.
+A larger archive is useful only if recipes can safely enter the decision set.
+Unknown equipment, allergen, or dietary status excludes rather than admits. The
+source report must therefore show:
 
----
+- extracted, parsed, normalized, quarantined, and accepted counts;
+- rejection reasons and parser coverage;
+- equipment classification coverage;
+- allergen and dietary evidence coverage;
+- useful-answer parity against the transitional offline bundle.
+
+The review must set a go/no-go threshold from measured data before approval; a
+projected API sample is not a release gate.
+
+## Approval criteria
+
+Wikibooks can become an approved catalog source only when:
+
+- the dated upstream dump and neutral JSONL output are checksum-pinned;
+- extraction and normalization are deterministic and fixture-tested;
+- every accepted recipe has recoverable page-level provenance;
+- attribution and share-alike behavior pass review;
+- hard constraints continue to exclude unknowns;
+- the curated offline subset remains useful without hosted access;
+- activation is auditable and separate from build generation.

@@ -52,6 +52,43 @@ describe('decide — hard constraints eliminate', () => {
     );
     expect(flatIds(result)).toEqual(['yes']);
   });
+
+  it('reveals the next eligible ranked recipe when a top recipe is disliked', () => {
+    // 5 recipes, top 4 are selected initially
+    const catalog = Array.from({ length: 5 }, (_, i) =>
+      makeRecipe({ id: `r${i}`, totalTimeMinutes: 10 + i, ingredients: [ingredient('egg')] })
+    );
+    const initial = decide(catalog, pantry('egg'), makePrefs(), 30);
+    expect(initial.buckets.ready.map((s) => s.recipe.id)).toEqual(['r0', 'r1', 'r2', 'r3']);
+
+    // Disliking r1 removes r1, preserves r0, r2, r3 in order, and reveals r4 as the replacement
+    const updated = decide(
+      catalog,
+      pantry('egg'),
+      makePrefs({ dislikedRecipeIds: new Set(['r1']) }),
+      30
+    );
+    expect(updated.buckets.ready.map((s) => s.recipe.id)).toEqual(['r0', 'r2', 'r3', 'r4']);
+  });
+
+  it('preserves stable relative ordering and scores for unaffected recipes', () => {
+    const catalog = [
+      makeRecipe({ id: 'r0', totalTimeMinutes: 10, ingredients: [ingredient('egg')] }),
+      makeRecipe({ id: 'r1', totalTimeMinutes: 15, ingredients: [ingredient('egg')] }),
+      makeRecipe({ id: 'r2', totalTimeMinutes: 20, ingredients: [ingredient('egg')] }),
+    ];
+    const initial = decide(catalog, pantry('egg'), makePrefs(), 30);
+    const updated = decide(
+      catalog,
+      pantry('egg'),
+      makePrefs({ dislikedRecipeIds: new Set(['r0']) }),
+      30
+    );
+
+    expect(updated.buckets.ready.map((s) => s.recipe.id)).toEqual(['r1', 'r2']);
+    expect(updated.buckets.ready[0]?.score).toBe(initial.buckets.ready[1]?.score);
+    expect(updated.buckets.ready[1]?.score).toBe(initial.buckets.ready[2]?.score);
+  });
 });
 
 describe('decide — bucketing and truncation', () => {
@@ -124,6 +161,164 @@ describe('decide — bucketing and truncation', () => {
       grocery_run: [],
     });
     expect(result.appliedRelaxations).toEqual([]);
+  });
+});
+
+describe('decide — pantry responsiveness', () => {
+  it('moves a recipe from missing_few to ready when its missing ingredient is added', () => {
+    const catalog = [
+      makeRecipe({
+        id: 'grilled-cheese',
+        totalTimeMinutes: 10,
+        ingredients: [ingredient('bread'), ingredient('cheddar_cheese'), ingredient('butter')],
+      }),
+      makeRecipe({
+        id: 'scrambled-eggs',
+        totalTimeMinutes: 5,
+        ingredients: [ingredient('egg'), ingredient('butter')],
+      }),
+    ];
+
+    // Initial pantry has bread, butter, egg -> scrambled-eggs is ready, grilled-cheese is missing_few (needs cheddar_cheese)
+    const initialPantry = pantry('bread', 'butter', 'egg');
+    const initial = decide(catalog, initialPantry, makePrefs(), 30);
+    expect(initial.buckets.ready.map((s) => s.recipe.id)).toEqual(['scrambled-eggs']);
+    expect(initial.buckets.missing_few.map((s) => s.recipe.id)).toEqual(['grilled-cheese']);
+    expect(initial.buckets.missing_few[0]?.missing).toEqual(['cheddar_cheese']);
+
+    // Add cheddar_cheese -> grilled-cheese moves immediately to ready
+    const updatedPantry = pantry('bread', 'butter', 'egg', 'cheddar_cheese');
+    const updated = decide(catalog, updatedPantry, makePrefs(), 30);
+    expect(updated.buckets.ready.map((s) => s.recipe.id)).toEqual([
+      'scrambled-eggs',
+      'grilled-cheese',
+    ]);
+    expect(updated.buckets.missing_few).toHaveLength(0);
+  });
+
+  it('moves a recipe from ready to missing_few when an ingredient is removed', () => {
+    const catalog = [
+      makeRecipe({
+        id: 'pbj',
+        totalTimeMinutes: 5,
+        ingredients: [ingredient('bread'), ingredient('peanut_butter'), ingredient('jam')],
+      }),
+    ];
+
+    // Fully stocked pantry -> ready
+    const stockedPantry = pantry('bread', 'peanut_butter', 'jam');
+    const initial = decide(catalog, stockedPantry, makePrefs(), 30);
+    expect(initial.buckets.ready.map((s) => s.recipe.id)).toEqual(['pbj']);
+
+    // Remove jam -> missing_few with missing: ['jam']
+    const depletedPantry = pantry('bread', 'peanut_butter');
+    const updated = decide(catalog, depletedPantry, makePrefs(), 30);
+    expect(updated.buckets.ready).toHaveLength(0);
+    expect(updated.buckets.missing_few.map((s) => s.recipe.id)).toEqual(['pbj']);
+    expect(updated.buckets.missing_few[0]?.missing).toEqual(['jam']);
+  });
+
+  it('improves relative ranking within a bucket when recipe coverage improves', () => {
+    // Both r1 and r2 need 2 missing ingredients initially (missing_few)
+    const catalog = [
+      makeRecipe({
+        id: 'r1',
+        totalTimeMinutes: 15,
+        ingredients: [
+          ingredient('bread'),
+          ingredient('butter'),
+          ingredient('ham'),
+          ingredient('cheese'),
+        ],
+      }),
+      makeRecipe({
+        id: 'r2',
+        totalTimeMinutes: 15,
+        ingredients: [
+          ingredient('pasta'),
+          ingredient('tomato_sauce'),
+          ingredient('beef'),
+          ingredient('parmesan'),
+        ],
+      }),
+    ];
+
+    // Pantry: bread, butter (r1 has 2/4 = 50%), pasta, tomato_sauce (r2 has 2/4 = 50%)
+    // Tie breaks on id: r1 then r2
+    const initial = decide(
+      catalog,
+      pantry('bread', 'butter', 'pasta', 'tomato_sauce'),
+      makePrefs(),
+      30
+    );
+    expect(initial.buckets.missing_few.map((s) => s.recipe.id)).toEqual(['r1', 'r2']);
+
+    // Add 'beef' -> r2 now has 3/4 = 75% coverage (missing 1), r1 has 2/4 = 50% coverage (missing 2)
+    // r2 scores higher and outranks r1
+    const updated = decide(
+      catalog,
+      pantry('bread', 'butter', 'pasta', 'tomato_sauce', 'beef'),
+      makePrefs(),
+      30
+    );
+    expect(updated.buckets.missing_few.map((s) => s.recipe.id)).toEqual(['r2', 'r1']);
+    expect(updated.buckets.missing_few[0]?.score).toBeGreaterThan(
+      updated.buckets.missing_few[1]?.score ?? 0
+    );
+  });
+
+  it('leaves ranking strictly unchanged and deterministic when an irrelevant ingredient is added', () => {
+    const catalog = [
+      makeRecipe({ id: 'r1', totalTimeMinutes: 10, ingredients: [ingredient('egg')] }),
+      makeRecipe({ id: 'r2', totalTimeMinutes: 20, ingredients: [ingredient('bread')] }),
+    ];
+
+    const initial = decide(catalog, pantry('egg', 'bread'), makePrefs(), 30);
+    const initialReady = initial.buckets.ready.map((s) => s.recipe.id);
+    const initialScores = initial.buckets.ready.map((s) => s.score);
+
+    // Add 'cinnamon' which neither recipe uses
+    const updated = decide(catalog, pantry('egg', 'bread', 'cinnamon'), makePrefs(), 30);
+    expect(updated.buckets.ready.map((s) => s.recipe.id)).toEqual(initialReady);
+    expect(updated.buckets.ready.map((s) => s.score)).toEqual(initialScores);
+  });
+
+  it('calculates recommendations dynamically under Any cuisine preference', () => {
+    const catalog = [
+      makeRecipe({
+        id: 'italian-pasta',
+        cuisine: 'italian',
+        totalTimeMinutes: 15,
+        ingredients: [ingredient('pasta'), ingredient('garlic')],
+      }),
+      makeRecipe({
+        id: 'mexican-tacos',
+        cuisine: 'mexican',
+        totalTimeMinutes: 15,
+        ingredients: [ingredient('tortilla'), ingredient('beans')],
+      }),
+    ];
+
+    // Any cuisine (preferredCuisine: null)
+    // When only pasta + garlic in pantry, italian-pasta is ready, mexican-tacos is missing_few
+    const pastaPantry = decide(
+      catalog,
+      pantry('pasta', 'garlic'),
+      makePrefs({ preferredCuisine: null }),
+      30
+    );
+    expect(pastaPantry.buckets.ready.map((s) => s.recipe.id)).toEqual(['italian-pasta']);
+    expect(pastaPantry.buckets.missing_few.map((s) => s.recipe.id)).toEqual(['mexican-tacos']);
+
+    // When pantry changes to tortilla + beans, mexican-tacos is ready, italian-pasta is missing_few
+    const tacoPantry = decide(
+      catalog,
+      pantry('tortilla', 'beans'),
+      makePrefs({ preferredCuisine: null }),
+      30
+    );
+    expect(tacoPantry.buckets.ready.map((s) => s.recipe.id)).toEqual(['mexican-tacos']);
+    expect(tacoPantry.buckets.missing_few.map((s) => s.recipe.id)).toEqual(['italian-pasta']);
   });
 });
 

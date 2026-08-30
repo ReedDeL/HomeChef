@@ -7,12 +7,10 @@ import { palette } from '@/theme/tokens';
  * The web-only HTML shell. Native has no equivalent, and expo-router renders
  * this file at build time rather than shipping it to the client.
  *
- * It exists because the default Expo shell leaves `#root` unbounded, so the
- * phone layout stretched to the full width of a desktop monitor — the summary
- * tiles became 600pt wide and the ingredient chips spread into one sparse row.
- * The app is designed for a phone held in one hand (docs/04_UIUX_SPEC.md §0),
- * so on the web we letterbox it into a phone-width column rather than inventing
- * a second, desktop-shaped design that would drift from iOS and Android.
+ * It exists because the default Expo shell leaves `#root` unbounded. The web
+ * shell now centers a responsive workspace for desktop browsers while the
+ * screen-level compositions keep the phone layout for narrow viewports. Native
+ * platforms remain unchanged.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -29,7 +27,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Paints the browser chrome to match the app instead of flashing white. */}
         <meta name="theme-color" content={palette.light.bg} media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content={palette.dark.bg} media="(prefers-color-scheme: dark)" />
-        <link rel="icon" href={FAVICON_HREF} />
+        <link rel="icon" type="image/png" href="/favicon.png" />
         <title>HomeChef</title>
 
         <ScrollViewStyleReset />
@@ -41,31 +39,25 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 /**
- * An inline SVG emoji, so the favicon costs no asset file and no extra request.
- */
-const FAVICON_HREF =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
-      '<text y=".9em" font-size="90">🍳</text></svg>'
-  );
-
-/**
  * Only what cannot be expressed in React Native styles belongs here: the page
- * background behind the letterbox, and the centering context the app column
- * sits in. The column's own width lives in `MobileViewport` so that it stays
- * token-driven and readable from the component tree.
+ * background behind the responsive workspace and the centering context the
+ * app column sits in. The column's own width lives in `MobileViewport` so it
+ * stays token-driven and readable from the component tree.
  *
  * Colors are interpolated from the tokens rather than written as hex, so this
  * file cannot drift from src/theme/tokens.ts.
  */
 const SHELL_CSS = `
-html, body { height: 100%; }
+html { height: 100%; }
 
 body {
+  /* Browser controls change the visible height while a mobile page is open. */
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
   overflow: hidden;
   background-color: ${palette.light.surfaceAlt};
-  /* Matches the RN default so the letterboxed column and the page agree. */
+  /* Matches the RN default so the workspace and the page agree. */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -73,9 +65,8 @@ body {
 #root {
   display: flex;
   height: 100%;
+  width: 100%;
   flex: 1;
-  /* Centers the phone-width column on a wide viewport. */
-  justify-content: center;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -50,7 +50,7 @@ export type MealJourney = 'now' | 'week';
 export type MealSatietyLevel = 'still_hungry' | 'satisfied' | 'too_full';
 export type WeeklyPlanStatus = 'draft' | 'confirmed';
 export type WeeklyEntryKind = 'recipe' | 'day_of_decision';
-export type WeeklyEntryReason = 'no_safe_recipe' | 'grocery_need_cap';
+export type WeeklyEntryReason = 'no_safe_recipe' | 'grocery_need_cap' | 'not_planned';
 export type StatedRelaxation = 'time' | 'cuisine';
 export type ReminderLeadMinutes = 0 | 10 | 15 | 30 | 60;
 

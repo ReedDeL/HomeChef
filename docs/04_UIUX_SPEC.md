@@ -22,9 +22,9 @@ HomeChef uses:
 
 - strong food photography;
 - bold, clean system type;
-- a warm neutral canvas;
-- orange as the primary action color;
-- green for ready matches;
+- a warm cream canvas with restrained oat surfaces;
+- terracotta as the primary brand and action color;
+- herb green for ready matches;
 - amber for small pantry gaps;
 - red only for allergen warnings;
 - large rounded controls;
@@ -46,7 +46,8 @@ The three primary destinations are:
 - **Plan**
 - **Pantry**
 
-Settings is secondary.
+Settings is secondary. Reminders is a secondary destination reachable from
+Settings and a confirmed weekly plan. It is not a fourth primary tab.
 
 Legacy cook-mode routes may remain during transition, but they are not part of
 the current product and should not shape new UI work.
