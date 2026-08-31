@@ -86,13 +86,6 @@ export default function RecipeScreen() {
       header={
         <Header backLabel="Results" backHint="Returns to meal recommendations" fallbackHref="/" />
       }
-      footer={
-        <PrimaryButton
-          label="👨‍🍳 Start cooking"
-          onPress={() => router.push(`/cook/${recipe.id}`)}
-          accessibilityHint="Enters step-by-step cook mode"
-        />
-      }
     >
       <View
         style={[

@@ -1,10 +1,11 @@
 import { Tabs } from 'expo-router';
 
+import { PRIMARY_TABS } from '@/lib/navigation';
 import { type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 /**
- * The primary journeys are Cook/Now, Plan, and Pantry. Home is the product;
+ * The primary journeys are Now, Plan, and Pantry. Now is the product home;
  * Pantry exists because the pantry is always somewhat wrong and correcting it
  * has to be reachable from anywhere (risk R3).
  */
@@ -21,18 +22,13 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: typeScale.caption.fontSize },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: 'Cook', tabBarAccessibilityLabel: 'Cook, decide what to make' }}
-      />
-      <Tabs.Screen
-        name="pantry"
-        options={{ title: 'Pantry', tabBarAccessibilityLabel: 'Pantry, what you have' }}
-      />
-      <Tabs.Screen
-        name="plan"
-        options={{ title: 'Plan', tabBarAccessibilityLabel: 'Plan, plan your week' }}
-      />
+      {PRIMARY_TABS.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{ title: tab.title, tabBarAccessibilityLabel: tab.accessibilityLabel }}
+        />
+      ))}
     </Tabs>
   );
 }

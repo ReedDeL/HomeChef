@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { appGatePhase, needsRouteReplacement, rootRouteIsAvailable } from '@/lib/auth/app-gate';
 
-const DYNAMIC_APP_ROUTES = ['cook/[id]', 'recipe/[id]', 'kitchen-setup', 'reminders'] as const;
+const CURRENT_DYNAMIC_APP_ROUTES = ['recipe/[id]', 'kitchen-setup', 'reminders'] as const;
 
 describe('app gate routing', () => {
   it('replaces an app route with onboarding for a new local user', () => {
@@ -26,7 +26,7 @@ describe('app gate routing', () => {
     expect(appGatePhase(true, 'scan', '/')).toBe('ready');
   });
 
-  it.each(DYNAMIC_APP_ROUTES)(
+  it.each(CURRENT_DYNAMIC_APP_ROUTES)(
     'protects the %s route during onboarding but exposes it for a returning local user',
     (routeName) => {
       expect(rootRouteIsAvailable(routeName, 'loading', '/')).toBe(false);
@@ -35,6 +35,12 @@ describe('app gate routing', () => {
       expect(rootRouteIsAvailable(routeName, 'ready', '/')).toBe(true);
     }
   );
+
+  it('protects the legacy cook redirect during onboarding and exposes it after setup', () => {
+    expect(rootRouteIsAvailable('cook/[id]', 'loading', '/')).toBe(false);
+    expect(rootRouteIsAvailable('cook/[id]', 'redirecting', '/(onboarding)/equipment')).toBe(false);
+    expect(rootRouteIsAvailable('cook/[id]', 'ready', '/')).toBe(true);
+  });
 
   it('exposes onboarding and scan without exposing restricted app routes before setup is complete', () => {
     expect(rootRouteIsAvailable('(onboarding)', 'ready', '/(onboarding)/equipment')).toBe(true);
