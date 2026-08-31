@@ -35,20 +35,20 @@ describe('BucketSection', () => {
   it('renders section title and recipes', () => {
     const markup = renderToStaticMarkup(
       createElement(BucketSection, {
-        bucket: 'ready',
+        section: 'ready_now',
         recipes: [scoredRecipe],
         onSelectRecipe: () => undefined,
       })
     );
 
-    expect(markup).toContain('MAKE IT NOW');
+    expect(markup).toContain('Ready now');
     expect(markup).toContain('Garlic Butter Pasta');
   });
 
   it('renders dislike action on cards when onDislikeRecipe is provided', () => {
     const markup = renderToStaticMarkup(
       createElement(BucketSection, {
-        bucket: 'ready',
+        section: 'ready_now',
         recipes: [scoredRecipe],
         onSelectRecipe: () => undefined,
         onDislikeRecipe: () => undefined,
@@ -61,7 +61,7 @@ describe('BucketSection', () => {
   it('returns null when recipes list is empty', () => {
     const markup = renderToStaticMarkup(
       createElement(BucketSection, {
-        bucket: 'ready',
+        section: 'ready_now',
         recipes: [],
         onSelectRecipe: () => undefined,
       })
