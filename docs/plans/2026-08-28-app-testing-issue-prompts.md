@@ -1,17 +1,39 @@
 # App Testing Follow-Up Prompts
 
 **Date:** August 28, 2026  
-**Purpose:** Standalone prompts for the issues found during hands-on testing
+**Purpose:** Historical acceptance records for issues found during hands-on testing
+**Status:** Implementation complete as of August 30, 2026
 
-Use one prompt per focused task. Each prompt is intentionally self-contained so it can be
-copied into a new coding session without the rest of this document.
+These prompts are retained as the original problem statements, not as an active backlog. The
+repository quality gate is the source of truth for automated verification. Physical-device
+notification permission and browser zoom checks remain release validation activities rather than
+open implementation defects.
 
-Recommended order: The remaining prompts can be completed independently. Goals and
-reminder onboarding are product-scope changes, so those prompts require documentation decisions
-before implementation. Authentic microwave meals (Prompt 9), universal onboarding copy (Prompt 10),
-polish the settings action (Prompt 5), desktop cuisine filters (Prompt 6), seamless kitchen
-management (Prompt 11), and the weekly meal prep grocery reversal journey (Prompt 12) address
-critical usability and feature completeness.
+| Prompt | Status | Implemented outcome |
+| --- | --- | --- |
+| 4 | Complete | Goal onboarding, optional local metrics, goal-aware ranking, metric-aware portion estimates, and Settings controls |
+| 5 | Complete | One shared accessible Settings action |
+| 6 | Complete | Reachable responsive cuisine filters without clipped desktop options |
+| 7 | Complete | Dedicated reminder onboarding, configuration, schedule review, and honest web fallback |
+| 9 | Complete | Curated microwave catalog, provenance, safety validation, and microwave-only recommendation coverage |
+| 10 | Complete | Universal appliance choices and copy |
+| 11 | Complete | Non-destructive Kitchen Setup management |
+| 12 | Complete | Weekly Plan reversal journey, grocery updates, confirmed-plan reminders, and preference-correct regeneration |
+
+The August 30 production-spec audit also closed five regressions that were not represented as
+standalone prompts:
+
+- Recommendation results use the product taxonomy: **Ready now**, **Missing a few**, and
+  **More to get**.
+- Results initially show four matches and reveal additional matches in four-item batches.
+- Primary navigation is **Now**, **Plan**, **Pantry**; dedicated cook mode is retired, with saved
+  cook links redirecting to recipe instructions.
+- Confirmed Plan selections are kept as bounded, local positive preference signals and influence
+  future proposals only as a tie-breaker.
+- Plan generation honors the just-selected variety and explains preparation style and ingredient
+  reuse before confirmation.
+
+The original acceptance prompts follow.
 
 ## Prompt 4: Add caloric goals and weight gain/loss onboarding page before pantry staples
 
