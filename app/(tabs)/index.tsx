@@ -11,11 +11,11 @@ import {
 } from 'react-native';
 
 import { BrandLockup } from '@/components/BrandLockup';
-import { BucketSection } from '@/components/ui/BucketSection';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Header } from '@/components/ui/Header';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { RecommendationSections } from '@/components/ui/RecommendationSections';
 import { SettingsAction } from '@/components/ui/SettingsAction';
 import { RelaxationBanner } from '@/components/ui/RelaxationBanner';
 import { Screen } from '@/components/ui/Screen';
@@ -245,15 +245,12 @@ export default function HomeScreen() {
           onRevert={() => setStrict(true)}
         />
 
-        {BUCKET_ORDER.map((bucket) => (
-          <BucketSection
-            key={bucket}
-            bucket={bucket}
-            recipes={decision.buckets[bucket]}
-            onSelectRecipe={(recipeId) => router.push(`/recipe/${recipeId}`)}
-            onDislikeRecipe={handleDislikeRecipe}
-          />
-        ))}
+        <RecommendationSections
+          key={`${timeLimit}:${cuisine ?? 'any'}:${strict ? 'strict' : 'relaxed'}`}
+          buckets={decision.buckets}
+          onSelectRecipe={(recipeId) => router.push(`/recipe/${recipeId}`)}
+          onDislikeRecipe={handleDislikeRecipe}
+        />
 
         {totalResults === 0 ? (
           strict ? (

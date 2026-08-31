@@ -41,11 +41,18 @@ const SATIETY_ADJUSTMENTS: Record<MealSatietyLevel, number> = {
 
 const DISCLAIMER = 'Estimate only—adjust to your hunger.' as const;
 
+export interface PortionBodyMetrics {
+  heightCentimeters: number | null;
+  weightKilograms: number | null;
+}
+
 export interface PortionGuidanceInput {
   recipe: Recipe;
   bodyProfile: BodyProfile | null;
   /** Goal-only onboarding can provide this without collecting a full profile. */
   bodyGoal?: BodyGoal | null;
+  /** Lightweight onboarding can personalize without inventing uncollected profile fields. */
+  bodyMetrics?: PortionBodyMetrics | null;
   satietyLevel: MealSatietyLevel | null;
 }
 
@@ -78,7 +85,8 @@ export function getPortionGuidance(input: PortionGuidanceInput): PortionGuidance
   const startingServings =
     validProfile !== null && !validProfile.pregnant && !validProfile.breastfeeding
       ? calculateEnergyBasedServings(validProfile, energyKcalPerServing)
-      : getGoalBasedServingBaseline(profile, input.bodyGoal);
+      : getGoalBasedServingBaseline(profile, input.bodyGoal) +
+        getBodyMetricsServingAdjustment(input.bodyMetrics);
   const satietyAdjustment =
     input.satietyLevel === null ? 0 : SATIETY_ADJUSTMENTS[input.satietyLevel];
   const servings = clamp(roundToNearestQuarter(startingServings + satietyAdjustment), 0.75, 1.5);
@@ -100,6 +108,26 @@ function calculateEnergyBasedServings(profile: BodyProfile, energyKcalPerServing
     restingKcal * ACTIVITY_FACTORS[profile.activityLevel] + GOAL_ADJUSTMENTS[profile.goal];
   const targetMealKcal = targetDailyKcal / 3;
   return targetMealKcal / energyKcalPerServing;
+}
+
+function getBodyMetricsServingAdjustment(metrics: PortionBodyMetrics | null | undefined): number {
+  if (
+    metrics?.heightCentimeters === null ||
+    metrics?.weightKilograms === null ||
+    metrics?.heightCentimeters === undefined ||
+    metrics?.weightKilograms === undefined ||
+    !Number.isFinite(metrics.heightCentimeters) ||
+    !Number.isFinite(metrics.weightKilograms) ||
+    metrics.heightCentimeters < 120 ||
+    metrics.heightCentimeters > 230 ||
+    metrics.weightKilograms < 35 ||
+    metrics.weightKilograms > 300
+  ) {
+    return 0;
+  }
+
+  const bodySurfaceArea = Math.sqrt((metrics.heightCentimeters * metrics.weightKilograms) / 3600);
+  return bodySurfaceArea < 1.5 ? -0.25 : bodySurfaceArea > 2 ? 0.25 : 0;
 }
 
 function isBodyGoal(value: unknown): value is BodyGoal {

@@ -17,16 +17,22 @@ import {
   recomputePlanGroceryNeeds,
 } from '@/engine/plan-grocery-needs';
 import { hasAllergen, isEquipmentSatisfied, satisfiesDietary } from '@/engine/filter-hard';
-import { planWeek } from '@/engine/plan-week';
-import { applyPlanPreferences } from '@/engine/plan-preferences';
-import type { DailyPlanPreference, Recipe } from '@/engine/types';
+import {
+  createPlanProposal,
+  describeIngredientReuse,
+  describePlanPrepStyle,
+  getRepeatedPlanIngredientIds,
+  type PlanPrepStyle,
+} from '@/engine/plan-proposal';
+import type { Recipe } from '@/engine/types';
+import { buildWeekDays } from '@/lib/plan-week-days';
 import { syncMealPrepReminders } from '@/lib/meal-prep-notifications';
 import { useKitchenStore, toEnginePreferences } from '@/store/kitchen';
 import { radius, space } from '@/theme/tokens';
 
 type Step = 'days' | 'style' | 'variety' | 'proposal' | 'grocery';
 type Days = 3 | 5 | 7;
-type PrepStyle = 'quick' | 'batch' | 'balanced';
+type PrepStyle = PlanPrepStyle;
 type Variety = 'variety' | 'repeats';
 
 const DAYS_OPTIONS = [
@@ -61,9 +67,14 @@ export default function PlanScreen() {
   const pantry = useKitchenStore((state) => state.pantry);
   const dislikedRecipes = useKitchenStore((state) => state.dislikedRecipes);
   const bodyGoal = useKitchenStore((state) => state.bodyGoal);
+  const bodyMetrics = useKitchenStore((state) => state.bodyMetrics);
+  const planTasteSignals = useKitchenStore((state) => state.planTasteSignals);
   const weeklyPlan = useKitchenStore((state) => state.weeklyPlan);
   const checkedNeeds = useKitchenStore((state) => state.checkedPlanGroceryNeeds);
   const setWeeklyPlan = useKitchenStore((state) => state.setWeeklyPlan);
+  const recordConfirmedPlanSelections = useKitchenStore(
+    (state) => state.recordConfirmedPlanSelections
+  );
   const toggleNeed = useKitchenStore((state) => state.togglePlanGroceryNeed);
   const addPantryItems = useKitchenStore((state) => state.addPantryItems);
   const clearPlanGroceryChecks = useKitchenStore((state) => state.clearPlanGroceryChecks);
@@ -103,18 +114,23 @@ export default function PlanScreen() {
     );
   }, [weeklyPlan, remindersEnabled, leadMinutes]);
 
-  const generate = () => {
+  const generate = (selectedVariety: Variety) => {
     setIsGenerating(true);
     try {
-      const plan = planWeek({
+      const plan = createPlanProposal({
         recipes: BUNDLED_CATALOG,
         pantry: pantrySet,
         preferences,
-        days: buildWeekDays(prepStyle),
-        tasteSignals: [],
-        portionInput: { bodyProfile: null, satietyLevel: null },
+        days,
+        weekDays: buildWeekDays(prepStyle, new Date()),
+        prepStyle,
+        variety: selectedVariety,
+        tasteSignals: planTasteSignals,
+        bodyProfile: null,
+        bodyMetrics,
+        bodyGoal,
       });
-      setProposal(applyPlanPreferences(plan, days, variety, BUNDLED_CATALOG, pantrySet));
+      setProposal(plan);
       setStep('proposal');
     } catch (error: unknown) {
       console.warn('[plan] Unable to generate weekly plan', error);
@@ -127,6 +143,9 @@ export default function PlanScreen() {
   const confirm = async () => {
     if (!proposal) return;
     const confirmed = weeklyMealPlanSchema.parse({ ...proposal, status: 'confirmed' });
+    recordConfirmedPlanSelections(
+      confirmed.entries.flatMap((entry) => (entry.kind === 'recipe' ? [entry.recipeId] : []))
+    );
     setWeeklyPlan(confirmed);
     setStep('grocery');
   };
@@ -211,6 +230,7 @@ export default function PlanScreen() {
         onToggleNeed={toggleNeed}
         onAddChecked={addCheckedNeedsToPantry}
         onSwap={swap}
+        prepStyle={prepStyle}
         onConfirm={confirm}
         onStartOver={startOver}
         remindersEnabled={false}
@@ -235,7 +255,7 @@ export default function PlanScreen() {
       }}
       onVariety={(value) => {
         setVariety(value);
-        generate();
+        generate(value);
       }}
       onBack={() => {
         if (step === 'days') router.back();
@@ -335,6 +355,7 @@ function PlanSummary({
   onToggleNeed,
   onAddChecked,
   onSwap,
+  prepStyle,
   onConfirm,
   onStartOver,
   remindersEnabled,
@@ -345,11 +366,15 @@ function PlanSummary({
   onToggleNeed: (id: string) => void;
   onAddChecked: () => void;
   onSwap: (index: number) => void;
+  prepStyle?: PrepStyle;
   onConfirm?: () => void;
   onStartOver: () => void;
   remindersEnabled: boolean;
 }) {
   const router = useRouter();
+  const repeatedIngredientNames = getRepeatedPlanIngredientIds(plan, BUNDLED_CATALOG).map(
+    (ingredientId) => lookupIngredient(ingredientId)?.displayName ?? ingredientId
+  );
   return (
     <Screen
       header={
@@ -377,6 +402,19 @@ function PlanSummary({
             : 'One practical week, using the kitchen and pantry you already have.'}
         </Text>
       </View>
+      {plan.status === 'draft' && prepStyle ? (
+        <Card variant="alt">
+          <View style={styles.mealCopy}>
+            <Text variant="heading">Why this plan works</Text>
+            <Text variant="caption" tone="muted">
+              {describePlanPrepStyle(prepStyle)}
+            </Text>
+            <Text variant="caption" tone="muted">
+              {describeIngredientReuse(repeatedIngredientNames)}
+            </Text>
+          </View>
+        </Card>
+      ) : null}
       <View style={styles.group}>
         {plan.entries.map((entry, index) => {
           const recipe =
@@ -549,34 +587,6 @@ async function syncReminders(
   } catch (error: unknown) {
     console.warn('[plan] Reminder sync failed; plan state is preserved', error);
   }
-}
-
-function buildWeekDays(style: PrepStyle): DailyPlanPreference[] {
-  const start = new Date();
-  const day = start.getDay();
-  start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
-  return Array.from({ length: 7 }, (_, index) => {
-    const dateValue = new Date(start);
-    dateValue.setDate(start.getDate() + index);
-    const date = [
-      dateValue.getFullYear(),
-      String(dateValue.getMonth() + 1).padStart(2, '0'),
-      String(dateValue.getDate()).padStart(2, '0'),
-    ].join('-');
-    const offset = -dateValue.getTimezoneOffset();
-    const sign = offset >= 0 ? '+' : '-';
-    const absolute = Math.abs(offset);
-    const zone =
-      sign +
-      String(Math.floor(absolute / 60)).padStart(2, '0') +
-      ':' +
-      String(absolute % 60).padStart(2, '0');
-    return {
-      date,
-      selectedLimit: style === 'quick' ? 30 : style === 'batch' ? 120 : 60,
-      mealTime: '18:30:00' + zone,
-    };
-  });
 }
 
 function isHardSafe(recipe: Recipe, preferences: ReturnType<typeof toEnginePreferences>) {

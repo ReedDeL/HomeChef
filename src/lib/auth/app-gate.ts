@@ -6,12 +6,13 @@ export type AppGatePhase = 'loading' | 'redirecting' | 'ready';
 
 const APP_ROUTE_NAMES = [
   '(tabs)',
-  'cook/[id]',
   'recipe/[id]',
   'scan',
   'settings',
   'kitchen-setup',
   'reminders',
+  // Saved cook-mode links remain gated like recipe links, then redirect.
+  'cook/[id]',
 ] as const;
 
 export const ROOT_ROUTE_NAMES = ['loading', '(onboarding)', ...APP_ROUTE_NAMES] as const;

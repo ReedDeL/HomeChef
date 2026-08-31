@@ -135,6 +135,14 @@ export interface BodyMetrics {
   weightKilograms: number | null;
 }
 
+/** A positive, local-only signal created by an explicit weekly-plan confirmation. */
+export interface PlanTasteSignal {
+  kind: 'plan_selected';
+  recipeId: string;
+  journey: 'week';
+  recordedAt: string;
+}
+
 const DISLIKED_KEY = 'homechef-disliked';
 const SKIPPED_KEY = 'homechef-skipped';
 
@@ -155,6 +163,7 @@ interface KitchenState {
   /** Optional local-only goal and metrics. Never sent to analytics. */
   bodyGoal: BodyGoal | null;
   bodyMetrics: BodyMetrics;
+  planTasteSignals: PlanTasteSignal[];
   weeklyPlan: WeeklyMealPlan | null;
   checkedPlanGroceryNeeds: string[];
 
@@ -178,6 +187,7 @@ interface KitchenState {
   setBodyGoal: (goal: BodyGoal | null) => void;
   setBodyMetrics: (metrics: Partial<BodyMetrics>) => void;
   clearBodyData: () => void;
+  recordConfirmedPlanSelections: (recipeIds: readonly string[], recordedAt?: string) => void;
   setWeeklyPlan: (plan: WeeklyMealPlan | null) => void;
   togglePlanGroceryNeed: (ingredientId: string) => void;
   clearPlanGroceryChecks: () => void;
@@ -201,6 +211,31 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
+export function mergePlanTasteSignals(
+  existing: readonly PlanTasteSignal[],
+  recipeIds: readonly string[],
+  recordedAt: string
+): PlanTasteSignal[] {
+  const byRecipeId = new Map(
+    [...existing]
+      .sort((left, right) => left.recordedAt.localeCompare(right.recordedAt))
+      .map((signal) => [signal.recipeId, signal])
+  );
+  for (const recipeId of new Set(recipeIds)) {
+    if (recipeId.trim().length === 0) continue;
+    byRecipeId.delete(recipeId);
+    byRecipeId.set(recipeId, {
+      kind: 'plan_selected',
+      recipeId,
+      journey: 'week',
+      recordedAt,
+    });
+  }
+  return [...byRecipeId.values()]
+    .sort((left, right) => left.recordedAt.localeCompare(right.recordedAt))
+    .slice(-100);
+}
+
 export const useKitchenStore = create<KitchenState>()(
   persist(
     (set) => ({
@@ -219,6 +254,7 @@ export const useKitchenStore = create<KitchenState>()(
       skippedRecipes: getJSON<string[]>(SKIPPED_KEY) ?? [],
       bodyGoal: null,
       bodyMetrics: { heightCentimeters: null, weightKilograms: null },
+      planTasteSignals: [],
       weeklyPlan: null,
       checkedPlanGroceryNeeds: [],
 
@@ -278,6 +314,10 @@ export const useKitchenStore = create<KitchenState>()(
         })),
       clearBodyData: () =>
         set({ bodyGoal: null, bodyMetrics: { heightCentimeters: null, weightKilograms: null } }),
+      recordConfirmedPlanSelections: (recipeIds, recordedAt = new Date().toISOString()) =>
+        set((state) => ({
+          planTasteSignals: mergePlanTasteSignals(state.planTasteSignals, recipeIds, recordedAt),
+        })),
       setWeeklyPlan: (weeklyPlan) => set({ weeklyPlan, checkedPlanGroceryNeeds: [] }),
       togglePlanGroceryNeed: (ingredientId) =>
         set((state) => ({
@@ -305,6 +345,7 @@ export const useKitchenStore = create<KitchenState>()(
           skippedRecipes: [],
           bodyGoal: null,
           bodyMetrics: { heightCentimeters: null, weightKilograms: null },
+          planTasteSignals: [],
           weeklyPlan: null,
           checkedPlanGroceryNeeds: [],
         });
