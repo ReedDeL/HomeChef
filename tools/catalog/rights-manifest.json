@@ -3,16 +3,15 @@
   "sources": [
     {
       "id": "wikibooks-cookbook",
-      "version": "latest-observed-2026-08-04",
-      "title": "English Wikibooks Cookbook",
-      "archiveUrl": "https://dumps.wikimedia.org/enwikibooks/latest/enwikibooks-latest-pages-articles.xml.bz2",
-      "sha256": null,
-      "archiveFormat": "mediawiki-xml-bz2",
+      "version": "2026-08-27",
+      "title": "Wikibooks Cookbook recipe snapshot (adapted)",
+      "archiveUrl": "https://en.wikibooks.org/wiki/Cookbook:Recipes",
+      "sha256": "4c05db51e49432319b0a03e14c9fc5abea51f94ea44a65a24308668cc3f32f85",
       "licenseName": "CC BY-SA 4.0",
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-      "attribution": "English Wikibooks contributors; each reused recipe must link to its source page and license.",
-      "status": "candidate",
-      "notes": "Discovery only. Resolve to an immutable dated dump, compute SHA-256, extract the Cookbook namespace to neutral JSONL, and pass attribution and hard-constraint gates before approval."
+      "attribution": "Recipe text is adapted from the Wikibooks Cookbook under CC BY-SA 4.0. The normalized archive is retained in this repository.",
+      "archiveFormat": "jsonl",
+      "status": "approved"
     }
   ]
 }

@@ -192,7 +192,7 @@ class TestBuildVocabulary:
         meal = make_meal(strIngredient1="Salt", strIngredient2="Peanut")
         vocabulary = {e.id: e for e in build_vocabulary([to_catalog_recipe(meal)])}
         assert vocabulary["salt"].is_staple is True
-        assert "nut" in vocabulary["peanut"].allergen_groups
+        assert "nut" in vocabulary["peanuts"].allergen_groups
 
     def test_handles_an_empty_catalog(self) -> None:
         assert build_vocabulary([]) == []

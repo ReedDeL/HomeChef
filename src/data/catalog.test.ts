@@ -164,16 +164,11 @@ describe('microwave coverage', () => {
     }
   });
 
-  it('marks unclassified recipes honestly instead of as no-equipment', () => {
+  it('quarantines unclassified recipes instead of shipping them', () => {
     const unclassified = BUNDLED_CATALOG.filter((r) =>
       r.equipmentRequired.includes('unclassified')
     );
-    // A backlog, not a statistic: these are excluded from every user's results
-    // until the enrichment pass classifies them.
-    expect(unclassified.length).toBeGreaterThan(0);
-    for (const recipe of unclassified) {
-      expect(recipe.equipmentRequired).toEqual(['unclassified']);
-    }
+    expect(unclassified).toEqual([]);
   });
 });
 

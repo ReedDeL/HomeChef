@@ -195,6 +195,37 @@ class NutritionProvenance(BaseModel):
         return value
 
 
+class RecipeAttribution(BaseModel):
+    """Rights metadata retained with each bundled recipe."""
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    source_id: str = Field(
+        validation_alias=AliasChoices("source_id", "sourceId"), serialization_alias="sourceId"
+    )
+    source_version: str = Field(
+        validation_alias=AliasChoices("source_version", "sourceVersion"),
+        serialization_alias="sourceVersion",
+    )
+    source_recipe_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("source_recipe_id", "sourceRecipeId"),
+        serialization_alias="sourceRecipeId",
+    )
+    attribution: str
+    url: str
+    license_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("license_name", "licenseName"),
+        serialization_alias="licenseName",
+    )
+    license_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("license_url", "licenseUrl"),
+        serialization_alias="licenseUrl",
+    )
+
+
 class CatalogRecipe(BaseModel):
     """The shape emitted to ``src/data/recipes.json``.
 
@@ -261,6 +292,7 @@ class CatalogRecipe(BaseModel):
         serialization_alias="nutritionConfidence",
     )
     source: Literal["bundled"] = "bundled"
+    attribution: RecipeAttribution | None = None
 
     @model_validator(mode="after")
     def _nutrition_is_coherent(self) -> Self:

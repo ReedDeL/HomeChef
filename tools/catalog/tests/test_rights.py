@@ -109,10 +109,9 @@ def test_manifest_rejects_multiple_versions_of_one_source_id() -> None:
         )
 
 
-def test_committed_manifest_registers_only_the_wikibooks_candidate() -> None:
-    """Keep the first open-source source visible without making it releasable."""
+def test_committed_manifest_approves_only_the_wikibooks_release() -> None:
     manifest_path = Path(__file__).parents[1] / "rights-manifest.json"
     manifest = RightsManifest.model_validate(json.loads(manifest_path.read_text(encoding="utf-8")))
 
-    assert manifest.approved_sources() == []
-    assert [source.id for source in manifest.candidate_sources()] == ["wikibooks-cookbook"]
+    assert [source.id for source in manifest.approved_sources()] == ["wikibooks-cookbook"]
+    assert manifest.candidate_sources() == []
