@@ -15,6 +15,8 @@ jobs:
       - run: npm run check
       - name: Verify catalog structure
         run: node supabase/tests/catalog_structural_verification.mjs
+      - name: Verify catalog source boundary
+        run: node scripts/catalog-boundary-verification.mjs --self-test
 
   rls-verification:
     runs-on: ubuntu-latest

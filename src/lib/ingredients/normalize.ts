@@ -44,8 +44,10 @@ export const SYNONYMS: Readonly<Record<string, string>> = {
   prawn: 'shrimp',
   jelly: 'jam',
   jellies: 'jam',
+  peanut: 'peanuts',
   peanutbutter: 'peanut_butter',
   pb: 'peanut_butter',
+  potato: 'potatoes',
 };
 
 /**

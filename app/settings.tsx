@@ -43,6 +43,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import { Text } from '@/components/ui/Text';
+import { BUNDLED_CATALOG_ATTRIBUTIONS } from '@/data/catalog';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
@@ -99,14 +100,14 @@ const GOAL_OPTIONS: readonly { id: BodyGoal; label: string; subtitle: string }[]
   },
   { id: 'gain', label: 'Gain weight', subtitle: 'Prioritize nutrient-dense choices' },
 ];
-const DEFAULT_ATTRIBUTIONS: readonly CatalogAttribution[] = [
-  {
-    sourceId: 'homechef-authored',
-    sourceVersion: 'microwave-seed-1',
-    attribution: 'HomeChef-authored open-source catalog',
-    url: 'https://github.com/ReedDeL/HomeChef/blob/master/docs/specs/2026-08-22-owned-recipe-catalog-design.md',
-  },
-];
+const DEFAULT_ATTRIBUTIONS: readonly CatalogAttribution[] = BUNDLED_CATALOG_ATTRIBUTIONS.map(
+  ({ sourceId, sourceVersion, attribution, url }) => ({
+    sourceId,
+    sourceVersion,
+    attribution,
+    url,
+  })
+);
 
 /**
  * Settings Screen / Window.
@@ -745,6 +746,9 @@ export default function SettingsScreen() {
               </Text>
             )
           )}
+          <Text variant="caption" tone="muted">
+            Each recipe keeps its source, version, license, and attribution metadata.
+          </Text>
         </Card>
       </View>
 

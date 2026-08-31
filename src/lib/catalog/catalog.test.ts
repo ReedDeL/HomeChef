@@ -440,10 +440,10 @@ describe('candidate merging and detail resolution', () => {
 
 describe('attribution', () => {
   const transitional = {
-    sourceId: 'transitional-catalog',
-    sourceVersion: 'legacy-bundle',
-    attribution: 'Transitional bundled catalog data from TheMealDB',
-    url: 'https://www.themealdb.com/',
+    sourceId: 'wikibooks-cookbook',
+    sourceVersion: '2026-08-27',
+    attribution: 'Recipe text adapted from Wikibooks Cookbook under CC BY-SA 4.0',
+    url: 'https://en.wikibooks.org/wiki/Cookbook:Recipes',
   };
 
   it('keeps transitional attribution when the hosted RPC fails', async () => {

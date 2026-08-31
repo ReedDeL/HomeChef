@@ -1,0 +1,20 @@
+[
+  {
+    "attribution": "HomeChef-authored recipe seed catalog.",
+    "licenseName": "HomeChef-authored original content",
+    "licenseUrl": "https://github.com/ReedDeL/HomeChef/blob/master/docs/specs/2026-08-22-owned-recipe-catalog-design.md",
+    "sourceId": "homechef-authored",
+    "sourceVersion": "authored-seed-1",
+    "title": "HomeChef-authored recipe seed catalog",
+    "url": "https://raw.githubusercontent.com/ReedDeL/HomeChef/master/tools/catalog/seed/recipes.json"
+  },
+  {
+    "attribution": "Recipe text is adapted from the Wikibooks Cookbook under CC BY-SA 4.0. The normalized archive is retained in this repository.",
+    "licenseName": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "sourceId": "wikibooks-cookbook",
+    "sourceVersion": "2026-08-27",
+    "title": "Wikibooks Cookbook recipe snapshot (adapted)",
+    "url": "https://en.wikibooks.org/wiki/Cookbook:Recipes"
+  }
+]

@@ -43,8 +43,10 @@ SYNONYMS: dict[str, str] = {
     "prawn": "shrimp",
     "jelly": "jam",
     "jellies": "jam",
+    "peanut": "peanuts",
     "peanutbutter": "peanut_butter",
     "pb": "peanut_butter",
+    "potato": "potatoes",
 }
 
 # Descriptors that qualify an ingredient without changing what it is. Stripped
