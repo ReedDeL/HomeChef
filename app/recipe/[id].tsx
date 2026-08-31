@@ -34,6 +34,7 @@ export default function RecipeScreen() {
 
   const pantry = useKitchenStore((state) => state.pantry);
   const bodyGoal = useKitchenStore((state) => state.bodyGoal);
+  const bodyMetrics = useKitchenStore((state) => state.bodyMetrics);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
 
   const recipe = useMemo(() => BUNDLED_CATALOG.find((candidate) => candidate.id === id), [id]);
@@ -41,9 +42,15 @@ export default function RecipeScreen() {
   const portionGuidance = useMemo(
     () =>
       recipe
-        ? getPortionGuidance({ recipe, bodyProfile: null, bodyGoal, satietyLevel: null })
+        ? getPortionGuidance({
+            recipe,
+            bodyProfile: null,
+            bodyGoal,
+            bodyMetrics,
+            satietyLevel: null,
+          })
         : null,
-    [recipe, bodyGoal]
+    [recipe, bodyGoal, bodyMetrics]
   );
 
   useEffect(() => {

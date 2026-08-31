@@ -257,4 +257,45 @@ describe('getPortionGuidance', () => {
       })
     ).toMatchObject({ servings: 1, label: 'Start with 1 serving' });
   });
+
+  it('uses optional height and weight without fabricating a full body profile', () => {
+    expect(
+      getPortionGuidance({
+        recipe: nutritionReadyRecipe,
+        bodyProfile: null,
+        bodyGoal: 'maintain',
+        bodyMetrics: { heightCentimeters: 120, weightKilograms: 35 },
+        satietyLevel: null,
+      })?.servings
+    ).toBe(0.75);
+    expect(
+      getPortionGuidance({
+        recipe: nutritionReadyRecipe,
+        bodyProfile: null,
+        bodyGoal: 'maintain',
+        bodyMetrics: { heightCentimeters: 230, weightKilograms: 300 },
+        satietyLevel: null,
+      })?.servings
+    ).toBe(1.25);
+  });
+
+  it('ignores incomplete or invalid optional body metrics', () => {
+    expect(
+      getPortionGuidance({
+        recipe: nutritionReadyRecipe,
+        bodyProfile: null,
+        bodyGoal: 'maintain',
+        bodyMetrics: { heightCentimeters: null, weightKilograms: 70 },
+        satietyLevel: null,
+      })
+    ).toEqual(
+      getPortionGuidance({
+        recipe: nutritionReadyRecipe,
+        bodyProfile: null,
+        bodyGoal: 'maintain',
+        bodyMetrics: null,
+        satietyLevel: null,
+      })
+    );
+  });
 });

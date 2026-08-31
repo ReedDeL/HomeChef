@@ -2,7 +2,6 @@ import {
   recipeWeeklyEntrySchema,
   weeklyMealPlanSchema,
   type RecipeWeeklyEntry,
-  type TasteSignal,
   type WeeklyMealPlan,
 } from '@/contracts/meal-journeys';
 import { BUCKET_ORDER } from '@/engine/bucket';
@@ -27,8 +26,15 @@ export interface PlanWeekInput {
   pantry: ReadonlySet<IngredientId>;
   preferences: UserPreferences;
   days: readonly DailyPlanPreference[];
-  tasteSignals: readonly TasteSignal[];
-  portionInput: Pick<PortionGuidanceInput, 'bodyProfile' | 'satietyLevel'>;
+  tasteSignals: readonly RecipeTasteSignal[];
+  portionInput: Pick<
+    PortionGuidanceInput,
+    'bodyProfile' | 'bodyGoal' | 'bodyMetrics' | 'satietyLevel'
+  >;
+}
+
+export interface RecipeTasteSignal {
+  recipeId: string;
 }
 
 interface RankedCandidate {
@@ -209,7 +215,10 @@ function createRecipeEntry(
   day: DailyPlanPreference,
   recipe: Recipe,
   statedRelaxations: readonly ('time' | 'cuisine')[],
-  portionInput: Pick<PortionGuidanceInput, 'bodyProfile' | 'satietyLevel'>
+  portionInput: Pick<
+    PortionGuidanceInput,
+    'bodyProfile' | 'bodyGoal' | 'bodyMetrics' | 'satietyLevel'
+  >
 ): RecipeWeeklyEntry {
   return recipeWeeklyEntrySchema.parse({
     kind: 'recipe',

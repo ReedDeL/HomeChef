@@ -8,6 +8,7 @@ import {
   COMMON_ALLERGENS,
   EQUIPMENT_TIERS,
   EXTRA_APPLIANCES,
+  mergePlanTasteSignals,
   recordDislike,
   removeDislike,
   toEnginePreferences,
@@ -342,6 +343,48 @@ describe('useKitchenStore body goals and metrics', () => {
       heightCentimeters: null,
       weightKilograms: null,
     });
+  });
+});
+
+describe('confirmed-plan taste signals', () => {
+  it('persists explicit selections without changing pantry contents', () => {
+    useKitchenStore.getState().reset();
+    const pantryBefore = [...useKitchenStore.getState().pantry];
+
+    useKitchenStore
+      .getState()
+      .recordConfirmedPlanSelections(['recipe-b', 'recipe-a', 'recipe-b'], '2026-08-30T12:00:00Z');
+
+    expect(useKitchenStore.getState().planTasteSignals).toEqual([
+      {
+        kind: 'plan_selected',
+        recipeId: 'recipe-b',
+        journey: 'week',
+        recordedAt: '2026-08-30T12:00:00Z',
+      },
+      {
+        kind: 'plan_selected',
+        recipeId: 'recipe-a',
+        journey: 'week',
+        recordedAt: '2026-08-30T12:00:00Z',
+      },
+    ]);
+    expect(useKitchenStore.getState().pantry).toEqual(pantryBefore);
+  });
+
+  it('updates a repeated selection and keeps the local history bounded', () => {
+    const initial = mergePlanTasteSignals([], ['recipe-a'], '2026-08-29T12:00:00Z');
+    const refreshed = mergePlanTasteSignals(initial, ['recipe-a'], '2026-08-30T12:00:00Z');
+    const bounded = mergePlanTasteSignals(
+      refreshed,
+      [...Array.from({ length: 101 }, (_, index) => `recipe-${index}`), 'recipe-a'],
+      '2026-08-30T13:00:00Z'
+    );
+
+    expect(refreshed).toHaveLength(1);
+    expect(refreshed[0]?.recordedAt).toBe('2026-08-30T12:00:00Z');
+    expect(bounded).toHaveLength(100);
+    expect(bounded.some((signal) => signal.recipeId === 'recipe-a')).toBe(true);
   });
 });
 describe('non-destructive kitchen setup management', () => {
