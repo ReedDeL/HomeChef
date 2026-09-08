@@ -1,48 +1,46 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('@/components/ui/Icon', () => ({
-  Icon: ({ name }: { name: string }) => createElement('span', { 'data-icon': name }),
-}));
+import { describe, expect, it } from 'vitest';
 
 import { RecipeImage } from '@/components/ui/RecipeImage';
 
 describe('RecipeImage', () => {
-  it('renders image when uri is provided', () => {
+  it('keeps supplied photos above bundled artwork', () => {
     const markup = renderToStaticMarkup(
       createElement(RecipeImage, {
         uri: 'https://example.test/food.jpg',
-        title: 'Garlic Butter Pasta',
+        recipeId: 'hc-mw-01',
+        title: 'Mug Scrambled Eggs',
       })
     );
-
-    expect(markup).not.toContain('>G<');
-    expect(markup).toContain('style="width:72px;height:72px"');
+    expect(markup).toContain('aria-label="Mug Scrambled Eggs"');
+    expect(markup).toContain('Serving illustration for Mug Scrambled Eggs');
+    expect(markup).toContain('width:72px;height:72px');
   });
 
-  it('renders a stable food placeholder when uri is null', () => {
+  it('renders the registered food tile rather than a cutlery glyph when a URL is missing', () => {
     const markup = renderToStaticMarkup(
       createElement(RecipeImage, {
+        recipeId: 'hc-mw-01',
         uri: null,
-        title: 'Garlic Butter Pasta',
+        title: 'Mug Scrambled Eggs',
       })
     );
-
-    expect(markup).not.toContain('<img');
-    expect(markup).not.toContain('>G<');
-    expect(markup).toContain('data-icon="meal"');
+    expect(markup).toContain('left:-72px;top:-72px');
+    expect(markup).toContain('Serving illustration');
+    expect(markup).not.toContain('data-icon');
   });
 
-  it('renders fallback icon when title is empty', () => {
-    const markup = renderToStaticMarkup(
-      createElement(RecipeImage, {
-        uri: null,
-        title: '',
-      })
-    );
+  it('uses a neutral place setting for unknown recipes', () => {
+    const markup = renderToStaticMarkup(createElement(RecipeImage, { title: 'New dish' }));
+    expect(markup).toContain('left:-288px;top:-504px');
+    expect(markup).not.toContain('data-icon');
+  });
 
-    expect(markup).not.toContain('🍽️');
-    expect(markup).toContain('data-icon="meal"');
+  it('does not attempt to render a blank remote URL', () => {
+    const markup = renderToStaticMarkup(
+      createElement(RecipeImage, { uri: '  ', title: 'New dish' })
+    );
+    expect(markup.match(/aria-label=/g)).toHaveLength(1);
   });
 });

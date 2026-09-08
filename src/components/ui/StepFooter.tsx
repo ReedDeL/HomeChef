@@ -66,6 +66,7 @@ export function StepFooter({
         <View style={styles.forwardWrapper}>
           <PrimaryButton
             label={forwardLabel}
+            icon="arrow-right"
             onPress={onForward}
             accessibilityHint={forwardHint}
             disabled={forwardDisabled}

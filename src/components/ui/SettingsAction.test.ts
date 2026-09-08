@@ -50,8 +50,8 @@ describe('SettingsAction (Prompt 8)', () => {
     expect(markup).not.toContain('⚙️');
     expect(markup).not.toContain('&#9881;');
 
-    // Control is icon-only: no visible Settings text
-    expect(markup).not.toContain('>Settings<');
+    // A visible label keeps the action recognizable if the icon font is unavailable
+    expect(markup).toContain('>Settings<');
   });
 
   it('exposes accessible name exactly as "Settings" with optional contextual hint', () => {
@@ -64,7 +64,7 @@ describe('SettingsAction (Prompt 8)', () => {
 
     expect(markup).toContain('aria-label="Settings"');
     expect(markup).toContain('role="button"');
-    expect(markup).not.toContain('>Settings<');
+    expect(markup).toContain('>Settings<');
   });
 
   it('maintains a 44x44 minimum touch target', () => {
@@ -73,7 +73,7 @@ describe('SettingsAction (Prompt 8)', () => {
 
   it('supports hover, focus, and pressed visual states', () => {
     const actionSource = readFileSync(
-      fileURLToPath(new URL('./SettingsAction.tsx', import.meta.url)),
+      fileURLToPath(new URL('./ActionButton.tsx', import.meta.url)),
       'utf8'
     );
 

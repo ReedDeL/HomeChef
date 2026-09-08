@@ -76,14 +76,16 @@ describe('shared Settings action acceptance contract', () => {
   });
 
   it('keeps the shared action usable at the touch-target floor', () => {
-    const action = source('src/components/ui/SettingsAction.tsx');
+    const settingsAction = source('src/components/ui/SettingsAction.tsx');
+    const action = source('src/components/ui/ActionButton.tsx');
 
+    expect(settingsAction).toContain('<ActionButton');
+    expect(settingsAction).toContain('accessibilityHint =');
+    expect(settingsAction).not.toContain('⚙️');
     expect(action).toContain('minHeight: touchTarget.standard');
     expect(action).toContain('minWidth: touchTarget.standard');
     expect(action).toContain('accessibilityRole="button"');
-    expect(action).toContain('accessibilityLabel="Settings"');
-    expect(action).toContain('accessibilityHint =');
-    expect(action).not.toContain('⚙️');
+    expect(action).toContain('accessibilityLabel={accessibilityLabel ?? label}');
   });
 });
 

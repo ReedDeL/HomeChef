@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'reac
 
 import { Card } from '@/components/ui/Card';
 import { Header } from '@/components/ui/Header';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { RecipeImage } from '@/components/ui/RecipeImage';
 import { Screen } from '@/components/ui/Screen';
@@ -373,6 +374,8 @@ function PlanStep({
     step === 'variety' ? (
       <PrimaryButton
         label={isGenerating ? 'Building your week…' : 'Build my plan'}
+        icon="calendar"
+        loading={isGenerating}
         onPress={onBuildPlan}
         accessibilityHint="Builds your personalized weekly meal plan"
         disabled={isGenerating || !variety}
@@ -380,6 +383,7 @@ function PlanStep({
     ) : (
       <PrimaryButton
         label="Next"
+        icon="arrow-right"
         onPress={onNext}
         disabled={step === 'slots' ? mealSlots.length === 0 : false}
         accessibilityHint="Continues to the next planning question"
@@ -449,6 +453,9 @@ function PlanStep({
               subtitle={option.subtitle}
               selected={mealSlots.includes(option.value)}
               onPress={() => onToggleMealSlot(option.value)}
+              icon={
+                option.value === 'breakfast' ? 'sunrise' : option.value === 'lunch' ? 'sun' : 'moon'
+              }
               accessibilityHint="Toggles this meal slot"
               role="checkbox"
             />
@@ -562,6 +569,7 @@ function PlanSummary({
         plan.status === 'draft' ? (
           <PrimaryButton
             label="Use this plan"
+            icon="check"
             onPress={onConfirm ?? (() => undefined)}
             accessibilityHint="Confirms this week and derives its What to get ingredients"
           />
@@ -619,9 +627,10 @@ function PlanSummary({
                       style={styles.mealRow}
                     >
                       <RecipeImage
+                        recipeId={recipe?.id}
                         uri={recipe?.imageUrl}
                         title={recipe?.title ?? slotLabel}
-                        size={64}
+                        size={80}
                       />
                       <View style={styles.mealCopy}>
                         <Text variant="caption" tone="accent">
@@ -658,21 +667,17 @@ function PlanSummary({
                               .join(' · ')}
                           </Text>
                         ) : null}
+                        {entry.kind === 'recipe' && (
+                          <ActionButton
+                            style={{ alignSelf: 'flex-start', marginTop: space.sm }}
+                            label="Swap"
+                            icon="swap"
+                            accessibilityLabel={`Replace ${slotLabel} on ${group.friendlyDate}`}
+                            accessibilityHint="Replaces one meal without changing the rest of your plan"
+                            onPress={() => onSwap(entry.date, entry.mealSlot)}
+                          />
+                        )}
                       </View>
-                      {entry.kind === 'recipe' && (
-                        <Pressable
-                          accessible
-                          accessibilityRole="button"
-                          accessibilityLabel={`Replace ${slotLabel} on ${group.friendlyDate}`}
-                          accessibilityHint="Replaces one meal without changing the rest of your plan"
-                          onPress={() => onSwap(entry.date, entry.mealSlot)}
-                          style={styles.swapButton}
-                        >
-                          <Text variant="caption" tone="accent">
-                            Swap
-                          </Text>
-                        </Pressable>
-                      )}
                     </View>
                   </Card>
                 );

@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 
 import { PRIMARY_TABS } from '@/lib/navigation';
-import { type as typeScale } from '@/theme/tokens';
+import { radius, space, type as typeScale } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 /**
@@ -22,9 +23,10 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: color.surface,
           borderTopColor: color.border,
-          minHeight: 56,
+          minHeight: 72,
+          paddingTop: space.sm,
         },
-        tabBarLabelStyle: { fontSize: typeScale.caption.fontSize },
+        tabBarLabelStyle: { fontSize: typeScale.caption.fontSize, fontWeight: '600' },
         tabBarItemStyle: { minHeight: 44 },
       }}
     >
@@ -36,12 +38,23 @@ export default function TabsLayout() {
             title: tab.title,
             tabBarAccessibilityLabel: tab.accessibilityLabel,
             tabBarIcon: ({ color: iconColor, size, focused }) => (
-              <MaterialCommunityIcons
-                name={focused ? tab.activeIcon : tab.icon}
-                size={size ?? 24}
-                color={iconColor}
-                accessible={false}
-              />
+              <View
+                style={{
+                  width: 48,
+                  height: 32,
+                  borderRadius: radius.full,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: focused ? color.surfaceAlt : 'transparent',
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={focused ? tab.activeIcon : tab.icon}
+                  size={size ?? 24}
+                  color={iconColor}
+                  accessible={false}
+                />
+              </View>
             ),
           }}
         />

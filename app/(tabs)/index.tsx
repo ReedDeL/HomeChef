@@ -379,6 +379,7 @@ function TimePrompt({
 
           <PrimaryButton
             label="Show me meals"
+            icon="meal"
             onPress={() => onChooseTime(30)}
             accessibilityHint="Shows meals you can make in 30 minutes"
           />

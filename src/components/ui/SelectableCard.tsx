@@ -1,11 +1,13 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
 import { radius, space } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 interface SelectableCardProps {
   title: string;
+  icon?: IconName;
   /** The subtitle does the explaining — the spec allows no help text or tooltip. */
   subtitle?: string;
   selected: boolean;
@@ -25,6 +27,7 @@ const CARD_HEIGHT = 72;
  */
 export function SelectableCard({
   title,
+  icon,
   subtitle,
   selected,
   onPress,
@@ -45,7 +48,7 @@ export function SelectableCard({
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: color.surface,
+          backgroundColor: selected ? color.surfaceAlt : color.surface,
           borderColor: selected ? color.accent : color.border,
           borderWidth: selected ? 2 : 1,
           opacity: pressed ? 0.9 : 1,
@@ -53,6 +56,11 @@ export function SelectableCard({
         shadow.sm,
       ]}
     >
+      {icon ? (
+        <View style={[styles.icon, { backgroundColor: color.surfaceAlt }]}>
+          <Icon name={icon} size={26} color={color.accent} />
+        </View>
+      ) : null}
       <View
         style={[
           styles.marker,
@@ -80,6 +88,13 @@ export function SelectableCard({
 }
 
 const styles = StyleSheet.create({
+  icon: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
     minHeight: CARD_HEIGHT,
     flexDirection: 'row',
