@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -107,7 +107,7 @@ export default function StaplesScreen() {
             { backgroundColor: color.accent, opacity: pressed ? 0.84 : 1 },
           ]}
         >
-          <MaterialCommunityIcons name="camera-outline" size={22} color={color.accentText} />
+          <Icon name="camera" size={22} color={color.accentText} />
           <Text variant="bodyStrong" tone="onAccent">
             Scan pantry with a photo
           </Text>
@@ -134,7 +134,7 @@ export default function StaplesScreen() {
               onPress={() => setQuery('')}
               style={styles.clear}
             >
-              <MaterialCommunityIcons name="close" size={20} color={color.textMuted} />
+              <Icon name="close" size={20} color={color.textMuted} />
             </Pressable>
           ) : null}
         </View>

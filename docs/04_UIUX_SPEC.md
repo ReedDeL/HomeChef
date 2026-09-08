@@ -46,6 +46,10 @@ The three primary destinations are:
 - **Plan**
 - **Pantry**
 
+Web icons use inline SVG geometry so navigation and controls stay recognizable
+when fonts are blocked or fail to load. Icons remain decorative beside accessible
+labels and do not require a separate network request.
+
 Settings is a labeled secondary button with a gear icon. Swap uses a compact
 icon-and-label button inside each meal card. Primary actions use 56pt minimum
 height, rounded corners, visible keyboard focus, and labels that can wrap.

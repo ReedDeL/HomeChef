@@ -1,7 +1,6 @@
-import type { ComponentProps } from 'react';
-import type { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { IconName } from '@/components/ui/Icon.types';
 
-export type TabIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
+export type TabIconName = IconName;
 
 export interface PrimaryTabItem {
   readonly name: 'index' | 'plan' | 'pantry';
@@ -16,22 +15,22 @@ export const PRIMARY_TABS: readonly PrimaryTabItem[] = [
     name: 'index',
     title: 'Now',
     accessibilityLabel: 'Now, decide what to make',
-    icon: 'silverware-fork-knife',
-    activeIcon: 'silverware-fork-knife',
+    icon: 'meal',
+    activeIcon: 'meal',
   },
   {
     name: 'plan',
     title: 'Plan',
     accessibilityLabel: 'Plan, plan your week',
-    icon: 'calendar-month-outline',
-    activeIcon: 'calendar-month',
+    icon: 'calendar',
+    activeIcon: 'calendar',
   },
   {
     name: 'pantry',
     title: 'Pantry',
     accessibilityLabel: 'Pantry, what you have',
-    icon: 'fridge-outline',
-    activeIcon: 'fridge',
+    icon: 'pantry',
+    activeIcon: 'pantry',
   },
 ] as const;
 
