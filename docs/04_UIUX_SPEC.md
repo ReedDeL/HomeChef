@@ -46,6 +46,17 @@ The three primary destinations are:
 - **Plan**
 - **Pantry**
 
+Settings is a labeled secondary button with a gear icon. Swap uses a compact
+icon-and-label button inside each meal card. Primary actions use 56pt minimum
+height, rounded corners, visible keyboard focus, and labels that can wrap.
+Loading actions retain their label, show a progress indicator, and cannot be
+submitted again. Selected tabs use a subtle warm pill behind their icon.
+
+Recipe photos take precedence when available. Missing or failed photos use
+bundled, recipe-specific serving illustrations; unknown recipes use a neutral
+place setting. The recipe page discloses generated imagery. Artwork never
+determines ingredients, allergens, equipment, or portions.
+
 Settings is secondary. Reminders is a secondary destination reachable from
 Settings and a confirmed weekly plan. It is not a fourth primary tab.
 

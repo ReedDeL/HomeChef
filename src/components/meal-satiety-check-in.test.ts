@@ -1,3 +1,6 @@
+import { vi } from 'vitest';
+vi.mock('@/components/ui/Icon', () => ({ Icon: () => null }));
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';

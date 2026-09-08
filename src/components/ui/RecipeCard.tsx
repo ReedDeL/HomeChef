@@ -14,7 +14,7 @@ interface RecipeCardProps {
   onDislike?: (recipeId: string) => void;
 }
 
-const THUMBNAIL = 72;
+const THUMBNAIL = 96;
 
 /**
  * One answer (Technical Spec §4.1, B4).
@@ -48,7 +48,12 @@ export function RecipeCard({ scored, onPress, onDislike }: RecipeCardProps) {
         style={({ pressed }) => [styles.main, { opacity: pressed ? 0.9 : 1 }]}
       >
         <View style={styles.row}>
-          <RecipeImage uri={recipe.imageUrl} title={recipe.title} size={THUMBNAIL} />
+          <RecipeImage
+            recipeId={recipe.id}
+            uri={recipe.imageUrl}
+            title={recipe.title}
+            size={THUMBNAIL}
+          />
 
           <View style={styles.copy}>
             <Text variant="bodyStrong" numberOfLines={2}>

@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
-import { Image, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Header } from '@/components/ui/Header';
 import { IngredientChip } from '@/components/ui/IngredientChip';
+import { RecipeImage } from '@/components/ui/RecipeImage';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
 import { Screen } from '@/components/ui/Screen';
@@ -95,14 +96,15 @@ export default function RecipeScreen() {
         ]}
       >
         <View style={styles.recipePrimary}>
-          {recipe.imageUrl ? (
-            <Image
-              source={{ uri: recipe.imageUrl }}
-              style={[styles.hero, responsive.isDesktop && styles.desktopHero]}
-              accessibilityIgnoresInvertColors
-              accessible={false}
-            />
-          ) : null}
+          <RecipeImage
+            recipeId={recipe.id}
+            uri={recipe.imageUrl}
+            title={recipe.title}
+            style={[styles.hero, responsive.isDesktop && styles.desktopHero]}
+          />
+          <Text variant="caption" tone="muted">
+            Serving imagery may be AI-generated. Follow the ingredients listed below.
+          </Text>
           <View style={styles.intro}>
             <Text variant="title">{recipe.title}</Text>
             <Text variant="caption" tone="muted">
