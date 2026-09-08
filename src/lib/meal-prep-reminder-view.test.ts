@@ -20,15 +20,24 @@ describe('toMealPrepReminderEntries', () => {
     ] as const;
     const plan = {
       weekStart: dates[0],
+      dayCount: 7 as const,
+      mealSlots: ['dinner'] as const,
+      limitedVariety: false,
       status: 'confirmed' as const,
       groceryNeeds: [],
       statedRelaxations: [],
       entries: dates.map((date, index) =>
         index === 1
-          ? { kind: 'day_of_decision' as const, date, reason: 'not_planned' as const }
+          ? {
+              kind: 'day_of_decision' as const,
+              date,
+              mealSlot: 'dinner' as const,
+              reason: 'not_planned' as const,
+            }
           : {
               kind: 'recipe' as const,
               date,
+              mealSlot: 'dinner' as const,
               recipeId: 'recipe-1',
               plannedMealTime: date + 'T18:30:00-07:00',
               statedRelaxations: [],
@@ -44,6 +53,81 @@ describe('toMealPrepReminderEntries', () => {
 
     expect(toMealPrepReminderEntries(plan, [recipe])).toHaveLength(6);
     expect(toMealPrepReminderEntries({ ...plan, status: 'draft' }, [recipe])).toEqual([]);
+  });
+
+  it('includes date, meal slot, and recipe ID in reminder identity for multi-slot plans', () => {
+    const plan = {
+      weekStart: '2026-08-28',
+      dayCount: 3 as const,
+      mealSlots: ['lunch', 'dinner'] as const,
+      limitedVariety: false,
+      status: 'confirmed' as const,
+      groceryNeeds: [],
+      statedRelaxations: [],
+      entries: [
+        {
+          kind: 'recipe' as const,
+          date: '2026-08-28',
+          mealSlot: 'lunch' as const,
+          recipeId: 'recipe-1',
+          plannedMealTime: '2026-08-28T12:00:00-07:00',
+          statedRelaxations: [],
+          portionGuidance: null,
+        },
+        {
+          kind: 'recipe' as const,
+          date: '2026-08-28',
+          mealSlot: 'dinner' as const,
+          recipeId: 'recipe-1',
+          plannedMealTime: '2026-08-28T18:30:00-07:00',
+          statedRelaxations: [],
+          portionGuidance: null,
+        },
+        {
+          kind: 'recipe' as const,
+          date: '2026-08-29',
+          mealSlot: 'lunch' as const,
+          recipeId: 'recipe-2',
+          plannedMealTime: '2026-08-29T12:00:00-07:00',
+          statedRelaxations: [],
+          portionGuidance: null,
+        },
+        {
+          kind: 'recipe' as const,
+          date: '2026-08-29',
+          mealSlot: 'dinner' as const,
+          recipeId: 'recipe-2',
+          plannedMealTime: '2026-08-29T18:30:00-07:00',
+          statedRelaxations: [],
+          portionGuidance: null,
+        },
+        {
+          kind: 'day_of_decision' as const,
+          date: '2026-08-30',
+          mealSlot: 'lunch' as const,
+          reason: 'not_planned' as const,
+        },
+        {
+          kind: 'day_of_decision' as const,
+          date: '2026-08-30',
+          mealSlot: 'dinner' as const,
+          reason: 'not_planned' as const,
+        },
+      ],
+    };
+    const catalog = [
+      { id: 'recipe-1', title: 'Tomato pasta', totalTimeMinutes: 30 } as never,
+      { id: 'recipe-2', title: 'Bean burrito', totalTimeMinutes: 15 } as never,
+    ];
+
+    const entries = toMealPrepReminderEntries(plan, catalog);
+    expect(entries).toHaveLength(4);
+    expect(entries.map((e) => e.id)).toEqual([
+      '2026-08-28:lunch:recipe-1',
+      '2026-08-28:dinner:recipe-1',
+      '2026-08-29:lunch:recipe-2',
+      '2026-08-29:dinner:recipe-2',
+    ]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { BUNDLED_CATALOG, INGREDIENT_VOCABULARY, lookupIngredient } from '@/data/catalog';
-import type { IngredientId } from '@/engine/types';
-import { COMMON_PANTRY_IDS } from '@/store/kitchen';
+import type { DietaryTag, IngredientId } from '@/engine/types';
+import { COMMON_ALLERGENS, COMMON_PANTRY_IDS } from '@/store/kitchen';
+import { PANTRY_STARTER_IDS } from '@/data/ingredient-presentation';
 import { resolveIngredient } from '@/lib/ingredients/resolve';
 import { canonicalSlug, slugify, SYNONYMS } from '@/lib/ingredients/normalize';
 
@@ -161,4 +162,98 @@ export function searchIngredientSuggestions(
   }
 
   return results.slice(0, limit);
+}
+
+/**
+ * Checklist results deliberately retain owned ingredients: a checked search
+ * result is how someone corrects a pantry without first clearing the query.
+ */
+export function getChecklistIngredientIds(
+  query: string,
+  pantry: ReadonlyArray<IngredientId> | ReadonlySet<IngredientId>,
+  starterIds: readonly IngredientId[] = PANTRY_STARTER_IDS,
+  limit: number = MAX_SEARCH_RESULTS
+): IngredientId[] {
+  const owned = pantry instanceof Set ? pantry : new Set(pantry);
+  const term = query.trim();
+
+  if (term.length > 0) {
+    const matching = searchIngredientSuggestions(term, [], limit);
+    const checkedMatches = [...owned].filter((id) => {
+      const entry = lookupIngredient(id);
+      return entry?.displayName.toLowerCase().includes(term.toLowerCase()) || matching.includes(id);
+    });
+    return [...new Set([...checkedMatches, ...matching])].slice(0, limit);
+  }
+
+  const checked = [...owned];
+  const unownedStarters = starterIds.filter((id) => !owned.has(id));
+  const suggested =
+    unownedStarters.length > 0 ? unownedStarters : getReplenishingSuggestions(owned, 8);
+  return [...new Set([...checked, ...suggested])];
+}
+
+/**
+ * Checks whether an ingredient is safe given declared allergens and dietary restrictions.
+ * Enforces that onboarding starters never preselect an item conflicting with prior choices.
+ */
+export function isStarterIngredientSafe(
+  id: IngredientId,
+  allergens: readonly string[],
+  dietary: readonly DietaryTag[] = []
+): boolean {
+  const entry = lookupIngredient(id);
+  if (!entry) return false;
+
+  const declaredAllergenGroups = new Set(
+    allergens.flatMap(
+      (allergenId) => COMMON_ALLERGENS.find((a) => a.id === allergenId)?.groups ?? [allergenId]
+    )
+  );
+
+  if (declaredAllergenGroups.has(entry.id)) return false;
+  if (entry.allergenGroups.some((group) => declaredAllergenGroups.has(group))) return false;
+
+  if (
+    dietary.includes('gluten_free') &&
+    (entry.allergenGroups.includes('gluten') || entry.allergenGroups.includes('wheat'))
+  ) {
+    return false;
+  }
+  if (dietary.includes('dairy_free') && entry.allergenGroups.includes('dairy')) {
+    return false;
+  }
+  if (
+    dietary.includes('vegan') &&
+    (entry.allergenGroups.includes('dairy') || entry.allergenGroups.includes('egg'))
+  ) {
+    return false;
+  }
+  if (
+    (dietary.includes('vegan') ||
+      dietary.includes('vegetarian') ||
+      dietary.includes('pescatarian')) &&
+    ['beef', 'chicken', 'pork', 'lamb', 'bacon', 'ham'].includes(id)
+  ) {
+    return false;
+  }
+  if (
+    (dietary.includes('vegan') || dietary.includes('vegetarian')) &&
+    ['fish', 'salmon', 'tuna', 'shrimp', 'cod', 'anchovy'].includes(id)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Returns only those starter ingredients that satisfy all declared allergens and dietary restrictions.
+ */
+export function filterSafeStarterIngredients(
+  starterIds: readonly IngredientId[],
+  allergens: readonly string[],
+  dietary: readonly DietaryTag[] = []
+): IngredientId[] {
+  return starterIds.filter((id) => isStarterIngredientSafe(id, allergens, dietary));
 }

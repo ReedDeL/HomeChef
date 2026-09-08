@@ -25,6 +25,13 @@ describe('isEquipmentSatisfied', () => {
     expect(isEquipmentSatisfied(['none'], [])).toBe(true);
   });
 
+  // Boundary: the user who explicitly selects "No cooking equipment".
+  it('filters all appliance recipes when user has "none" (no cooking equipment)', () => {
+    expect(isEquipmentSatisfied(['microwave'], ['none'])).toBe(false);
+    expect(isEquipmentSatisfied(['stove'], ['none'])).toBe(false);
+    expect(isEquipmentSatisfied(['none'], ['none'])).toBe(true);
+  });
+
   // Boundary: the full-kitchen user.
   it('admits everything when the user owns everything', () => {
     expect(isEquipmentSatisfied(['oven', 'stove', 'blender'], ALL_EQUIPMENT)).toBe(true);

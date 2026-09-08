@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-import { STAPLE_INGREDIENT_IDS, lookupIngredient } from '@/data/catalog';
+import { lookupIngredient } from '@/data/catalog';
 import type { BodyGoal, WeeklyMealPlan } from '@/contracts/meal-journeys';
 import type { DietaryTag, Equipment, IngredientId, UserPreferences } from '@/engine/types';
+import {
+  migrateEquipmentState,
+  normalizeOwnedEquipment,
+  toggleOwnedEquipment,
+  type SelectableEquipment,
+} from '@/lib/equipment';
 import { clearLocalMealSatiety } from '@/lib/meal-satiety';
 import type { MealPrepReminderLeadMinutes } from '@/lib/meal-prep-reminder';
 import { getJSON, setJSON, storage } from '@/lib/storage';
+import { migrateWeeklyPlan } from '@/lib/weekly-plan-migration';
 
 /**
  * Client state: the constraints the user declared and the pantry they own.
@@ -21,48 +28,6 @@ import { getJSON, setJSON, storage } from '@/lib/storage';
  *
  * Server state, when it arrives, belongs in TanStack Query — never here.
  */
-
-export interface EquipmentTier {
-  id: string;
-  label: string;
-  subtitle: string;
-  equipment: readonly Equipment[];
-}
-
-/** Shared language for appliance choices across onboarding and Settings. */
-export const APPLIANCE_SECTION_TITLE = 'Kitchen appliances';
-export const APPLIANCE_SECTION_DESCRIPTION =
-  'Add appliances you use to expand the meals HomeChef can recommend.';
-
-/** Spec §3: three tiers, single-select, subtitle does the explaining. */
-export const EQUIPMENT_TIERS: readonly EquipmentTier[] = [
-  {
-    id: 'microwave',
-    label: 'Microwave only',
-    subtitle: 'Cook using only a microwave',
-    equipment: ['microwave'],
-  },
-  {
-    id: 'kettle',
-    label: 'Microwave + kettle',
-    subtitle: 'Microwave plus electric kettle or boiling water',
-    equipment: ['microwave', 'kettle'],
-  },
-  {
-    id: 'full',
-    label: 'Full kitchen',
-    subtitle: 'Stove, oven, and standard cookware',
-    equipment: ['microwave', 'stove', 'oven', 'kettle'],
-  },
-];
-
-/** Spec §3: multi-select appliances, added on top of the tier. */
-export const EXTRA_APPLIANCES: readonly { id: Equipment; label: string }[] = [
-  { id: 'air_fryer', label: 'Air fryer' },
-  { id: 'rice_cooker', label: 'Rice cooker' },
-  { id: 'blender', label: 'Blender' },
-  { id: 'toaster_oven', label: 'Toaster oven' },
-];
 
 /**
  * Common allergens, keyed to the allergen *groups* the ingredient vocabulary
@@ -147,12 +112,13 @@ const DISLIKED_KEY = 'homechef-disliked';
 const SKIPPED_KEY = 'homechef-skipped';
 
 interface KitchenState {
-  tierId: string;
-  extras: Equipment[];
+  equipment: SelectableEquipment[];
   /** COMMON_ALLERGENS option ids, expanded to vocabulary groups on read. */
   allergens: string[];
   dietary: DietaryTag[];
   pantry: IngredientId[];
+  /** Prevents navigating back from silently reapplying starter selections. */
+  pantryStarterInitialized: boolean;
   onboardingDone: boolean;
   themeMode: ThemeMode;
   mealPrepRemindersEnabled: boolean;
@@ -167,11 +133,13 @@ interface KitchenState {
   weeklyPlan: WeeklyMealPlan | null;
   checkedPlanGroceryNeeds: string[];
 
-  setTier: (tierId: string) => void;
-  toggleExtra: (equipment: Equipment) => void;
+  setEquipment: (equipment: readonly Equipment[]) => void;
+  toggleEquipment: (equipment: SelectableEquipment) => void;
   toggleAllergen: (id: string) => void;
   toggleDietary: (tag: DietaryTag) => void;
   togglePantryItem: (id: IngredientId) => void;
+  /** Applies curated starter items once, preserving any confirmed photo detections. */
+  initializePantryStarter: (ids: readonly IngredientId[]) => void;
   removePantryItem: (id: IngredientId) => void;
   /** Bulk add from a confirmed photo scan. Idempotent — adding twice is a no-op. */
   addPantryItems: (ids: readonly IngredientId[]) => void;
@@ -193,8 +161,6 @@ interface KitchenState {
   clearPlanGroceryChecks: () => void;
   reset: () => void;
 }
-
-const DEFAULT_TIER_ID = 'full';
 
 /**
  * Zustand's persist middleware expects the async web Storage shape. The
@@ -236,15 +202,26 @@ export function mergePlanTasteSignals(
     .slice(-100);
 }
 
+export function migrateKitchenState(persisted: unknown): Record<string, unknown> {
+  const migrated = migrateEquipmentState(persisted);
+  return {
+    ...migrated,
+    weeklyPlan: migrateWeeklyPlan(migrated.weeklyPlan),
+    pantryStarterInitialized:
+      typeof migrated.pantryStarterInitialized === 'boolean'
+        ? migrated.pantryStarterInitialized
+        : Array.isArray(migrated.pantry),
+  };
+}
+
 export const useKitchenStore = create<KitchenState>()(
   persist(
     (set) => ({
-      tierId: DEFAULT_TIER_ID,
-      extras: [],
+      equipment: [],
       allergens: [],
       dietary: [],
-      // Spec §10: "We assumed you have these. Tap any you don't."
-      pantry: [...STAPLE_INGREDIENT_IDS],
+      pantry: [],
+      pantryStarterInitialized: false,
       onboardingDone: false,
       themeMode: 'system',
       mealPrepRemindersEnabled: false,
@@ -258,11 +235,18 @@ export const useKitchenStore = create<KitchenState>()(
       weeklyPlan: null,
       checkedPlanGroceryNeeds: [],
 
-      setTier: (tierId) => set({ tierId }),
-      toggleExtra: (equipment) => set((s) => ({ extras: toggle(s.extras, equipment) })),
+      setEquipment: (equipment) => set({ equipment: normalizeOwnedEquipment(equipment) }),
+      toggleEquipment: (equipment) =>
+        set((state) => ({ equipment: toggleOwnedEquipment(state.equipment, equipment) })),
       toggleAllergen: (id) => set((s) => ({ allergens: toggle(s.allergens, id) })),
       toggleDietary: (tag) => set((s) => ({ dietary: toggle(s.dietary, tag) })),
       togglePantryItem: (id) => set((s) => ({ pantry: toggle(s.pantry, id) })),
+      initializePantryStarter: (ids) =>
+        set((state) =>
+          state.pantryStarterInitialized
+            ? state
+            : { pantry: [...new Set([...state.pantry, ...ids])], pantryStarterInitialized: true }
+        ),
       removePantryItem: (id) => set((s) => ({ pantry: s.pantry.filter((item) => item !== id) })),
       // Mirrors the `unique (household_id, ingredient_id)` constraint the
       // Postgres pantry enforces: a second carton of milk is the same row, not
@@ -331,11 +315,11 @@ export const useKitchenStore = create<KitchenState>()(
         setJSON(SKIPPED_KEY, []);
         clearLocalMealSatiety();
         set({
-          tierId: DEFAULT_TIER_ID,
-          extras: [],
+          equipment: [],
           allergens: [],
           dietary: [],
-          pantry: [...STAPLE_INGREDIENT_IDS],
+          pantry: [],
+          pantryStarterInitialized: false,
           onboardingDone: false,
           themeMode: 'system',
           mealPrepRemindersEnabled: false,
@@ -351,7 +335,12 @@ export const useKitchenStore = create<KitchenState>()(
         });
       },
     }),
-    { name: 'homechef-kitchen', storage: zustandStorage }
+    {
+      name: 'homechef-kitchen',
+      storage: zustandStorage,
+      version: 2,
+      migrate: migrateKitchenState,
+    }
   )
 );
 
@@ -363,16 +352,13 @@ export const useKitchenStore = create<KitchenState>()(
  * mirroring what `src/lib/adapters/from-database.ts` does for Postgres rows.
  */
 export function toEnginePreferences(
-  state: Pick<KitchenState, 'tierId' | 'extras' | 'allergens' | 'dietary'> & {
+  state: Pick<KitchenState, 'equipment' | 'allergens' | 'dietary'> & {
     dislikedRecipes?: readonly string[];
     skippedRecipes?: readonly string[];
     bodyGoal?: BodyGoal | null;
   },
   preferredCuisine: string | null = null
 ): UserPreferences {
-  const tier = EQUIPMENT_TIERS.find((candidate) => candidate.id === state.tierId);
-  const base = tier?.equipment ?? [];
-
   // The store holds UI option ids; the engine wants the vocabulary's allergen
   // groups. Expanding here keeps the widening in one place — a screen that
   // passed the raw selection through would silently under-filter.
@@ -388,7 +374,7 @@ export function toEnginePreferences(
     : new Set(getJSON<string[]>(SKIPPED_KEY) ?? []);
 
   return {
-    equipment: [...new Set([...base, ...state.extras])],
+    equipment: normalizeOwnedEquipment(state.equipment),
     allergens: [...new Set(allergenGroups)],
     dietary: state.dietary,
     dislikedRecipeIds: disliked,

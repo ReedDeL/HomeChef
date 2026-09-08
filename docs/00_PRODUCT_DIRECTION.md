@@ -56,9 +56,14 @@ make now, it proposes a week and then identifies the ingredient gaps.
 The decision tree asks only a few questions:
 
 1. How many days should HomeChef plan?
-2. Is the week mostly quick meals, batch prep, or a mix?
-3. Does the user want variety or comfortable repeats?
-4. Confirm the proposed week.
+2. Which meals should be planned: breakfast, lunch, dinner, or a combination?
+3. Is the week mostly quick meals, batch prep, or a mix?
+4. Does the user want variety or comfortable repeats?
+5. Confirm the proposed week.
+
+Selecting a preference changes the answer; **Next** advances to the next question.
+The final preference step uses **Build my plan**. Plans group meals by date and
+label every meal slot. Existing single-meal plans retain their meals as dinner.
 
 Existing equipment, allergens, dietary needs, pantry contents, and learned
 preferences apply automatically.

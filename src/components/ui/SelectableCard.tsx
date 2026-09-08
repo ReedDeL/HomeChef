@@ -11,13 +11,14 @@ interface SelectableCardProps {
   selected: boolean;
   onPress: () => void;
   accessibilityHint: string;
+  role?: 'radio' | 'checkbox';
 }
 
 /** Spec §3: 72pt tall, accent border when selected. */
 const CARD_HEIGHT = 72;
 
 /**
- * A single-select row, used for the equipment tier in onboarding.
+ * A selectable row, used for single-choice and multi-choice selections.
  *
  * Selection is shown with an accent border *and* a filled marker rather than
  * colour alone, so it survives a colour-blind user and a greyscale screenshot.
@@ -28,14 +29,16 @@ export function SelectableCard({
   selected,
   onPress,
   accessibilityHint,
+  role = 'radio',
 }: SelectableCardProps) {
   const { color, shadow } = useTheme();
 
   return (
     <Pressable
       accessible
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityRole={role}
+      accessibilityState={{ checked: selected }}
+      aria-checked={selected}
       accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
@@ -53,10 +56,17 @@ export function SelectableCard({
       <View
         style={[
           styles.marker,
+          role === 'checkbox' && styles.checkboxMarker,
           { borderColor: selected ? color.accent : color.border },
           selected && { backgroundColor: color.accent },
         ]}
-      />
+      >
+        {role === 'checkbox' && selected ? (
+          <Text variant="caption" tone="onAccent" style={styles.checkmark}>
+            ✓
+          </Text>
+        ) : null}
+      </View>
       <View style={styles.copy}>
         <Text variant="bodyStrong">{title}</Text>
         {subtitle ? (
@@ -84,6 +94,16 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: radius.full,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxMarker: {
+    borderRadius: radius.sm,
+  },
+  checkmark: {
+    fontSize: 13,
+    lineHeight: 15,
+    fontWeight: '700',
   },
   copy: { flex: 1, gap: 2 },
 });

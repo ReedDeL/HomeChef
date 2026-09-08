@@ -1,9 +1,5 @@
 import type { BodyGoal, BodyProfile, WeeklyMealPlan } from '@/contracts/meal-journeys';
-import {
-  applyPlanPreferences,
-  type PlanDayCount,
-  type PlanVariety,
-} from '@/engine/plan-preferences';
+import { type PlanDayCount, type PlanVariety } from '@/engine/plan-preferences';
 import { planWeek, type RecipeTasteSignal } from '@/engine/plan-week';
 import type { PortionBodyMetrics } from '@/engine/portion-guidance';
 import type { DailyPlanPreference, IngredientId, Recipe, UserPreferences } from '@/engine/types';
@@ -29,7 +25,12 @@ export function createPlanProposal(input: CreatePlanProposalInput): WeeklyMealPl
     recipes: input.recipes,
     pantry: input.pantry,
     preferences: input.preferences,
-    days: input.weekDays,
+    days: input.weekDays.filter((day) =>
+      [...new Set(input.weekDays.map((value) => value.date))]
+        .slice(0, input.days)
+        .includes(day.date)
+    ),
+    variety: input.variety,
     tasteSignals: input.tasteSignals,
     portionInput: {
       bodyProfile: input.bodyProfile,
@@ -39,7 +40,7 @@ export function createPlanProposal(input: CreatePlanProposalInput): WeeklyMealPl
     },
   });
 
-  return applyPlanPreferences(draft, input.days, input.variety, input.recipes, input.pantry);
+  return draft;
 }
 
 const PREP_STYLE_SUMMARIES: Record<PlanPrepStyle, string> = {

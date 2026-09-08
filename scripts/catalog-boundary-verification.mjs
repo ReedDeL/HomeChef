@@ -75,5 +75,17 @@ check(
   !/themealdb/i.test(readFileSync(join(root, 'src/data/recipes.json'), 'utf8')) &&
     !/themealdb/i.test(settings)
 );
+const nonAnyCuisines = new Set(
+  recipes
+    .map((recipe) => recipe.cuisine)
+    .filter(
+      (cuisine) =>
+        typeof cuisine === 'string' && cuisine.trim().length > 0 && cuisine.toLowerCase() !== 'any'
+    )
+);
+check(
+  `Production catalog yields at least four non-Any cuisines (observed: ${[...nonAnyCuisines].sort().join(', ') || 'none'})`,
+  nonAnyCuisines.size >= 4
+);
 if (argv.includes('--self-test')) stdout.write('PASS boundary self-test\n');
 if (failures.length) throw new Error(`${failures.length} catalog boundary assertions failed`);

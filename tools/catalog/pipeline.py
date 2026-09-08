@@ -18,7 +18,13 @@ from tools.catalog.models import (
     SourceRecipe,
     VocabularyEntry,
 )
-from tools.catalog.normalize import allergen_groups_for, canonical_id, display_name, is_staple
+from tools.catalog.normalize import (
+    allergen_groups_for,
+    canonical_cuisine,
+    canonical_id,
+    display_name,
+    is_staple,
+)
 from tools.catalog.rights import ReleaseSource, RightsManifest, RightsSource
 from tools.catalog.seed_loader import (
     AUTHORED_SOURCE_ID,
@@ -319,7 +325,7 @@ def _normalize_recipe(
             id=recipe_id,
             title=recipe.title,
             image_url=recipe.image_url,
-            cuisine=recipe.cuisine.lower() if recipe.cuisine else None,
+            cuisine=canonical_cuisine(recipe.cuisine),
             total_time_minutes=recipe.total_time_minutes,
             equipment_required=equipment,
             allergen_status=recipe.allergen_status,
@@ -342,7 +348,7 @@ def _normalize_recipe(
 
 def _homechef_id(recipe: SourceRecipe, ingredients: list[CatalogIngredient]) -> str:
     identity = {
-        "cuisine": recipe.cuisine.lower() if recipe.cuisine else None,
+        "cuisine": canonical_cuisine(recipe.cuisine),
         "dietaryTags": sorted(recipe.dietary_tags),
         "equipment": sorted(recipe.equipment),
         "ingredients": sorted((item.id, item.raw_measure) for item in ingredients),
@@ -446,3 +452,45 @@ def _build_vocabulary(
 
 def _sorted_quarantine(entries: list[QuarantineEntry]) -> list[QuarantineEntry]:
     return sorted(entries, key=lambda item: (item.coordinate, item.code, item.detail))
+
+
+def rebuild_committed_catalog(output_dir: Path | None = None) -> ReleaseBuild:
+    """Build the approved release from committed archives and seeds, writing to src/data."""
+    catalog_output_dir = (
+        output_dir
+        if output_dir is not None
+        else Path(__file__).resolve().parents[2] / "src" / "data"
+    )
+    manifest_path = Path(__file__).resolve().parent / "rights-manifest.json"
+    manifest = RightsManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+    archives_dir = Path(__file__).resolve().parent / "archives"
+    archives = {
+        source.id: archives_dir / f"{source.id}-{source.version[:7]}.jsonl"
+        for source in manifest.approved_sources()
+    }
+    release = build_release(manifest, archives)
+    catalog_output_dir.mkdir(parents=True, exist_ok=True)
+    recipes_payload = [r.model_dump(by_alias=True) for r in release.recipes]
+    vocabulary_payload = [v.model_dump(by_alias=True) for v in release.vocabulary]
+
+    (catalog_output_dir / "recipes.json").write_text(
+        json.dumps(recipes_payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    (catalog_output_dir / "ingredients.json").write_text(
+        json.dumps(vocabulary_payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return release
+
+
+def main() -> int:
+    release = rebuild_committed_catalog()
+    print(f"Wrote {len(release.recipes)} recipes and {len(release.vocabulary)} ingredients.")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())

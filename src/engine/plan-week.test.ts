@@ -10,7 +10,12 @@ import {
   makeRecipe,
   pantry,
 } from '@/engine/__fixtures__';
-import { buildCandidateTimeTiers, planWeek, type PlanWeekInput } from '@/engine/plan-week';
+import {
+  buildCandidateTimeTiers,
+  planWeek,
+  swapPlanMeal,
+  type PlanWeekInput,
+} from '@/engine/plan-week';
 import type { DailyPlanPreference, Recipe } from '@/engine/types';
 
 const DATES = [
@@ -100,6 +105,7 @@ describe('planWeek input and output contract', () => {
       DATES.map((date, index) => ({
         kind: 'recipe',
         date,
+        mealSlot: 'dinner',
         recipeId: `recipe-${index + 1}`,
         plannedMealTime: `${date}T18:30:00-07:00`,
         statedRelaxations: [],
@@ -243,7 +249,12 @@ describe('planWeek safety and relaxation', () => {
     );
 
     expect(plan.entries).toEqual(
-      DATES.map((date) => ({ kind: 'day_of_decision', date, reason: 'no_safe_recipe' }))
+      DATES.map((date) => ({
+        kind: 'day_of_decision',
+        date,
+        mealSlot: 'dinner',
+        reason: 'no_safe_recipe',
+      }))
     );
   });
 
@@ -258,6 +269,7 @@ describe('planWeek safety and relaxation', () => {
     expect(plan.entries[0]).toEqual({
       kind: 'day_of_decision',
       date: DATES[0],
+      mealSlot: 'dinner',
       reason: 'no_safe_recipe',
     });
   });
@@ -326,8 +338,8 @@ describe('planWeek deterministic ranking', () => {
       'b',
       'c',
       'a',
-      'a',
-      'a',
+      'b',
+      'c',
       'a',
     ]);
   });
@@ -359,7 +371,12 @@ describe('planWeek grocery cap and portion guidance', () => {
     const plan = planWeek(makePlanInput({ recipes: [recipe], pantry: pantry() }));
 
     expect(plan.entries).toEqual(
-      DATES.map((date) => ({ kind: 'day_of_decision', date, reason: 'grocery_need_cap' }))
+      DATES.map((date) => ({
+        kind: 'day_of_decision',
+        date,
+        mealSlot: 'dinner',
+        reason: 'grocery_need_cap',
+      }))
     );
     expect(plan.groceryNeeds).toEqual([]);
   });
@@ -423,5 +440,169 @@ describe('planWeek shared fixture parity', () => {
     );
 
     expect(plan).toEqual(fixture.weeklyMealPlan);
+  });
+});
+
+describe('multi-slot and multi-day planning', () => {
+  it('generates a 3-day 3-slot plan with 9 entries ordered by date then slot', () => {
+    const recipes: Recipe[] = [
+      makeRecipe({ id: 'bk-1', mealSlots: ['breakfast'], ingredients: [ingredient('egg')] }),
+      makeRecipe({ id: 'lu-1', mealSlots: ['lunch'], ingredients: [ingredient('bread')] }),
+      makeRecipe({ id: 'di-1', mealSlots: ['dinner'], ingredients: [ingredient('rice')] }),
+    ];
+    const days: DailyPlanPreference[] = [
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'lunch' }),
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'lunch' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'lunch' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'dinner' }),
+    ];
+
+    const plan = planWeek(
+      makePlanInput({
+        recipes,
+        days,
+        pantry: pantry('egg', 'bread', 'rice'),
+      })
+    );
+
+    expect(plan.dayCount).toBe(3);
+    expect(plan.mealSlots).toEqual(['breakfast', 'lunch', 'dinner']);
+    expect(plan.entries).toHaveLength(9);
+    expect(plan.entries.map((e) => `${e.date}:${e.mealSlot}`)).toEqual([
+      '2026-08-24:breakfast',
+      '2026-08-24:lunch',
+      '2026-08-24:dinner',
+      '2026-08-25:breakfast',
+      '2026-08-25:lunch',
+      '2026-08-25:dinner',
+      '2026-08-26:breakfast',
+      '2026-08-26:lunch',
+      '2026-08-26:dinner',
+    ]);
+    expect(plan.entries.map((e) => (e.kind === 'recipe' ? e.recipeId : null))).toEqual([
+      'bk-1',
+      'lu-1',
+      'di-1',
+      'bk-1',
+      'lu-1',
+      'di-1',
+      'bk-1',
+      'lu-1',
+      'di-1',
+    ]);
+  });
+
+  it('aggregates grocery needs across multiple meal slots on the same date', () => {
+    const recipes: Recipe[] = [
+      makeRecipe({
+        id: 'bk-1',
+        mealSlots: ['breakfast'],
+        ingredients: [ingredient('shared-onion'), ingredient('egg')],
+      }),
+      makeRecipe({
+        id: 'di-1',
+        mealSlots: ['dinner'],
+        ingredients: [ingredient('shared-onion'), ingredient('beef')],
+      }),
+    ];
+    const days: DailyPlanPreference[] = [
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'dinner' }),
+    ];
+
+    const plan = planWeek(
+      makePlanInput({
+        recipes,
+        days,
+        pantry: pantry(), // empty pantry so all ingredients become grocery needs
+      })
+    );
+
+    const sharedOnionNeed = plan.groceryNeeds.find((g) => g.ingredientId === 'shared-onion');
+    expect(sharedOnionNeed).toBeDefined();
+    expect(sharedOnionNeed?.recipeIds).toContain('bk-1');
+    expect(sharedOnionNeed?.recipeIds).toContain('di-1');
+    expect(sharedOnionNeed?.dates).toContain('2026-08-24');
+  });
+
+  it('fills all slots with the single safe recipe and marks limitedVariety: true', () => {
+    const recipes: Recipe[] = [
+      makeRecipe({ id: 'only-one', mealSlots: ['breakfast', 'lunch', 'dinner'] }),
+    ];
+    const days: DailyPlanPreference[] = [
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'lunch' }),
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'lunch' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'lunch' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'dinner' }),
+    ];
+
+    const plan = planWeek(
+      makePlanInput({
+        recipes,
+        days,
+        pantry: pantry(),
+      })
+    );
+
+    expect(plan.limitedVariety).toBe(true);
+    expect(plan.entries).toHaveLength(6);
+    expect(plan.entries.every((e) => e.kind === 'recipe' && e.recipeId === 'only-one')).toBe(true);
+  });
+
+  it('swaps a specific meal slot while preserving other slots and updating groceries', () => {
+    const recipes: Recipe[] = [
+      makeRecipe({ id: 'curry', mealSlots: ['dinner'], ingredients: [ingredient('curry-powder')] }),
+      makeRecipe({ id: 'stew', mealSlots: ['dinner'], ingredients: [ingredient('stew-meat')] }),
+      makeRecipe({ id: 'toast', mealSlots: ['breakfast'], ingredients: [ingredient('bread')] }),
+    ];
+    const days: DailyPlanPreference[] = [
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-24', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-25', mealSlot: 'dinner' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'breakfast' }),
+      makeDailyPlanPreference({ date: '2026-08-26', mealSlot: 'dinner' }),
+    ];
+
+    const planInput = makePlanInput({
+      recipes,
+      days,
+      pantry: pantry(),
+    });
+    const initialPlan = planWeek(planInput);
+
+    const dinnerEntry = initialPlan.entries.find(
+      (e) => e.date === '2026-08-24' && e.mealSlot === 'dinner'
+    );
+    expect(dinnerEntry?.kind).toBe('recipe');
+    const originalRecipeId = (dinnerEntry as { recipeId: string }).recipeId;
+
+    const swappedPlan = swapPlanMeal(initialPlan, '2026-08-24:dinner', planInput);
+    expect(swappedPlan).not.toBeNull();
+    const newDinnerEntry = swappedPlan?.entries.find(
+      (e) => e.date === '2026-08-24' && e.mealSlot === 'dinner'
+    );
+    expect(newDinnerEntry?.kind).toBe('recipe');
+    expect((newDinnerEntry as { recipeId: string }).recipeId).not.toBe(originalRecipeId);
+
+    // Other entries remain unchanged
+    const breakfastEntry = swappedPlan?.entries.find(
+      (e) => e.date === '2026-08-24' && e.mealSlot === 'breakfast'
+    );
+    expect((breakfastEntry as { recipeId: string }).recipeId).toBe('toast');
+
+    // Returns null for invalid key
+    expect(swapPlanMeal(initialPlan, '2099-01-01:dinner', planInput)).toBeNull();
   });
 });

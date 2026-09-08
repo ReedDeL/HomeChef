@@ -66,8 +66,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { color } = useTheme();
 
-  const tierId = useKitchenStore((state) => state.tierId);
-  const extras = useKitchenStore((state) => state.extras);
+  const equipment = useKitchenStore((state) => state.equipment);
   const allergens = useKitchenStore((state) => state.allergens);
   const dietary = useKitchenStore((state) => state.dietary);
   const pantry = useKitchenStore((state) => state.pantry);
@@ -96,10 +95,10 @@ export default function HomeScreen() {
   const preferences = useMemo(
     () =>
       toEnginePreferences(
-        { tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal },
+        { equipment, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal },
         cuisine
       ),
-    [tierId, extras, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal, cuisine]
+    [equipment, allergens, dietary, dislikedRecipes, skippedRecipes, bodyGoal, cuisine]
   );
 
   const pantrySet = useMemo(() => new Set(pantry), [pantry]);

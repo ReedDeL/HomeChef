@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { Text } from '@/components/ui/Text';
+import { Icon } from '@/components/ui/Icon';
 import { radius, space, touchTarget } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
@@ -14,8 +14,7 @@ export interface SettingsActionProps {
 /**
  * The single secondary Settings action used throughout the app.
  *
- * Keep this text-only instead of relying on a platform-specific emoji glyph:
- * it stays aligned and readable across native, web, themes, and larger text.
+ * Keep this icon-only so the secondary action stays compact and consistent.
  */
 export function SettingsAction({
   onPress,
@@ -23,6 +22,7 @@ export function SettingsAction({
   style,
 }: SettingsActionProps) {
   const { color } = useTheme();
+  const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
 
   return (
@@ -34,19 +34,20 @@ export function SettingsAction({
       onPress={onPress}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      testID="settings-action"
       style={({ pressed }) => [
         styles.action,
         {
-          backgroundColor: pressed || focused ? color.surfaceAlt : 'transparent',
-          borderColor: pressed || focused ? color.accent : color.border,
+          backgroundColor: pressed || hovered || focused ? color.surfaceAlt : 'transparent',
+          borderColor: pressed || hovered || focused ? color.accent : color.border,
           opacity: pressed ? 0.86 : 1,
         },
         style,
       ]}
     >
-      <Text variant="caption" tone="accent">
-        Settings
-      </Text>
+      <Icon name="cog" size={22} color={color.accent} />
     </Pressable>
   );
 }
@@ -55,6 +56,8 @@ const styles = StyleSheet.create({
   action: {
     minHeight: touchTarget.standard,
     minWidth: touchTarget.standard,
+    width: touchTarget.standard,
+    height: touchTarget.standard,
     paddingHorizontal: space.sm,
     borderRadius: radius.full,
     borderWidth: 1,

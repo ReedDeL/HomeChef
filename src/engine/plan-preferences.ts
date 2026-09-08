@@ -1,43 +1,31 @@
 import { weeklyMealPlanSchema, type WeeklyMealPlan } from '@/contracts/meal-journeys';
 import { derivePlanLinkedGroceryNeeds } from '@/engine/plan-grocery-needs';
 import type { Recipe } from '@/engine/types';
-
 export type PlanDayCount = 3 | 5 | 7;
 export type PlanVariety = 'variety' | 'repeats';
 
+/** Trimming never substitutes recipes; variety belongs inside candidate selection. */
 export function applyPlanPreferences(
   plan: WeeklyMealPlan,
   days: PlanDayCount,
-  variety: PlanVariety,
+  _variety: PlanVariety,
   recipes: readonly Recipe[],
   pantry: ReadonlySet<string>
 ): WeeklyMealPlan {
-  const firstRecipe = plan.entries.find((entry) => entry.kind === 'recipe');
-  const repeatRecipe =
-    firstRecipe?.kind === 'recipe'
-      ? recipes.find((recipe) => recipe.id === firstRecipe.recipeId)
-      : undefined;
-  const entries = plan.entries.map((entry, index) => {
-    if (index >= days) {
-      return {
-        kind: 'day_of_decision' as const,
-        date: entry.date,
-        reason: 'not_planned' as const,
-      };
-    }
-    if (variety === 'repeats' && entry.kind === 'recipe' && repeatRecipe) {
-      return { ...entry, recipeId: repeatRecipe.id };
-    }
-    return entry;
-  });
-  const groceryEntries = entries.flatMap((entry) => {
-    if (entry.kind !== 'recipe') return [];
-    const recipe = recipes.find((candidate) => candidate.id === entry.recipeId);
+  const dates = [...new Set(plan.entries.map((entry) => entry.date))].slice(0, days);
+  const entries = plan.entries.filter((entry) => dates.includes(entry.date));
+  const byId = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+  const groceries = entries.flatMap((entry) => {
+    const recipe = entry.kind === 'recipe' ? byId.get(entry.recipeId) : undefined;
     return recipe ? [{ date: entry.date, recipe }] : [];
   });
   return weeklyMealPlanSchema.parse({
     ...plan,
+    dayCount: days,
     entries,
-    groceryNeeds: derivePlanLinkedGroceryNeeds(groceryEntries, pantry, 12),
+    statedRelaxations: (['time', 'cuisine'] as const).filter((value) =>
+      entries.some((entry) => entry.kind === 'recipe' && entry.statedRelaxations.includes(value))
+    ),
+    groceryNeeds: derivePlanLinkedGroceryNeeds(groceries, pantry, 12),
   });
 }

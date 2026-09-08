@@ -502,7 +502,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-01",
         "sourceVersion": "authored-seed-1"
@@ -516,7 +516,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "british",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -566,7 +566,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-02",
         "sourceVersion": "authored-seed-1"
@@ -630,7 +630,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-03",
         "sourceVersion": "authored-seed-1"
@@ -692,7 +692,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-04",
         "sourceVersion": "authored-seed-1"
@@ -706,7 +706,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -769,7 +769,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-05",
         "sourceVersion": "authored-seed-1"
@@ -841,7 +841,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-06",
         "sourceVersion": "authored-seed-1"
@@ -903,7 +903,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-07",
         "sourceVersion": "authored-seed-1"
@@ -973,7 +973,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-08",
         "sourceVersion": "authored-seed-1"
@@ -1049,7 +1049,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-09",
         "sourceVersion": "authored-seed-1"
@@ -1119,7 +1119,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-10",
         "sourceVersion": "authored-seed-1"
@@ -1183,7 +1183,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-11",
         "sourceVersion": "authored-seed-1"
@@ -1255,7 +1255,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-12",
         "sourceVersion": "authored-seed-1"
@@ -1328,7 +1328,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-13",
         "sourceVersion": "authored-seed-1"
@@ -1398,7 +1398,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-14",
         "sourceVersion": "authored-seed-1"
@@ -1470,7 +1470,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-15",
         "sourceVersion": "authored-seed-1"
@@ -1484,7 +1484,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "indian",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -1540,7 +1540,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-16",
         "sourceVersion": "authored-seed-1"
@@ -1602,7 +1602,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-17",
         "sourceVersion": "authored-seed-1"
@@ -1674,7 +1674,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-18",
         "sourceVersion": "authored-seed-1"
@@ -1741,7 +1741,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-19",
         "sourceVersion": "authored-seed-1"
@@ -1811,7 +1811,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-20",
         "sourceVersion": "authored-seed-1"
@@ -1825,7 +1825,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "italian",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -1886,7 +1886,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-21",
         "sourceVersion": "authored-seed-1"
@@ -1950,7 +1950,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-22",
         "sourceVersion": "authored-seed-1"
@@ -2026,7 +2026,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-23",
         "sourceVersion": "authored-seed-1"
@@ -2082,7 +2082,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-24",
         "sourceVersion": "authored-seed-1"
@@ -2096,7 +2096,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2161,7 +2161,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-25",
         "sourceVersion": "authored-seed-1"
@@ -2175,7 +2175,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2235,7 +2235,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-26",
         "sourceVersion": "authored-seed-1"
@@ -2300,7 +2300,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-mw-27",
         "sourceVersion": "authored-seed-1"
@@ -2314,7 +2314,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2367,7 +2367,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-staple-cinnamon-toast",
         "sourceVersion": "authored-seed-1"
@@ -2381,7 +2381,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2428,7 +2428,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-staple-grilled-cheese",
         "sourceVersion": "authored-seed-1"
@@ -2442,7 +2442,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2488,7 +2488,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-staple-pbj",
         "sourceVersion": "authored-seed-1"
@@ -2554,7 +2554,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-staple-scrambled-eggs",
         "sourceVersion": "authored-seed-1"
@@ -2568,7 +2568,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "british",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2613,7 +2613,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-staple-toast-jam",
         "sourceVersion": "authored-seed-1"
@@ -2627,7 +2627,7 @@
     "allergenStatus": "verified",
     "attribution": null,
     "baseServings": 1.0,
-    "cuisine": null,
+    "cuisine": "american",
     "dietaryStatus": "verified",
     "dietaryTags": [],
     "energyKcalPerServing": null,
@@ -2690,7 +2690,7 @@
     "nutritionProvenance": null,
     "provenance": [
       {
-        "archiveSha256": "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be",
+        "archiveSha256": "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba",
         "sourceId": "homechef-authored",
         "sourceRecipeId": "hc-staple-tuna-sandwich",
         "sourceVersion": "authored-seed-1"

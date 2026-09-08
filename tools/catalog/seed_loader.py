@@ -26,14 +26,14 @@ from tools.catalog.models import (
     Provenance,
     VocabularyEntry,
 )
-from tools.catalog.normalize import allergen_groups_for
+from tools.catalog.normalize import allergen_groups_for, canonical_cuisine
 from tools.catalog.rights import ReleaseSource
 
 SEED_DIR = Path(__file__).resolve().parent / "seed"
 
 AUTHORED_SOURCE_ID = "homechef-authored"
 AUTHORED_SOURCE_VERSION = "authored-seed-1"
-AUTHORED_ARCHIVE_SHA256 = "278131540020a5fd661478316f764ad830e32b6b061eef94d61e3f2c51fd76be"
+AUTHORED_ARCHIVE_SHA256 = "9fa9ebd70980fa0f9c605100243a9caa2ccfb86776848fcb8ba48a26d2699fba"
 
 
 def authored_release_source() -> ReleaseSource:
@@ -91,7 +91,7 @@ class SeedRecipe(BaseModel):
             # No image. A wrong or placeholder photo is worse than none, and we
             # have no rights-cleared photography for hand-written recipes.
             image_url=None,
-            cuisine=self.cuisine,
+            cuisine=canonical_cuisine(self.cuisine),
             total_time_minutes=self.total_time_minutes,
             equipment_required=self.equipment_required,
             # Left empty for the same reason the TheMealDB path leaves it empty:

@@ -45,6 +45,7 @@ const validNutritionProvenance = {
 const recipeEntry = {
   kind: 'recipe',
   date: '2026-08-24',
+  mealSlot: 'dinner' as const,
   recipeId: 'recipe-1',
   plannedMealTime: '2026-08-24T18:30:00-07:00',
   statedRelaxations: ['time'],
@@ -60,6 +61,7 @@ const weeklyEntries = Array.from({ length: 7 }, (_, index) => {
   return {
     ...recipeEntry,
     date,
+    mealSlot: 'dinner' as const,
     recipeId: `recipe-${index + 1}`,
     plannedMealTime: `${date}T18:30:00-07:00`,
   };
@@ -67,6 +69,9 @@ const weeklyEntries = Array.from({ length: 7 }, (_, index) => {
 
 const validWeeklyPlan = {
   weekStart: '2026-08-24',
+  dayCount: 7 as const,
+  mealSlots: ['dinner'] as const,
+  limitedVariety: false,
   entries: weeklyEntries,
   status: 'draft',
   groceryNeeds: [
@@ -249,7 +254,12 @@ describe('weeklyMealPlanSchema', () => {
   it('accepts an intentionally unplanned day without treating it as a safety failure', () => {
     const entries = weeklyEntries.map((entry, index) =>
       index === 3
-        ? { kind: 'day_of_decision' as const, date: entry.date, reason: 'not_planned' as const }
+        ? {
+            kind: 'day_of_decision' as const,
+            date: entry.date,
+            mealSlot: 'dinner' as const,
+            reason: 'not_planned' as const,
+          }
         : entry
     );
     expect(weeklyMealPlanSchema.safeParse({ ...validWeeklyPlan, entries }).success).toBe(true);
@@ -367,12 +377,12 @@ describe('cross-platform artifacts', () => {
     const semanticContract = checkedIn['x-homechef-semanticValidation'];
 
     expect(semanticContract).toMatchObject({
-      version: 1,
-      validator: 'homechef.dual-meal-journeys.v1',
+      version: 2,
+      validator: 'homechef.dual-meal-journeys.v2',
       rules: [
         { id: 'prompt_state_lifecycle' },
         { id: 'planned_time_local_date' },
-        { id: 'seven_consecutive_dates' },
+        { id: 'selected_meal_slot_coverage' },
         { id: 'unique_grocery_ingredient_ids' },
         { id: 'ascending_usda_fdc_ids' },
       ],

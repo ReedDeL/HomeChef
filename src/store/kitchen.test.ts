@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { hasAllergen } from '@/engine/filter-hard';
 import type { Recipe } from '@/engine/types';
 import {
-  APPLIANCE_SECTION_DESCRIPTION,
-  APPLIANCE_SECTION_TITLE,
+  COOKING_EQUIPMENT_OPTIONS,
+  EQUIPMENT_CHECKLIST_OPTIONS,
+  NO_COOKING_EQUIPMENT_OPTION,
+  type CookingEquipment,
+} from '@/lib/equipment';
+import {
   COMMON_ALLERGENS,
-  EQUIPMENT_TIERS,
-  EXTRA_APPLIANCES,
   mergePlanTasteSignals,
   recordDislike,
   removeDislike,
@@ -19,26 +21,32 @@ import { decide } from '@/engine/decide';
 
 type Constraints = Parameters<typeof toEnginePreferences>[0];
 
-const base: Constraints = { tierId: 'full', extras: [], allergens: [], dietary: [] };
+const base: Constraints = {
+  equipment: ['microwave', 'stove', 'oven', 'kettle'],
+  allergens: [],
+  dietary: [],
+};
 
 describe('toEnginePreferences', () => {
-  it('unions the tier equipment with the extra appliances', () => {
-    const prefs = toEnginePreferences({ ...base, tierId: 'microwave', extras: ['air_fryer'] });
+  it('normalizes the owned equipment set', () => {
+    const prefs = toEnginePreferences({ ...base, equipment: ['microwave', 'air_fryer'] });
 
     expect(prefs.equipment).toContain('microwave');
     expect(prefs.equipment).toContain('air_fryer');
     expect(prefs.equipment).not.toContain('stove');
   });
 
-  it('does not duplicate an appliance already granted by the tier', () => {
-    const prefs = toEnginePreferences({ ...base, tierId: 'full', extras: ['stove'] });
+  it('does not duplicate an appliance already owned', () => {
+    const prefs = toEnginePreferences({ ...base, equipment: ['stove', 'stove'] });
 
     expect(prefs.equipment.filter((item) => item === 'stove')).toHaveLength(1);
   });
 
-  it('falls back to no equipment when the stored tier no longer exists', () => {
-    // A renamed tier must not silently grant a full kitchen.
-    const prefs = toEnginePreferences({ ...base, tierId: 'tier-that-was-removed' });
+  it('drops unclassified sentinel if passed', () => {
+    const prefs = toEnginePreferences({
+      ...base,
+      equipment: ['unclassified' as unknown as CookingEquipment],
+    });
 
     expect(prefs.equipment).toEqual([]);
   });
@@ -99,6 +107,7 @@ describe('COMMON_ALLERGENS', () => {
       cuisine: null,
       totalTimeMinutes: 10,
       equipmentRequired: ['none'],
+      mealSlots: ['dinner'],
       dietaryTags: [],
       ingredients: [
         {
@@ -120,43 +129,41 @@ describe('COMMON_ALLERGENS', () => {
   });
 });
 
-describe('EQUIPMENT_TIERS', () => {
+describe('EQUIPMENT_CHECKLIST_OPTIONS', () => {
   it('never offers the unclassified sentinel as something a user can own', () => {
-    for (const tier of EQUIPMENT_TIERS) {
-      expect(tier.equipment).not.toContain('unclassified');
-    }
-  });
-});
-
-describe('Kitchen appliance copy', () => {
-  it('uses universal functional subtitles for every equipment tier', () => {
-    expect(EQUIPMENT_TIERS.map((tier) => tier.subtitle)).toEqual([
-      'Cook using only a microwave',
-      'Microwave plus electric kettle or boiling water',
-      'Stove, oven, and standard cookware',
-    ]);
-    for (const tier of EQUIPMENT_TIERS) {
-      expect(tier.subtitle).not.toMatch(/dorm|range|basics/i);
+    for (const option of EQUIPMENT_CHECKLIST_OPTIONS) {
+      expect(option.id).not.toBe('unclassified');
     }
   });
 
-  it('exposes a direct appliance section with independently selectable options', () => {
-    expect(APPLIANCE_SECTION_TITLE).toBe('Kitchen appliances');
-    expect(APPLIANCE_SECTION_DESCRIPTION).toContain('expand the meals');
-    expect(EXTRA_APPLIANCES.map((appliance) => appliance.label)).toEqual([
+  it('exposes all 8 cooking appliances and the mutually exclusive no-equipment option', () => {
+    expect(COOKING_EQUIPMENT_OPTIONS.map((item) => item.label)).toEqual([
+      'Microwave',
+      'Stovetop',
+      'Oven',
+      'Electric kettle',
       'Air fryer',
       'Rice cooker',
       'Blender',
       'Toaster oven',
     ]);
+    expect(NO_COOKING_EQUIPMENT_OPTION.label).toBe('No cooking equipment');
 
     const prefs = toEnginePreferences({
       ...base,
-      tierId: 'microwave',
-      extras: EXTRA_APPLIANCES.map((appliance) => appliance.id),
+      equipment: COOKING_EQUIPMENT_OPTIONS.map((item) => item.id),
     });
     expect(prefs.equipment).toEqual(
-      expect.arrayContaining(['microwave', 'air_fryer', 'rice_cooker', 'blender', 'toaster_oven'])
+      expect.arrayContaining([
+        'microwave',
+        'stove',
+        'oven',
+        'kettle',
+        'air_fryer',
+        'rice_cooker',
+        'blender',
+        'toaster_oven',
+      ])
     );
   });
 });
@@ -179,8 +186,8 @@ describe('useKitchenStore themeMode', () => {
 describe('useKitchenStore step navigation state retention', () => {
   it('remembers selections when moving backwards and forwards between steps', () => {
     // Step 1: Equipment
-    useKitchenStore.getState().setTier('microwave');
-    useKitchenStore.getState().toggleExtra('air_fryer');
+    useKitchenStore.getState().setEquipment(['microwave']);
+    useKitchenStore.getState().toggleEquipment('air_fryer');
 
     // Step 2: Restrictions
     useKitchenStore.getState().toggleAllergen('peanut');
@@ -191,14 +198,15 @@ describe('useKitchenStore step navigation state retention', () => {
 
     // Simulate navigating back to Step 1 (Equipment)
     // Selections from Step 2 and Step 3 must NOT be lost
-    expect(useKitchenStore.getState().tierId).toBe('microwave');
-    expect(useKitchenStore.getState().extras).toContain('air_fryer');
+    expect(useKitchenStore.getState().equipment).toEqual(
+      expect.arrayContaining(['microwave', 'air_fryer'])
+    );
     expect(useKitchenStore.getState().allergens).toContain('peanut');
     expect(useKitchenStore.getState().dietary).toContain('vegetarian');
     expect(useKitchenStore.getState().pantry).toContain('rice');
 
     // Adjusting Step 1 preserves downstream choices
-    useKitchenStore.getState().setTier('full');
+    useKitchenStore.getState().setEquipment(['microwave', 'stove', 'oven', 'kettle']);
     expect(useKitchenStore.getState().allergens).toContain('peanut');
     expect(useKitchenStore.getState().dietary).toContain('vegetarian');
   });
@@ -271,10 +279,11 @@ describe('useKitchenStore meal-prep reminder preferences', () => {
 describe('useKitchenStore pantry responsiveness with decision engine', () => {
   it('updates decision engine ready and missing buckets immediately when store pantry changes', () => {
     useKitchenStore.getState().reset();
+    useKitchenStore.getState().setEquipment(['stove']);
     const prefs = toEnginePreferences(useKitchenStore.getState(), null);
 
-    // Add egg, butter, and bread to pantry
-    useKitchenStore.getState().addPantryItems(['egg', 'butter', 'bread']);
+    // Add egg, butter, bread, salt, and black_pepper to pantry
+    useKitchenStore.getState().addPantryItems(['egg', 'butter', 'bread', 'salt', 'black_pepper']);
 
     // Scrambled eggs is now ready (has egg, butter, salt, black_pepper)
     // Grilled cheese is missing cheddar_cheese (missing_few)
@@ -394,7 +403,7 @@ describe('non-destructive kitchen setup management', () => {
     useKitchenStore.getState().toggleAllergen('peanut');
     useKitchenStore.getState().toggleDietary('vegetarian');
     useKitchenStore.getState().recordSkip('setup-skipped-recipe');
-    useKitchenStore.getState().setTier('full');
+    useKitchenStore.getState().setEquipment(['stove', 'microwave']);
 
     const catalog: Recipe[] = [
       {
@@ -404,6 +413,7 @@ describe('non-destructive kitchen setup management', () => {
         cuisine: 'american',
         totalTimeMinutes: 10,
         equipmentRequired: ['stove'],
+        mealSlots: ['dinner'],
         dietaryTags: ['vegetarian'],
         ingredients: [{ id: 'egg', measure: '1', allergenGroups: ['egg'] }],
         instructions: 'Cook on the stove.',
@@ -420,6 +430,7 @@ describe('non-destructive kitchen setup management', () => {
         cuisine: 'american',
         totalTimeMinutes: 5,
         equipmentRequired: ['microwave'],
+        mealSlots: ['dinner'],
         dietaryTags: ['vegetarian'],
         ingredients: [{ id: 'egg', measure: '1', allergenGroups: ['egg'] }],
         instructions: 'Beat the egg and microwave until set.',
@@ -442,8 +453,8 @@ describe('non-destructive kitchen setup management', () => {
       expect.arrayContaining(['setup-microwave-recipe', 'setup-stove-recipe'])
     );
 
-    useKitchenStore.getState().setTier('microwave');
-    useKitchenStore.getState().toggleExtra('air_fryer');
+    useKitchenStore.getState().setEquipment(['microwave']);
+    useKitchenStore.getState().toggleEquipment('air_fryer');
 
     const after = useKitchenStore.getState();
     const microwaveDecision = decide(
@@ -484,5 +495,42 @@ describe('useKitchenStore meal-prep reminder onboarding', () => {
     useKitchenStore.getState().reset();
 
     expect(useKitchenStore.getState().mealPrepReminderOnboardingComplete).toBe(false);
+  });
+});
+
+describe('useKitchenStore pantry starter and photo merge', () => {
+  it('initializes starter items once and merges with existing photo detections', () => {
+    useKitchenStore.getState().reset();
+    expect(useKitchenStore.getState().pantry).toEqual([]);
+    expect(useKitchenStore.getState().pantryStarterInitialized).toBe(false);
+
+    // Simulate prior photo scan adding avocado
+    useKitchenStore.getState().addPantryItems(['avocado']);
+    expect(useKitchenStore.getState().pantry).toEqual(['avocado']);
+
+    // Initialize starter
+    useKitchenStore.getState().initializePantryStarter(['rice', 'onion']);
+    expect(useKitchenStore.getState().pantry).toEqual(['avocado', 'rice', 'onion']);
+    expect(useKitchenStore.getState().pantryStarterInitialized).toBe(true);
+
+    // Subsequent call does not re-add or overwrite if already initialized
+    useKitchenStore.getState().togglePantryItem('rice'); // user unchecks rice
+    expect(useKitchenStore.getState().pantry).toEqual(['avocado', 'onion']);
+
+    useKitchenStore.getState().initializePantryStarter(['rice', 'onion']);
+    expect(useKitchenStore.getState().pantry).toEqual(['avocado', 'onion']);
+
+    useKitchenStore.getState().reset();
+  });
+
+  it('allows zero ingredients and does not add unchecked items on completeOnboarding', () => {
+    useKitchenStore.getState().reset();
+    expect(useKitchenStore.getState().pantry).toEqual([]);
+
+    useKitchenStore.getState().completeOnboarding();
+    expect(useKitchenStore.getState().onboardingDone).toBe(true);
+    expect(useKitchenStore.getState().pantry).toEqual([]);
+
+    useKitchenStore.getState().reset();
   });
 });

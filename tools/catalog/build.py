@@ -23,6 +23,7 @@ from tools.catalog.models import (
 )
 from tools.catalog.normalize import (
     allergen_groups_for,
+    canonical_cuisine,
     canonical_id,
     display_name,
     is_staple,
@@ -107,7 +108,7 @@ def to_catalog_recipe(raw: dict[str, object]) -> CatalogRecipe:
         id=meal.id,
         title=meal.name,
         image_url=meal.image_url,
-        cuisine=meal.area.lower() if meal.area else None,
+        cuisine=canonical_cuisine(meal.area),
         total_time_minutes=estimate_total_minutes(meal.instructions),
         equipment_required=tag_from_text(meal.instructions, meal.category, meal.name),
         # Left empty on purpose. A wrong dietary tag is worse than an absent

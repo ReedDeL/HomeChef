@@ -24,6 +24,7 @@ export function makeDailyPlanPreference(
     date: '2026-08-24',
     selectedLimit: 30,
     mealTime: '18:30:00-07:00',
+    mealSlot: 'dinner',
     ...overrides,
   };
 }
@@ -88,6 +89,7 @@ export function makeRecipe(overrides: Partial<Recipe> = {}): Recipe {
     energyKcalPerServing: null,
     nutritionProvenance: null,
     nutritionConfidence: 'unavailable',
+    mealSlots: ['breakfast', 'lunch', 'dinner'],
     source: 'bundled',
     ...overrides,
   };

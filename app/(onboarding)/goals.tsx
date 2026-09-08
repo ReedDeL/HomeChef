@@ -186,7 +186,7 @@ export default function GoalsScreen() {
           accessibilityHint="Shows optional height and weight fields used only on this device"
         />
         <Text variant="caption" tone="muted">
-          Height and weight are optional. Used only to personalize portion estimates on this device.
+          Stored on this device and used for portion estimates.
         </Text>
       </View>
 

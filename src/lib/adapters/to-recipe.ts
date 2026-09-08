@@ -8,6 +8,7 @@
  */
 import { DIETARY_TAGS, EQUIPMENT } from '@/engine/types';
 import { nutritionConfidenceSchema, nutritionProvenanceSchema } from '@/contracts/meal-journeys';
+import { MEAL_SLOTS, type MealSlot } from '@/contracts/meal-slots';
 import type { DietaryTag, Equipment, Recipe, RecipeIngredient } from '@/engine/types';
 
 const FALLBACK_MINUTES = 30;
@@ -32,16 +33,87 @@ export function toRecipe(raw: unknown): Recipe | null {
     id,
     title,
     imageUrl: asString(raw.imageUrl) ?? null,
-    cuisine: asString(raw.cuisine) ?? null,
+    cuisine: normalizeCuisine(raw.cuisine),
     totalTimeMinutes: minutes !== null && minutes > 0 ? minutes : FALLBACK_MINUTES,
     equipmentRequired: toEquipment(raw.equipmentRequired),
     dietaryTags: keepKnown(raw.dietaryTags, DIETARY_TAGS),
     ingredients,
     instructions: asString(raw.instructions) ?? '',
+    mealSlots: toMealSlots(raw),
     ...nutrition,
     attribution: toAttribution(raw.attribution),
     source: raw.source === 'spoonacular' ? 'spoonacular' : 'bundled',
   };
+}
+
+const CUISINE_SYNONYMS: Readonly<Record<string, string>> = {
+  america: 'american',
+  american: 'american',
+  united_states: 'american',
+  united_states_of_america: 'american',
+  usa: 'american',
+  us: 'american',
+  britain: 'british',
+  british: 'british',
+  united_kingdom: 'british',
+  uk: 'british',
+  english: 'british',
+  england: 'british',
+  scottish: 'british',
+  scotland: 'british',
+  welsh: 'british',
+  wales: 'british',
+  china: 'chinese',
+  chinese: 'chinese',
+  france: 'french',
+  french: 'french',
+  india: 'indian',
+  indian: 'indian',
+  italy: 'italian',
+  italian: 'italian',
+  mexico: 'mexican',
+  mexican: 'mexican',
+  spain: 'spanish',
+  spanish: 'spanish',
+  thailand: 'thai',
+  thai: 'thai',
+  japan: 'japanese',
+  japanese: 'japanese',
+  greece: 'greek',
+  greek: 'greek',
+  ireland: 'irish',
+  irish: 'irish',
+  canada: 'canadian',
+  canadian: 'canadian',
+  germany: 'german',
+  german: 'german',
+  korea: 'korean',
+  korean: 'korean',
+  vietnam: 'vietnamese',
+  vietnamese: 'vietnamese',
+  morocco: 'moroccan',
+  moroccan: 'moroccan',
+  turkey: 'turkish',
+};
+
+/**
+ * Normalizes free-text cuisine strings or country names into a canonical cuisine slug.
+ *
+ * Normalizes once at the ingestion/adaptation boundary rather than scattering UI aliases.
+ */
+export function normalizeCuisine(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const slug = raw
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (!slug || slug === 'any' || slug === 'none' || slug === 'null' || slug === 'unknown') {
+    return null;
+  }
+  return CUISINE_SYNONYMS[slug] ?? slug;
 }
 
 /** Maps a whole catalog, skipping records that fail to parse. */
@@ -167,4 +239,65 @@ function toNutrition(
     nutritionProvenance,
     nutritionConfidence: parsedConfidence,
   };
+}
+
+const RECIPE_MEAL_SLOTS: Readonly<Record<string, readonly MealSlot[]>> = {
+  // Breakfast items
+  'hc-mw-01': ['breakfast'], // Mug Scrambled Eggs
+  'hc-mw-02': ['breakfast'], // Porridge in a Bowl
+  'hc-mw-09': ['breakfast'], // Cheesy Egg Mug
+  'hc-mw-11': ['breakfast'], // Banana Cinnamon Oats
+  'hc-mw-19': ['breakfast'], // Peanut Butter Oats
+  'hc-mw-23': ['breakfast'], // Microwave Breakfast Burrito
+  'hc-staple-scrambled-eggs': ['breakfast'], // Classic Scrambled Eggs
+  'hc-staple-toast-jam': ['breakfast'], // Toast with Butter and Jam
+  'hc-staple-cinnamon-toast': ['breakfast'], // Cinnamon Sugar Toast
+
+  // Lunch & Dinner items (or lunch-specific)
+  'hc-staple-grilled-cheese': ['lunch'], // Classic Grilled Cheese
+  'hc-staple-pbj': ['lunch', 'breakfast'], // Peanut Butter and Jelly Sandwich
+  'hc-staple-tuna-sandwich': ['lunch'], // Simple Tuna Salad Sandwich
+  'hc-mw-22': ['lunch', 'dinner'], // Microwave Bean & Cheese Burrito
+  'hc-mw-24': ['lunch', 'dinner'], // Microwave Cheese Quesadilla
+  'hc-mw-21': ['lunch', 'dinner'], // Microwave Personal Pizza
+  'hc-mw-05': ['lunch', 'dinner'], // Mug Mac and Cheese
+  'hc-mw-25': ['lunch', 'dinner'], // Microwave Mug Mac & Cheese
+
+  // Dinner items
+  'hc-82192586fc577f61793e': ['dinner'], // Easy Spaghetti with Tomato
+  'hc-48322a4046b660396285': ['lunch', 'dinner'], // Microwave Tuna Pasta
+  'hc-6089840ed7a96123bbe1': ['lunch', 'dinner'], // Microwave Baked Potato
+  'hc-d63529038fdd6e186d8d': ['lunch', 'dinner'], // Microwave Rice and Vegetables
+  'hc-mw-03': ['lunch', 'dinner'], // Microwave Baked Potato
+  'hc-mw-06': ['dinner'], // Poached Cod with Lemon
+  'hc-mw-07': ['lunch', 'dinner'], // Rice and Peas Bowl
+  'hc-mw-10': ['lunch', 'dinner'], // Black Bean and Sweetcorn Bowl
+  'hc-mw-13': ['lunch', 'dinner'], // Herbed Couscous
+  'hc-mw-15': ['dinner'], // Lemon Salmon Fillet
+  'hc-mw-16': ['lunch', 'dinner'], // Spiced Lentil Bowl
+  'hc-mw-17': ['lunch', 'dinner'], // Microwave Quinoa
+  'hc-mw-20': ['lunch', 'dinner'], // Warm Chickpea and Tomato Bowl
+  'hc-mw-26': ['lunch', 'dinner'], // Microwave Loaded Baked Potato
+  'hc-mw-27': ['lunch', 'dinner'], // Microwave Steamed Rice & Veggie Bowl
+};
+
+/** Explicit validated recipe slot-suitability metadata at catalog boundary. */
+export function toMealSlots(raw: Record<string, unknown>): MealSlot[] {
+  const explicit = Array.isArray(raw.mealSlots)
+    ? raw.mealSlots
+    : Array.isArray(raw.meal_slots)
+      ? raw.meal_slots
+      : null;
+  if (explicit) {
+    const valid = explicit.filter(
+      (s): s is MealSlot => typeof s === 'string' && (MEAL_SLOTS as readonly string[]).includes(s)
+    );
+    return MEAL_SLOTS.filter((slot) => valid.includes(slot));
+  }
+  const id = asString(raw.id);
+  if (id && Object.hasOwn(RECIPE_MEAL_SLOTS, id)) {
+    return [...RECIPE_MEAL_SLOTS[id]!];
+  }
+  // Unknown suitability (including desserts and side dishes) is not a verified meal.
+  return [];
 }

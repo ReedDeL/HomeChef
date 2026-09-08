@@ -147,6 +147,9 @@ type JourneyTables = {
   };
   weekly_meal_plans: {
     Row: {
+      day_count: number;
+      meal_slots: string[];
+      limited_variety: boolean;
       created_at: string;
       id: string;
       stated_relaxations: string[];
@@ -156,6 +159,9 @@ type JourneyTables = {
       week_start: string;
     };
     Insert: {
+      day_count?: number;
+      meal_slots?: string[];
+      limited_variety?: boolean;
       created_at?: string;
       id?: string;
       stated_relaxations?: string[];
@@ -165,6 +171,9 @@ type JourneyTables = {
       week_start: string;
     };
     Update: {
+      day_count?: number;
+      meal_slots?: string[];
+      limited_variety?: boolean;
       created_at?: string;
       id?: string;
       stated_relaxations?: string[];
@@ -179,6 +188,7 @@ type JourneyTables = {
   };
   weekly_meal_plan_entries: {
     Row: {
+      meal_slot: string;
       entry_date: string;
       id: string;
       kind: string;
@@ -194,6 +204,7 @@ type JourneyTables = {
     };
     Insert: {
       entry_date: string;
+      meal_slot?: string;
       id?: string;
       kind: string;
       plan_id: string;
@@ -208,6 +219,7 @@ type JourneyTables = {
     };
     Update: {
       entry_date?: string;
+      meal_slot?: string;
       id?: string;
       kind?: string;
       plan_id?: string;
@@ -301,6 +313,7 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           p_stated_relaxations: string[];
           p_status: string;
           p_week_start: string;
+          p_limited_variety?: boolean;
         };
         Returns: string;
       };
@@ -309,6 +322,7 @@ export type Database = Omit<GeneratedDatabase, 'public'> & {
           p_entries: Json;
           p_grocery_needs: Json;
           p_plan_id: string;
+          p_limited_variety?: boolean;
         };
         Returns: undefined;
       };

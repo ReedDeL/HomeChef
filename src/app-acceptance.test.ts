@@ -43,7 +43,11 @@ describe('goals onboarding acceptance contract', () => {
     expect(goals).toContain('accessibilityLabel="Current weight"');
     expect(goals).toContain("'Height in centimeters'");
     expect(goals).toContain('accessibilityLabel="Height in inches"');
-    expect(goals).toContain(
+    expect(goals).toContain('Current weight');
+    expect(goals).toContain('Height');
+    expect(goals).toContain('placeholder="Optional"');
+    expect(goals).toContain('Stored on this device and used for portion estimates.');
+    expect(goals).not.toContain(
       'Height and weight are optional. Used only to personalize portion estimates on this device.'
     );
   });
@@ -80,5 +84,18 @@ describe('shared Settings action acceptance contract', () => {
     expect(action).toContain('accessibilityLabel="Settings"');
     expect(action).toContain('accessibilityHint =');
     expect(action).not.toContain('⚙️');
+  });
+});
+
+describe('pantry starter onboarding acceptance contract', () => {
+  it('exposes photo scan, search, and virtualized checklist in order', () => {
+    const staples = source('app/(onboarding)/staples.tsx');
+
+    expect(staples).toContain('Scan pantry with a photo');
+    expect(staples).toContain('placeholder="Search ingredients"');
+    expect(staples).toContain('<IngredientChecklist');
+    expect(staples).not.toContain('IngredientChip');
+    expect(staples).toContain("router.push('/scan')");
+    expect(staples).toContain('completeOnboarding');
   });
 });

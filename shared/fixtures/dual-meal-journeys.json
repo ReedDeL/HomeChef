@@ -55,10 +55,14 @@
   },
   "weeklyMealPlan": {
     "weekStart": "2026-08-24",
+    "dayCount": 7,
+    "mealSlots": ["dinner"],
+    "limitedVariety": false,
     "entries": [
       {
         "kind": "recipe",
         "date": "2026-08-24",
+        "mealSlot": "dinner",
         "recipeId": "recipe-1",
         "plannedMealTime": "2026-08-24T18:30:00-07:00",
         "statedRelaxations": [],
@@ -71,6 +75,7 @@
       {
         "kind": "recipe",
         "date": "2026-08-25",
+        "mealSlot": "dinner",
         "recipeId": "recipe-2",
         "plannedMealTime": "2026-08-25T18:30:00-07:00",
         "statedRelaxations": [],
@@ -79,6 +84,7 @@
       {
         "kind": "recipe",
         "date": "2026-08-26",
+        "mealSlot": "dinner",
         "recipeId": "recipe-3",
         "plannedMealTime": "2026-08-26T18:30:00-07:00",
         "statedRelaxations": [],
@@ -87,6 +93,7 @@
       {
         "kind": "recipe",
         "date": "2026-08-27",
+        "mealSlot": "dinner",
         "recipeId": "recipe-4",
         "plannedMealTime": "2026-08-27T18:30:00-07:00",
         "statedRelaxations": [],
@@ -95,6 +102,7 @@
       {
         "kind": "recipe",
         "date": "2026-08-28",
+        "mealSlot": "dinner",
         "recipeId": "recipe-5",
         "plannedMealTime": "2026-08-28T18:30:00-07:00",
         "statedRelaxations": [],
@@ -103,6 +111,7 @@
       {
         "kind": "recipe",
         "date": "2026-08-29",
+        "mealSlot": "dinner",
         "recipeId": "recipe-6",
         "plannedMealTime": "2026-08-29T18:30:00-07:00",
         "statedRelaxations": [],
@@ -111,6 +120,7 @@
       {
         "kind": "recipe",
         "date": "2026-08-30",
+        "mealSlot": "dinner",
         "recipeId": "recipe-7",
         "plannedMealTime": "2026-08-30T18:30:00-07:00",
         "statedRelaxations": [],
