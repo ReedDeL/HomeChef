@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -106,9 +106,7 @@ export function IngredientChecklist({
             },
           ]}
         >
-          {checked ? (
-            <MaterialCommunityIcons name="check" size={18} color={color.accentText} />
-          ) : null}
+          {checked ? <Icon name="check" size={18} color={color.accentText} /> : null}
         </View>
       </Pressable>
     );

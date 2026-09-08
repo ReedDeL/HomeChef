@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -146,7 +146,7 @@ export default function PantryScreen({ remoteSyncHandler }: PantryScreenProps = 
                 onPress={() => setQuery('')}
                 style={styles.clear}
               >
-                <MaterialCommunityIcons name="close" size={20} color={color.textMuted} />
+                <Icon name="close" size={20} color={color.textMuted} />
               </Pressable>
             ) : null}
           </View>
@@ -167,7 +167,7 @@ export default function PantryScreen({ remoteSyncHandler }: PantryScreenProps = 
               ]}
               testID="desktop-scan-action"
             >
-              <MaterialCommunityIcons name="camera-outline" size={20} color={color.accent} />
+              <Icon name="camera" size={20} color={color.accent} />
               <Text variant="bodyStrong" tone="accent">
                 Scan pantry with a photo
               </Text>
@@ -230,7 +230,7 @@ export default function PantryScreen({ remoteSyncHandler }: PantryScreenProps = 
               ]}
               testID="scan-camera-button"
             >
-              <MaterialCommunityIcons name="camera" size={26} color={color.accentText} />
+              <Icon name="camera" size={26} color={color.accentText} />
             </Pressable>
           </View>
         ) : null}

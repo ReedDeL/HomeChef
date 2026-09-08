@@ -16,22 +16,22 @@ describe('primary navigation contract', () => {
         name: 'index',
         title: 'Now',
         accessibilityLabel: 'Now, decide what to make',
-        icon: 'silverware-fork-knife',
-        activeIcon: 'silverware-fork-knife',
+        icon: 'meal',
+        activeIcon: 'meal',
       },
       {
         name: 'plan',
         title: 'Plan',
         accessibilityLabel: 'Plan, plan your week',
-        icon: 'calendar-month-outline',
-        activeIcon: 'calendar-month',
+        icon: 'calendar',
+        activeIcon: 'calendar',
       },
       {
         name: 'pantry',
         title: 'Pantry',
         accessibilityLabel: 'Pantry, what you have',
-        icon: 'fridge-outline',
-        activeIcon: 'fridge',
+        icon: 'pantry',
+        activeIcon: 'pantry',
       },
     ]);
   });

@@ -1,24 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 
-export type IconName =
-  | 'camera'
-  | 'check'
-  | 'cog'
-  | 'meal'
-  | 'arrow-right'
-  | 'arrow-left'
-  | 'swap'
-  | 'calendar'
-  | 'pantry'
-  | 'sunrise'
-  | 'sun'
-  | 'moon';
+import type { IconName, IconProps } from './Icon.types';
+
+export type { IconName, IconProps } from './Icon.types';
 
 const iconNames: Record<IconName, ComponentProps<typeof MaterialCommunityIcons>['name']> = {
   camera: 'camera-outline',
   meal: 'silverware-fork-knife',
   check: 'check',
+  close: 'close',
   cog: 'cog-outline',
   'arrow-right': 'arrow-right',
   'arrow-left': 'arrow-left',
@@ -29,12 +20,6 @@ const iconNames: Record<IconName, ComponentProps<typeof MaterialCommunityIcons>[
   sun: 'white-balance-sunny',
   moon: 'moon-waning-crescent',
 };
-
-export interface IconProps {
-  name: IconName;
-  size?: number;
-  color: string;
-}
 
 /** Shared Expo-compatible vector icons for controls and status affordances. */
 export function Icon({ name, size = 24, color }: IconProps) {

@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 
@@ -37,7 +37,7 @@ export default function TabsLayout() {
           options={{
             title: tab.title,
             tabBarAccessibilityLabel: tab.accessibilityLabel,
-            tabBarIcon: ({ color: iconColor, size, focused }) => (
+            tabBarIcon: ({ size, focused }) => (
               <View
                 style={{
                   width: 48,
@@ -48,11 +48,10 @@ export default function TabsLayout() {
                   backgroundColor: focused ? color.surfaceAlt : 'transparent',
                 }}
               >
-                <MaterialCommunityIcons
+                <Icon
                   name={focused ? tab.activeIcon : tab.icon}
                   size={size ?? 24}
-                  color={iconColor}
-                  accessible={false}
+                  color={focused ? color.accent : color.textMuted}
                 />
               </View>
             ),
