@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import { hasMealSlotCoverage, mealSlotSchema, type MealSlot } from './meal-slots';
+export {
+  MEAL_SLOTS,
+  MEAL_SLOT_LABELS,
+  mealEntryKey,
+  mealSlotSchema,
+  type MealSlot,
+} from './meal-slots';
 
 export const mealJourneySchema = z.enum(['now', 'week']);
 export type MealJourney = z.infer<typeof mealJourneySchema>;
@@ -160,6 +168,7 @@ const plannedMealTimeSchema = strictRfc3339WithOffsetSchema;
 export interface RecipeWeeklyEntry {
   kind: 'recipe';
   date: string;
+  mealSlot: MealSlot;
   recipeId: string;
   plannedMealTime: string;
   statedRelaxations: readonly ('time' | 'cuisine')[];
@@ -170,6 +179,7 @@ export const recipeWeeklyEntrySchema: z.ZodType<RecipeWeeklyEntry> = z
   .strictObject({
     kind: z.literal('recipe'),
     date: localDateSchema,
+    mealSlot: mealSlotSchema,
     recipeId: nonEmptyIdSchema,
     plannedMealTime: plannedMealTimeSchema,
     statedRelaxations: z.array(statedRelaxationSchema),
@@ -183,6 +193,7 @@ export const recipeWeeklyEntrySchema: z.ZodType<RecipeWeeklyEntry> = z
 export const dayOfDecisionWeeklyEntrySchema = z.strictObject({
   kind: z.literal('day_of_decision'),
   date: localDateSchema,
+  mealSlot: mealSlotSchema,
   reason: z.enum(['no_safe_recipe', 'grocery_need_cap', 'not_planned']),
 });
 export type DayOfDecisionWeeklyEntry = z.infer<typeof dayOfDecisionWeeklyEntrySchema>;
@@ -203,6 +214,9 @@ const weeklyEntrySchema = z.union([recipeWeeklyEntrySchema, dayOfDecisionWeeklyE
 
 export interface WeeklyMealPlan {
   weekStart: string;
+  dayCount: 3 | 5 | 7;
+  mealSlots: readonly MealSlot[];
+  limitedVariety: boolean;
   entries: readonly (RecipeWeeklyEntry | DayOfDecisionWeeklyEntry)[];
   status: WeeklyPlanStatus;
   groceryNeeds: readonly PlanLinkedGroceryNeed[];
@@ -212,21 +226,19 @@ export interface WeeklyMealPlan {
 export const weeklyMealPlanSchema: z.ZodType<WeeklyMealPlan> = z
   .strictObject({
     weekStart: localDateSchema,
-    entries: z.array(weeklyEntrySchema).length(7),
+    dayCount: z.union([z.literal(3), z.literal(5), z.literal(7)]),
+    mealSlots: z.array(mealSlotSchema).min(1).max(3),
+    limitedVariety: z.boolean(),
+    entries: z.array(weeklyEntrySchema).min(3).max(21),
     status: weeklyPlanStatusSchema,
     groceryNeeds: z.array(planLinkedGroceryNeedSchema).max(12),
     statedRelaxations: z.array(statedRelaxationSchema),
   })
   .superRefine((plan, context) => {
-    if (
-      !isSevenDayWeek(
-        plan.weekStart,
-        plan.entries.map((entry) => entry.date)
-      )
-    ) {
+    if (!hasMealSlotCoverage(plan.weekStart, plan.dayCount, plan.mealSlots, plan.entries)) {
       context.addIssue({
         code: 'custom',
-        message: 'Entries must cover seven consecutive dates beginning at weekStart',
+        message: 'Entries must cover each selected date and meal slot exactly once in order',
         path: ['entries'],
       });
     }
@@ -257,8 +269,8 @@ export const dualMealJourneysFixtureSchema = z.strictObject({
 export type DualMealJourneysFixture = z.infer<typeof dualMealJourneysFixtureSchema>;
 
 const portableSemanticValidationContract = {
-  version: 1,
-  validator: 'homechef.dual-meal-journeys.v1',
+  version: 2,
+  validator: 'homechef.dual-meal-journeys.v2',
   rules: [
     {
       id: 'prompt_state_lifecycle',
@@ -278,13 +290,15 @@ const portableSemanticValidationContract = {
       timestampField: 'plannedMealTime',
     },
     {
-      id: 'seven_consecutive_dates',
-      kind: 'consecutive_dates',
+      id: 'selected_meal_slot_coverage',
+      kind: 'meal_slot_coverage',
       path: '/weeklyMealPlan',
       startField: 'weekStart',
       entriesField: 'entries',
       dateField: 'date',
-      count: 7,
+      dayCountField: 'dayCount',
+      mealSlotsField: 'mealSlots',
+      mealSlotField: 'mealSlot',
     },
     {
       id: 'unique_grocery_ingredient_ids',
@@ -335,14 +349,6 @@ export function validatePortableMealJourneysSemantics(
   }
 
   return { success: issues.length === 0, issues };
-}
-
-function isSevenDayWeek(weekStart: string, dates: readonly string[]): boolean {
-  const weekStartMilliseconds = Date.parse(`${weekStart}T00:00:00Z`);
-  return dates.every((date, index) => {
-    const expectedMilliseconds = weekStartMilliseconds + index * 24 * 60 * 60 * 1_000;
-    return Date.parse(`${date}T00:00:00Z`) === expectedMilliseconds;
-  });
 }
 
 function hasPortableSemanticContract(value: unknown): boolean {
@@ -398,7 +404,7 @@ function validatePortableRule(input: unknown, rule: Record<string, unknown>): bo
         );
       });
     }
-    case 'consecutive_dates': {
+    case 'meal_slot_coverage': {
       const record = asRecord(target);
       const startField = rule.startField;
       const entriesField = rule.entriesField;
@@ -407,19 +413,22 @@ function validatePortableRule(input: unknown, rule: Record<string, unknown>): bo
         !record ||
         typeof startField !== 'string' ||
         typeof entriesField !== 'string' ||
-        typeof dateField !== 'string' ||
-        typeof rule.count !== 'number'
+        typeof dateField !== 'string'
       ) {
         return false;
       }
       const weekStart = record[startField];
       const entries = record[entriesField];
       if (typeof weekStart !== 'string' || !Array.isArray(entries)) return false;
-      const dates = entries.map((entry) => asRecord(entry)?.[dateField]);
+      const slots = z.array(mealSlotSchema).safeParse(record.mealSlots);
+      const datedSlots = z
+        .array(z.object({ date: localDateSchema, mealSlot: mealSlotSchema }))
+        .safeParse(entries);
       return (
-        entries.length === rule.count &&
-        dates.every((date): date is string => typeof date === 'string') &&
-        isSevenDayWeek(weekStart, dates)
+        slots.success &&
+        datedSlots.success &&
+        typeof record.dayCount === 'number' &&
+        hasMealSlotCoverage(weekStart, record.dayCount, slots.data, datedSlots.data)
       );
     }
     case 'unique_by': {

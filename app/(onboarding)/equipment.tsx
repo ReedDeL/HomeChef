@@ -1,43 +1,42 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BrandLockup } from '@/components/BrandLockup';
-import { Chip } from '@/components/ui/Chip';
+import { EquipmentChecklist } from '@/components/ui/EquipmentChecklist';
 import { Screen } from '@/components/ui/Screen';
 import { StepFooter } from '@/components/ui/StepFooter';
 import { StepIndicator } from '@/components/ui/StepIndicator';
 import { Text } from '@/components/ui/Text';
-import {
-  APPLIANCE_SECTION_DESCRIPTION,
-  APPLIANCE_SECTION_TITLE,
-  EQUIPMENT_TIERS,
-  EXTRA_APPLIANCES,
-  useKitchenStore,
-} from '@/store/kitchen';
-import { SelectableCard } from '@/components/ui/SelectableCard';
+import type { SelectableEquipment } from '@/lib/equipment';
+import { useKitchenStore } from '@/store/kitchen';
 import { space } from '@/theme/tokens';
 
-/**
- * Spec §3 — the first screen anyone sees (Step 1 of 4).
- *
- * Equipment leads onboarding because it is the wedge no competitor has: an app
- * that knows you own a microwave and nothing else is immediately, visibly
- * different from the one the user just deleted. It is also a hard constraint,
- * so the engine cannot produce an honest answer without it.
- */
 export default function EquipmentScreen() {
   const router = useRouter();
-  const tierId = useKitchenStore((state) => state.tierId);
-  const extras = useKitchenStore((state) => state.extras);
-  const setTier = useKitchenStore((state) => state.setTier);
-  const toggleExtra = useKitchenStore((state) => state.toggleExtra);
+  const equipment = useKitchenStore((state) => state.equipment);
+  const toggleEquipment = useKitchenStore((state) => state.toggleEquipment);
+  const [showValidation, setShowValidation] = useState(false);
+
+  const continueOnboarding = () => {
+    if (equipment.length === 0) {
+      setShowValidation(true);
+      return;
+    }
+    router.push('/(onboarding)/restrictions');
+  };
+
+  const updateEquipment = (item: SelectableEquipment) => {
+    toggleEquipment(item);
+    setShowValidation(false);
+  };
 
   return (
     <Screen
       footer={
         <StepFooter
           forwardLabel="Continue ›"
-          onForward={() => router.push('/(onboarding)/restrictions')}
+          onForward={continueOnboarding}
           forwardHint="Goes to allergies and diet (Step 2)"
         />
       }
@@ -48,53 +47,26 @@ export default function EquipmentScreen() {
       <View style={styles.intro}>
         <Text variant="display">What&apos;s in your kitchen?</Text>
         <Text variant="body" tone="muted">
-          We&apos;ll only suggest meals you can actually cook.
+          Choose each item you can cook with.
         </Text>
       </View>
 
-      <View
-        style={styles.group}
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Kitchen equipment tier"
-        accessibilityHint="Choose the appliances you can cook with"
-      >
-        {EQUIPMENT_TIERS.map((tier) => (
-          <SelectableCard
-            key={tier.id}
-            title={tier.label}
-            subtitle={tier.subtitle}
-            selected={tier.id === tierId}
-            onPress={() => setTier(tier.id)}
-            accessibilityHint="Sets which recipes count as cookable"
-          />
-        ))}
-      </View>
+      <EquipmentChecklist selected={equipment} onToggle={updateEquipment} />
 
-      <View style={styles.group}>
-        <Text variant="heading">{APPLIANCE_SECTION_TITLE}</Text>
-        <Text variant="caption" tone="muted">
-          {APPLIANCE_SECTION_DESCRIPTION}
+      {showValidation && equipment.length === 0 ? (
+        <Text
+          variant="caption"
+          tone="accent"
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+        >
+          Choose your equipment or select No cooking equipment.
         </Text>
-        <View style={styles.chipRow}>
-          {EXTRA_APPLIANCES.map((appliance) => (
-            <Chip
-              key={appliance.id}
-              label={appliance.label}
-              selected={extras.includes(appliance.id)}
-              onPress={() => toggleExtra(appliance.id)}
-              accessibilityLabel={appliance.label}
-              accessibilityHint="Adds or removes this appliance from your kitchen"
-              accessibilityRole="checkbox"
-            />
-          ))}
-        </View>
-      </View>
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   intro: { gap: space.sm },
-  group: { gap: space.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 });

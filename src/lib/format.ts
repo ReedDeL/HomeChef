@@ -61,3 +61,18 @@ export function formatRelaxation(relaxation: Relaxation): string {
       return '';
   }
 }
+
+/**
+ * Formats an ISO YYYY-MM-DD date into a friendly local day string (e.g. "Monday, Aug 24").
+ */
+export function formatFriendlyDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  if (!year || !month || !day) return isoDate;
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}

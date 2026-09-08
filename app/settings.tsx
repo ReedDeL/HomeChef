@@ -47,10 +47,6 @@ import { BUNDLED_CATALOG_ATTRIBUTIONS } from '@/data/catalog';
 import {
   COMMON_ALLERGENS,
   DIETARY_PRESETS,
-  APPLIANCE_SECTION_DESCRIPTION,
-  APPLIANCE_SECTION_TITLE,
-  EQUIPMENT_TIERS,
-  EXTRA_APPLIANCES,
   useKitchenStore,
   type ThemeMode,
 } from '@/store/kitchen';
@@ -126,11 +122,6 @@ export default function SettingsScreen() {
 
   const themeMode = useKitchenStore((state) => state.themeMode);
   const setThemeMode = useKitchenStore((state) => state.setThemeMode);
-
-  const tierId = useKitchenStore((state) => state.tierId);
-  const extras = useKitchenStore((state) => state.extras);
-  const setTier = useKitchenStore((state) => state.setTier);
-  const toggleExtra = useKitchenStore((state) => state.toggleExtra);
 
   const allergens = useKitchenStore((state) => state.allergens);
   const dietary = useKitchenStore((state) => state.dietary);
@@ -233,16 +224,6 @@ export default function SettingsScreen() {
   const updateTheme = (value: ThemeMode) => {
     setThemeMode(value);
     trackSettingsUpdated({ setting: 'theme', value });
-  };
-
-  const updateTier = (value: string) => {
-    setTier(value);
-    trackSettingsUpdated({ setting: 'equipment_tier', value });
-  };
-
-  const updateExtra = (value: (typeof extras)[number]) => {
-    toggleExtra(value);
-    trackSettingsUpdated({ setting: 'extra_appliance', value });
   };
 
   const updateAllergen = (value: string) => {
@@ -442,7 +423,7 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text variant="heading">Kitchen setup</Text>
         <Text variant="caption" tone="muted">
-          Choose a primary kitchen setup, then add the appliances you use.
+          Choose the individual appliances you can cook with.
         </Text>
 
         <PrimaryButton
@@ -451,41 +432,6 @@ export default function SettingsScreen() {
           onPress={() => router.push('/kitchen-setup')}
           accessibilityHint="Opens the dedicated Kitchen Setup screen without changing your pantry"
         />
-        <View
-          style={styles.group}
-          accessibilityRole="radiogroup"
-          accessibilityLabel="Kitchen equipment tier"
-          accessibilityHint="Choose the appliances you can cook with"
-        >
-          {EQUIPMENT_TIERS.map((tier) => (
-            <SelectableCard
-              key={tier.id}
-              title={tier.label}
-              subtitle={tier.subtitle}
-              selected={tier.id === tierId}
-              onPress={() => updateTier(tier.id)}
-              accessibilityHint="Sets your primary kitchen setup"
-            />
-          ))}
-        </View>
-
-        <Text variant="bodyStrong">{APPLIANCE_SECTION_TITLE}</Text>
-        <Text variant="caption" tone="muted">
-          {APPLIANCE_SECTION_DESCRIPTION}
-        </Text>
-        <View style={styles.chipRow}>
-          {EXTRA_APPLIANCES.map((appliance) => (
-            <Chip
-              key={appliance.id}
-              label={appliance.label}
-              selected={extras.includes(appliance.id)}
-              onPress={() => updateExtra(appliance.id)}
-              accessibilityLabel={appliance.label}
-              accessibilityHint="Adds or removes this appliance from your kitchen"
-              accessibilityRole="checkbox"
-            />
-          ))}
-        </View>
       </View>
 
       {/* Allergies and Diet Section */}

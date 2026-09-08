@@ -33,7 +33,7 @@ describe('createPlanProposal', () => {
 
     expect(
       proposal.entries.slice(0, 3).map((entry) => (entry.kind === 'recipe' ? entry.recipeId : null))
-    ).toEqual(['a', 'a', 'a']);
+    ).toEqual(['a', 'b', 'a']);
   });
 
   it('uses confirmed selections as positive planning tie-breakers', () => {

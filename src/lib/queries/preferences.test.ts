@@ -28,11 +28,15 @@ function makePlan(): WeeklyMealPlan {
   ] as const;
   return {
     weekStart: dates[0],
+    dayCount: 7,
+    mealSlots: ['dinner'],
+    limitedVariety: false,
     status: 'draft',
     statedRelaxations: [],
     entries: dates.map((date) => ({
       kind: 'recipe' as const,
       date,
+      mealSlot: 'dinner' as const,
       recipeId: 'bundled-1',
       plannedMealTime: `${date}T18:30:00-07:00`,
       statedRelaxations: [] as const,

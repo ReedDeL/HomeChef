@@ -77,6 +77,21 @@ describe('bundled catalog', () => {
     }
     expect([...missing]).toEqual([]);
   });
+
+  it('has at least 4 distinct non-empty cuisines backed by real recipes', () => {
+    const cuisines = new Set(
+      BUNDLED_CATALOG.map((r) => r.cuisine).filter((c): c is string => Boolean(c))
+    );
+    expect(cuisines.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('ensures all cuisine values are canonical lowercase slugs', () => {
+    for (const recipe of BUNDLED_CATALOG) {
+      if (recipe.cuisine !== null) {
+        expect(recipe.cuisine).toMatch(/^[a-z0-9_]+$/);
+      }
+    }
+  });
 });
 
 describe('bundled ingredient vocabulary', () => {

@@ -4,6 +4,8 @@ import {
   DEFAULT_SUGGESTION_COUNT,
   MAX_SEARCH_RESULTS,
   RANKED_SUGGESTION_VOCABULARY,
+  filterSafeStarterIngredients,
+  getChecklistIngredientIds,
   getReplenishingSuggestions,
   searchIngredientSuggestions,
 } from '@/lib/ingredients/suggestions';
@@ -149,5 +151,74 @@ describe('searchIngredientSuggestions', () => {
   it('returns empty array when search query matches nothing', () => {
     const results = searchIngredientSuggestions('nonexistent_xyz_ingredient_123', []);
     expect(results).toEqual([]);
+  });
+});
+
+describe('getChecklistIngredientIds', () => {
+  it('keeps checked ingredients visible before starter suggestions without a search', () => {
+    const ids = getChecklistIngredientIds('', ['milk', 'garlic'], ['rice', 'garlic']);
+
+    expect(ids).toEqual(['milk', 'garlic', 'rice']);
+  });
+
+  it('retains a checked ingredient in alias-aware search results', () => {
+    const ids = getChecklistIngredientIds('pb', ['peanut_butter'], []);
+
+    expect(ids[0]).toBe('peanut_butter');
+    expect(ids).toContain('peanut_butter');
+  });
+
+  it('trims search input and returns no invented matches', () => {
+    expect(getChecklistIngredientIds('  nonexistent_xyz_ingredient_123  ', ['milk'], [])).toEqual(
+      []
+    );
+  });
+});
+
+describe('filterSafeStarterIngredients', () => {
+  it('excludes ingredients conflicting with declared allergens', () => {
+    const candidateList = ['rice', 'egg', 'milk', 'peanut_butter', 'garlic'];
+
+    // User with peanut and dairy allergy
+    const safe = filterSafeStarterIngredients(candidateList, ['peanut', 'dairy'], []);
+    expect(safe).toContain('rice');
+    expect(safe).toContain('egg');
+    expect(safe).toContain('garlic');
+    expect(safe).not.toContain('milk');
+    expect(safe).not.toContain('peanut_butter');
+  });
+
+  it('excludes ingredients conflicting with dietary choices', () => {
+    const candidateList = ['rice', 'all_purpose_flour', 'milk', 'egg', 'chicken', 'onion'];
+
+    // Gluten free user
+    const glutenFreeSafe = filterSafeStarterIngredients(candidateList, [], ['gluten_free']);
+    expect(glutenFreeSafe).not.toContain('all_purpose_flour');
+    expect(glutenFreeSafe).toContain('rice');
+    expect(glutenFreeSafe).toContain('onion');
+
+    // Dairy free user
+    const dairyFreeSafe = filterSafeStarterIngredients(candidateList, [], ['dairy_free']);
+    expect(dairyFreeSafe).not.toContain('milk');
+    expect(dairyFreeSafe).toContain('egg');
+
+    // Vegetarian user
+    const vegetarianSafe = filterSafeStarterIngredients(candidateList, [], ['vegetarian']);
+    expect(vegetarianSafe).not.toContain('chicken');
+    expect(vegetarianSafe).toContain('egg');
+    expect(vegetarianSafe).toContain('milk');
+
+    // Vegan user
+    const veganSafe = filterSafeStarterIngredients(candidateList, [], ['vegan']);
+    expect(veganSafe).not.toContain('chicken');
+    expect(veganSafe).not.toContain('egg');
+    expect(veganSafe).not.toContain('milk');
+    expect(veganSafe).toContain('rice');
+    expect(veganSafe).toContain('onion');
+  });
+
+  it('preserves all items when there are no allergens or dietary restrictions', () => {
+    const candidateList = ['rice', 'onion', 'garlic', 'tomato'];
+    expect(filterSafeStarterIngredients(candidateList, [], [])).toEqual(candidateList);
   });
 });

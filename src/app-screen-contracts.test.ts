@@ -4,12 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
-import {
-  APPLIANCE_SECTION_DESCRIPTION,
-  APPLIANCE_SECTION_TITLE,
-  EQUIPMENT_TIERS,
-  EXTRA_APPLIANCES,
-} from '@/store/kitchen';
+import { COOKING_EQUIPMENT_OPTIONS, NO_COOKING_EQUIPMENT_OPTION } from '@/lib/equipment';
 
 function readApp(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(`../app/${relativePath}`, import.meta.url)), 'utf8');
@@ -20,15 +15,11 @@ const remindersSource = readApp('reminders.tsx');
 const settingsSource = readApp('settings.tsx');
 const equipmentSource = readApp('(onboarding)/equipment.tsx');
 const planSource = readApp('(tabs)/plan.tsx');
+const homeSource = readApp('(tabs)/index.tsx');
 
 describe('Kitchen Setup screen acceptance contract', () => {
-  it('has accessible equipment and appliance groups with save feedback', () => {
-    expect(kitchenSetupSource).toContain('accessibilityRole="radiogroup"');
-    expect(kitchenSetupSource).toContain('accessibilityLabel="Primary kitchen equipment"');
-    expect(kitchenSetupSource).toContain('accessibilityLabel="Additional kitchen appliances"');
-    expect(kitchenSetupSource).toContain(
-      'accessibilityHint="Adds or removes this appliance from your kitchen"'
-    );
+  it('has accessible equipment checklist with save feedback', () => {
+    expect(kitchenSetupSource).toContain('<EquipmentChecklist');
     expect(kitchenSetupSource).toContain('accessibilityLiveRegion="polite"');
     expect(kitchenSetupSource).toContain('Saved automatically');
   });
@@ -39,8 +30,6 @@ describe('Kitchen Setup screen acceptance contract', () => {
     );
     expect(kitchenSetupSource).toContain("router.replace('/(tabs)')");
     expect(kitchenSetupSource).toContain("router.replace('/pantry')");
-    expect(kitchenSetupSource).toContain('<SelectableCard');
-    expect(kitchenSetupSource).toContain('<Chip');
     expect(kitchenSetupSource).toContain('<PrimaryButton');
   });
 });
@@ -89,26 +78,21 @@ describe('Reminders screen acceptance contract', () => {
 });
 
 describe('appliance option screen acceptance contract', () => {
-  it('shares universal copy and first-class options across all surfaces', () => {
-    for (const source of [equipmentSource, settingsSource, kitchenSetupSource]) {
-      expect(source).toContain('APPLIANCE_SECTION_TITLE');
-      expect(source).toContain('APPLIANCE_SECTION_DESCRIPTION');
-      expect(source).toContain('EXTRA_APPLIANCES');
-      expect(source).toContain('accessibilityRole="checkbox"');
-    }
-    expect(APPLIANCE_SECTION_TITLE).toBe('Kitchen appliances');
-    expect(APPLIANCE_SECTION_DESCRIPTION).toContain('expand the meals');
-    expect(EQUIPMENT_TIERS.map((tier) => tier.subtitle)).toEqual([
-      'Cook using only a microwave',
-      'Microwave plus electric kettle or boiling water',
-      'Stove, oven, and standard cookware',
-    ]);
-    expect(EXTRA_APPLIANCES.map((appliance) => appliance.label)).toEqual([
+  it('shares universal checklist component across onboarding and kitchen setup', () => {
+    expect(equipmentSource).toContain('<EquipmentChecklist');
+    expect(kitchenSetupSource).toContain('<EquipmentChecklist');
+    expect(settingsSource).toContain("router.push('/kitchen-setup')");
+    expect(COOKING_EQUIPMENT_OPTIONS.map((appliance) => appliance.label)).toEqual([
+      'Microwave',
+      'Stovetop',
+      'Oven',
+      'Electric kettle',
       'Air fryer',
       'Rice cooker',
       'Blender',
       'Toaster oven',
     ]);
+    expect(NO_COOKING_EQUIPMENT_OPTION.label).toBe('No cooking equipment');
     expect(equipmentSource).not.toContain('Anything else?');
     expect(settingsSource).not.toContain('Anything else?');
     expect(kitchenSetupSource).not.toContain('Anything else?');
@@ -134,6 +118,21 @@ describe('responsive Kitchen Setup contract', () => {
       contentMaxWidth: undefined,
       gridColumns: 1,
     });
-    expect(kitchenSetupSource).toContain("flexWrap: 'wrap'");
+    expect(kitchenSetupSource).toContain('returnActions');
+  });
+});
+
+describe('Home screen cuisine choices contract', () => {
+  it('renders CuisineOptions with wrapping on desktop and horizontal scroll on phone', () => {
+    expect(homeSource).toContain("responsive.cuisineFilter === 'wrap'");
+    expect(homeSource).toContain('styles.desktopCuisineRow');
+    expect(homeSource).toContain('styles.cuisineScroll');
+    expect(homeSource).toContain('horizontal');
+  });
+
+  it('provides Any cuisine chip and never auto-advances on cuisine selection', () => {
+    expect(homeSource).toContain('label="Any"');
+    expect(homeSource).toContain('CUISINE_OPTIONS.map');
+    expect(homeSource).toContain('onSelectCuisine(cuisine === option.value ? null : option.value)');
   });
 });

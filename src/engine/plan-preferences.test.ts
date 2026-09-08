@@ -17,9 +17,13 @@ const dates = [
 function plan(): WeeklyMealPlan {
   return {
     weekStart: dates[0]!,
+    dayCount: 7,
+    mealSlots: ['dinner'],
+    limitedVariety: false,
     entries: dates.map((date, index) => ({
       kind: 'recipe' as const,
       date,
+      mealSlot: 'dinner' as const,
       recipeId: 'recipe-' + (index + 1),
       plannedMealTime: date + 'T18:30:00-07:00',
       statedRelaxations: [],
@@ -39,23 +43,24 @@ const recipes = dates.map((_, index) =>
 );
 
 describe('applyPlanPreferences', () => {
-  it('keeps the durable seven-date shape while making a three-day choice explicit', () => {
+  it('trims the plan to the selected number of days and updates grocery needs', () => {
     const result = applyPlanPreferences(plan(), 3, 'variety', recipes, pantry());
-    expect(result.entries.slice(0, 3).every((entry) => entry.kind === 'recipe')).toBe(true);
-    expect(result.entries.slice(3)).toEqual(
-      dates.slice(3).map((date) => ({ kind: 'day_of_decision', date, reason: 'not_planned' }))
-    );
+    expect(result.dayCount).toBe(3);
+    expect(result.entries).toHaveLength(3);
+    expect(result.entries.every((entry) => entry.kind === 'recipe')).toBe(true);
     expect(result.groceryNeeds).toHaveLength(3);
     expect(
       result.groceryNeeds.every((need) => need.dates.every((date) => dates.indexOf(date) < 3))
     ).toBe(true);
   });
 
-  it('uses the first safe meal for deterministic comfortable repeats', () => {
+  it('preserves existing recipes and updates grocery needs for the active days', () => {
     const result = applyPlanPreferences(plan(), 5, 'repeats', recipes, pantry());
+    expect(result.dayCount).toBe(5);
+    expect(result.entries).toHaveLength(5);
     expect(
-      result.entries.slice(0, 5).map((entry) => (entry.kind === 'recipe' ? entry.recipeId : null))
-    ).toEqual(Array.from({ length: 5 }, () => 'recipe-1'));
-    expect(result.groceryNeeds.map((need) => need.ingredientId)).toEqual(['ingredient-1']);
+      result.entries.map((entry) => (entry.kind === 'recipe' ? entry.recipeId : null))
+    ).toEqual(['recipe-1', 'recipe-2', 'recipe-3', 'recipe-4', 'recipe-5']);
+    expect(result.groceryNeeds).toHaveLength(5);
   });
 });

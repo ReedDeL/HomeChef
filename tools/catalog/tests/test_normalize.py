@@ -8,6 +8,7 @@ import pytest
 
 from tools.catalog.normalize import (
     allergen_groups_for,
+    canonical_cuisine,
     canonical_id,
     is_staple,
     slugify,
@@ -104,3 +105,44 @@ class TestSlugify:
 
     def test_trims_leading_and_trailing_separators(self) -> None:
         assert slugify("--abc--") == "abc"
+
+
+class TestCanonicalCuisine:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("American", "american"),
+            ("american", "american"),
+            ("United States", "american"),
+            ("united states", "american"),
+            ("USA", "american"),
+            ("us", "american"),
+            ("British", "british"),
+            ("UK", "british"),
+            ("United Kingdom", "british"),
+            ("English", "british"),
+            ("Chinese", "chinese"),
+            ("China", "chinese"),
+            ("French", "french"),
+            ("France", "french"),
+            ("Indian", "indian"),
+            ("India", "indian"),
+            ("Italian", "italian"),
+            ("Italy", "italian"),
+            ("Spanish", "spanish"),
+            ("Spain", "spanish"),
+            ("Thai", "thai"),
+            ("Thailand", "thai"),
+            ("Mexican", "mexican"),
+            ("Mexico", "mexican"),
+        ],
+    )
+    def test_maps_known_cuisines_and_nationalities(self, raw: str, expected: str) -> None:
+        assert canonical_cuisine(raw) == expected
+
+    @pytest.mark.parametrize("raw", [None, "", "   ", "any", "Any", "NONE", "null", "Unknown"])
+    def test_maps_blanks_and_reservations_to_none(self, raw: str | None) -> None:
+        assert canonical_cuisine(raw) is None
+
+    def test_preserves_unmapped_valid_cuisine_slug(self) -> None:
+        assert canonical_cuisine("Lebanese") == "lebanese"

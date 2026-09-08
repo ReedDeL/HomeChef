@@ -1,6 +1,7 @@
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { IngredientChip } from '@/components/ui/IngredientChip';
+import { RecipeImage } from '@/components/ui/RecipeImage';
 import { Text } from '@/components/ui/Text';
 import type { ScoredRecipe } from '@/engine/types';
 import { formatDuration, formatEquipment } from '@/lib/format';
@@ -47,21 +48,7 @@ export function RecipeCard({ scored, onPress, onDislike }: RecipeCardProps) {
         style={({ pressed }) => [styles.main, { opacity: pressed ? 0.9 : 1 }]}
       >
         <View style={styles.row}>
-          {recipe.imageUrl ? (
-            <Image
-              source={{ uri: recipe.imageUrl }}
-              style={styles.thumbnail}
-              accessibilityIgnoresInvertColors
-              // Decorative: the title beside it already names the dish.
-              accessible={false}
-            />
-          ) : (
-            <View style={[styles.thumbnail, styles.placeholder, { borderColor: color.border }]}>
-              <Text variant="heading" tone="far">
-                {recipe.title.slice(0, 1).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <RecipeImage uri={recipe.imageUrl} title={recipe.title} size={THUMBNAIL} />
 
           <View style={styles.copy}>
             <Text variant="bodyStrong" numberOfLines={2}>

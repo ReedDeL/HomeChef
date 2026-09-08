@@ -26,11 +26,15 @@ const DATES = [
 function makePlan(recipeId = 'bundled-1'): WeeklyMealPlan {
   return {
     weekStart: DATES[0],
+    dayCount: 7,
+    mealSlots: ['dinner'],
+    limitedVariety: false,
     status: 'draft',
     statedRelaxations: ['time'],
     entries: DATES.map((date) => ({
       kind: 'recipe' as const,
       date,
+      mealSlot: 'dinner' as const,
       recipeId,
       plannedMealTime: `${date}T18:30:00-07:00`,
       statedRelaxations: ['time'] as const,
@@ -149,12 +153,16 @@ describe('weekly plan persistence', () => {
       operation: 'create_weekly_meal_plan',
       parent: {
         week_start: '2026-08-24',
+        day_count: 7,
+        meal_slots: ['dinner'],
+        limited_variety: false,
         status: 'draft',
         stated_relaxations: ['time'],
       },
       entries: expect.arrayContaining([
         expect.objectContaining({
           entry_date: '2026-08-24',
+          meal_slot: 'dinner',
           recipe_id: 'bundled-1',
         }),
       ]),
@@ -169,6 +177,7 @@ describe('weekly plan persistence', () => {
       plan_id: PLAN_ID,
       user_id: USER_ID,
       entry_date: '2026-08-24',
+      meal_slot: 'dinner',
       kind: 'recipe',
       recipe_id: 'bundled-1',
       planned_meal_time: '2026-08-24T18:30:00-07:00',

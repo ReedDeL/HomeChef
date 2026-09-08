@@ -20,6 +20,7 @@ import {
   type WeeklyMealPlan,
 } from '@/contracts/meal-journeys';
 import type { Recipe } from '@/engine/types';
+import { MEAL_SLOTS } from '@/contracts/meal-slots';
 import {
   bodyProfilePersistence,
   mealReminderPreferencesPersistence,
@@ -44,9 +45,10 @@ const TASTE_SIGNAL_COLUMNS = 'id, user_id, kind, recipe_id, journey, recorded_at
 const SATIETY_COLUMNS = 'id, user_id, recipe_id, level, recorded_at';
 const ONBOARDING_COLUMNS =
   'user_id, safety_completed, week_preference_completed, photo_taste_completed, body_profile_completed, reminder_completed, updated_at';
-const PLAN_COLUMNS = 'id, user_id, week_start, status, stated_relaxations';
+const PLAN_COLUMNS =
+  'id, user_id, week_start, status, stated_relaxations, day_count, meal_slots, limited_variety';
 const PLAN_ENTRY_COLUMNS =
-  'plan_id, user_id, entry_date, kind, recipe_id, planned_meal_time, reason, stated_relaxations, portion_servings, portion_label, portion_disclaimer';
+  'plan_id, user_id, entry_date, meal_slot, kind, recipe_id, planned_meal_time, reason, stated_relaxations, portion_servings, portion_label, portion_disclaimer';
 const PLAN_NEED_COLUMNS = 'plan_id, user_id, ingredient_id, recipe_ids, dates';
 const REMINDER_COLUMNS = 'user_id, enabled, lead_minutes, updated_at';
 
@@ -244,6 +246,7 @@ export async function createWeeklyMealPlan(
     p_stated_relaxations: creation.parent.stated_relaxations,
     p_entries: creation.entries,
     p_grocery_needs: creation.groceryNeeds,
+    p_limited_variety: creation.parent.limited_variety,
   });
   if (error) throw error;
   if (!data) throw new Error('Weekly plan creation returned no id');
@@ -259,6 +262,7 @@ export async function replaceWeeklyMealPlanChildren(
   const replacement = weeklyPlanPersistence.toReplacement(userId, planId, plan, bundledCatalog);
   const pEntries = replacement.entries.map((row) => ({
     entry_date: row.entry_date,
+    meal_slot: row.meal_slot,
     kind: row.kind,
     recipe_id: row.recipe_id,
     planned_meal_time: row.planned_meal_time,
@@ -277,6 +281,7 @@ export async function replaceWeeklyMealPlanChildren(
     p_plan_id: replacement.deleteExisting.plan_id,
     p_entries: pEntries,
     p_grocery_needs: pGroceryNeeds,
+    p_limited_variety: plan.limitedVariety,
   });
   if (error) throw error;
 }
@@ -332,27 +337,38 @@ export async function fetchWeeklyMealPlan(
 
   return weeklyMealPlanSchema.parse({
     weekStart: parent.week_start,
+    dayCount: parent.day_count,
+    mealSlots: parent.meal_slots,
+    limitedVariety: parent.limited_variety,
     status: parent.status,
     statedRelaxations: parent.stated_relaxations,
-    entries: (entriesResult.data ?? []).map((row) =>
-      row.kind === 'recipe'
-        ? {
-            kind: row.kind,
-            date: row.entry_date,
-            recipeId: row.recipe_id,
-            plannedMealTime: row.planned_meal_time,
-            statedRelaxations: row.stated_relaxations,
-            portionGuidance:
-              row.portion_servings === null
-                ? null
-                : {
-                    servings: row.portion_servings,
-                    label: row.portion_label,
-                    disclaimer: row.portion_disclaimer,
-                  },
-          }
-        : { kind: row.kind, date: row.entry_date, reason: row.reason }
-    ),
+    entries: (entriesResult.data ?? [])
+      .sort(
+        (a, b) =>
+          a.entry_date.localeCompare(b.entry_date) ||
+          MEAL_SLOTS.indexOf(a.meal_slot as (typeof MEAL_SLOTS)[number]) -
+            MEAL_SLOTS.indexOf(b.meal_slot as (typeof MEAL_SLOTS)[number])
+      )
+      .map((row) =>
+        row.kind === 'recipe'
+          ? {
+              kind: row.kind,
+              date: row.entry_date,
+              mealSlot: row.meal_slot,
+              recipeId: row.recipe_id,
+              plannedMealTime: row.planned_meal_time,
+              statedRelaxations: row.stated_relaxations,
+              portionGuidance:
+                row.portion_servings === null
+                  ? null
+                  : {
+                      servings: row.portion_servings,
+                      label: row.portion_label,
+                      disclaimer: row.portion_disclaimer,
+                    },
+            }
+          : { kind: row.kind, date: row.entry_date, mealSlot: row.meal_slot, reason: row.reason }
+      ),
     groceryNeeds: (needsResult.data ?? []).map((row) => ({
       ingredientId: row.ingredient_id,
       recipeIds: row.recipe_ids,

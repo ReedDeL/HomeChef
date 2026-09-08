@@ -132,10 +132,14 @@ describe('weekly-plan grocery presentation and pantry updates', () => {
     ];
     const plan: WeeklyMealPlan = {
       weekStart: '2026-08-24',
+      dayCount: 7,
+      mealSlots: ['dinner'],
+      limitedVariety: false,
       entries: [
         {
           kind: 'recipe',
           date: '2026-08-24',
+          mealSlot: 'dinner',
           recipeId: 'recipe-a',
           plannedMealTime: '2026-08-24T18:30:00-04:00',
           statedRelaxations: [],
@@ -144,6 +148,7 @@ describe('weekly-plan grocery presentation and pantry updates', () => {
         ...Array.from({ length: 6 }, (_, index) => ({
           kind: 'day_of_decision' as const,
           date: `2026-08-${String(25 + index).padStart(2, '0')}`,
+          mealSlot: 'dinner' as const,
           reason: 'not_planned' as const,
         })),
       ],

@@ -1,6 +1,10 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/components/ui/Icon', () => ({
+  Icon: ({ name }: { name: string }) => createElement('span', { 'data-icon': name }),
+}));
 
 import {
   buildRecommendationSections,
@@ -28,6 +32,7 @@ function scored(id: string, bucket: Bucket): ScoredRecipe {
       nutritionProvenance: null,
       nutritionConfidence: 'unavailable',
       source: 'bundled',
+      mealSlots: ['dinner'],
     },
     missing: [],
     bucket,

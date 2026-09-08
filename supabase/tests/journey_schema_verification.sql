@@ -329,8 +329,8 @@ select format('%s is security invoker and authenticated-only', signature),
             and not has_function_privilege('anon', p.oid, 'EXECUTE')
        )
   from (values
-    ('public.replace_weekly_plan_children(uuid,jsonb,jsonb)'),
-    ('public.create_weekly_meal_plan(date,text,text[],jsonb,jsonb)')
+    ('public.replace_weekly_plan_children(uuid,jsonb,jsonb,boolean)'),
+    ('public.create_weekly_meal_plan(date,text,text[],jsonb,jsonb,boolean)')
   ) as expected(signature);
 
 insert into _journey_schema_results values

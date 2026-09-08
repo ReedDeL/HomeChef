@@ -29,7 +29,7 @@
     "id": "hc-mw-02",
     "title": "Porridge in a Bowl",
     "totalTimeMinutes": 5,
-    "cuisine": null,
+    "cuisine": "british",
     "ingredients": [
       {
         "id": "porridge_oats",
@@ -107,7 +107,7 @@
     "id": "hc-mw-05",
     "title": "Mug Mac and Cheese",
     "totalTimeMinutes": 12,
-    "cuisine": null,
+    "cuisine": "american",
     "ingredients": [
       {
         "id": "macaroni",
@@ -429,7 +429,7 @@
     "id": "hc-mw-16",
     "title": "Spiced Lentil Bowl",
     "totalTimeMinutes": 15,
-    "cuisine": null,
+    "cuisine": "indian",
     "ingredients": [
       {
         "id": "lentils",
@@ -571,7 +571,7 @@
     "id": "hc-mw-21",
     "title": "Microwave Personal Pizza",
     "totalTimeMinutes": 5,
-    "cuisine": null,
+    "cuisine": "italian",
     "ingredients": [
       {
         "id": "pita_bread",
@@ -679,7 +679,7 @@
     "id": "hc-mw-25",
     "title": "Microwave Mug Mac & Cheese",
     "totalTimeMinutes": 8,
-    "cuisine": null,
+    "cuisine": "american",
     "ingredients": [
       {
         "id": "macaroni",
@@ -709,7 +709,7 @@
     "id": "hc-mw-26",
     "title": "Microwave Loaded Baked Potato",
     "totalTimeMinutes": 8,
-    "cuisine": null,
+    "cuisine": "american",
     "ingredients": [
       {
         "id": "russet_potato",
@@ -765,7 +765,7 @@
     "id": "hc-staple-pbj",
     "title": "Peanut Butter and Jelly Sandwich",
     "totalTimeMinutes": 5,
-    "cuisine": null,
+    "cuisine": "american",
     "equipmentRequired": ["none"],
     "ingredients": [
       {
@@ -787,7 +787,7 @@
     "id": "hc-staple-grilled-cheese",
     "title": "Classic Grilled Cheese",
     "totalTimeMinutes": 10,
-    "cuisine": null,
+    "cuisine": "american",
     "equipmentRequired": ["stove"],
     "ingredients": [
       {
@@ -809,7 +809,7 @@
     "id": "hc-staple-toast-jam",
     "title": "Toast with Butter and Jam",
     "totalTimeMinutes": 5,
-    "cuisine": null,
+    "cuisine": "british",
     "equipmentRequired": ["none"],
     "ingredients": [
       {
@@ -857,7 +857,7 @@
     "id": "hc-staple-tuna-sandwich",
     "title": "Simple Tuna Salad Sandwich",
     "totalTimeMinutes": 5,
-    "cuisine": null,
+    "cuisine": "american",
     "equipmentRequired": ["none"],
     "ingredients": [
       {
@@ -887,7 +887,7 @@
     "id": "hc-staple-cinnamon-toast",
     "title": "Cinnamon Sugar Toast",
     "totalTimeMinutes": 5,
-    "cuisine": null,
+    "cuisine": "american",
     "equipmentRequired": ["none"],
     "ingredients": [
       {

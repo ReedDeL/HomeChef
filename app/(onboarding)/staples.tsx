@@ -1,58 +1,75 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { IngredientChecklist } from '@/components/ui/IngredientChecklist';
 import { Header } from '@/components/ui/Header';
-import { IngredientChip } from '@/components/ui/IngredientChip';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Screen } from '@/components/ui/Screen';
 import { StepFooter } from '@/components/ui/StepFooter';
 import { StepIndicator } from '@/components/ui/StepIndicator';
 import { Text } from '@/components/ui/Text';
-import { COMMON_PANTRY_IDS, useKitchenStore } from '@/store/kitchen';
-import { STAPLE_INGREDIENT_IDS } from '@/data/catalog';
+import { lookupIngredient } from '@/data/catalog';
+import { PANTRY_STARTER_IDS } from '@/data/ingredient-presentation';
+import type { IngredientId } from '@/engine/types';
 import { trackOnboardingCompleted } from '@/lib/analytics';
-import { space } from '@/theme/tokens';
+import {
+  filterSafeStarterIngredients,
+  getChecklistIngredientIds,
+} from '@/lib/ingredients/suggestions';
+import { useKitchenStore } from '@/store/kitchen';
+import { radius, space, touchTarget } from '@/theme/tokens';
+import { useTheme } from '@/theme/useTheme';
 
-/**
- * Spec §3 — the pantry starter (Step 4 of 4).
- *
- * Pre-populating and asking the user to *remove* what they lack is the whole
- * trick: it is faster than adding twenty items, and it teaches the correction
- * gesture ("tap what's wrong") that the rest of the app depends on before the
- * user has a pantry worth breaking.
- *
- * The spec also puts the first photo capture here. It is offered but never
- * required: the staples above already give the engine enough to work with, and
- * making a camera permission prompt the price of finishing setup would be the
- * opposite of "onboarding is a tax, keep it short".
- *
- * All pantry customizations are remembered across step navigation.
- */
 export default function StaplesScreen() {
   const router = useRouter();
+  const { color } = useTheme();
   const pantry = useKitchenStore((state) => state.pantry);
+  const allergens = useKitchenStore((state) => state.allergens);
+  const dietary = useKitchenStore((state) => state.dietary);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
+  const initializePantryStarter = useKitchenStore((state) => state.initializePantryStarter);
   const completeOnboarding = useKitchenStore((state) => state.completeOnboarding);
+  const [query, setQuery] = useState('');
 
+  const safeStarterIds = useMemo(
+    () => filterSafeStarterIngredients(PANTRY_STARTER_IDS, allergens, dietary),
+    [allergens, dietary]
+  );
+
+  useEffect(() => {
+    initializePantryStarter(safeStarterIds);
+  }, [initializePantryStarter, safeStarterIds]);
+
+  const ids = useMemo(
+    () => getChecklistIngredientIds(query, pantry, safeStarterIds),
+    [pantry, query, safeStarterIds]
+  );
+
+  const toggleIngredient = useCallback(
+    (id: IngredientId) => {
+      const checked = pantry.includes(id);
+      const name = lookupIngredient(id)?.displayName ?? id.replaceAll('_', ' ');
+      togglePantryItem(id);
+      AccessibilityInfo.announceForAccessibility?.(
+        `${checked ? 'Removed' : 'Added'} ${name} ${checked ? 'from' : 'to'} pantry.`
+      );
+    },
+    [pantry, togglePantryItem]
+  );
+  const back = () => router.back();
   const finish = () => {
     trackOnboardingCompleted();
     completeOnboarding();
     router.replace('/');
   };
-
-  const toggleIngredient = (id: (typeof pantry)[number]) => {
-    togglePantryItem(id);
-  };
-
-  const back = () => router.back();
-
-  const extras = COMMON_PANTRY_IDS.filter((id) => !STAPLE_INGREDIENT_IDS.includes(id));
-  const scannedCustom = pantry.filter(
-    (id) => !STAPLE_INGREDIENT_IDS.includes(id) && !COMMON_PANTRY_IDS.includes(id)
-  );
+  const emptyMessage = query.trim()
+    ? `Nothing matching “${query.trim()}” in our ingredient list yet.`
+    : 'Your pantry is empty. You can add ingredients later.';
 
   return (
     <Screen
+      scroll={false}
       header={
         <Header
           onBack={back}
@@ -72,81 +89,101 @@ export default function StaplesScreen() {
         />
       }
     >
-      <StepIndicator currentStep={4} totalSteps={4} label="Pantry Starter" />
-
-      <View style={styles.intro}>
-        <Text variant="display">We assumed you have these.</Text>
-        <Text variant="body" tone="muted">
-          Tap any you don&apos;t.
-        </Text>
-      </View>
-
-      <View style={styles.group}>
-        <View style={styles.chipRow}>
-          {STAPLE_INGREDIENT_IDS.map((id) => (
-            <IngredientChip
-              key={id}
-              id={id}
-              inPantry={pantry.includes(id)}
-              onToggle={toggleIngredient}
-            />
-          ))}
+      <View style={styles.page}>
+        <StepIndicator currentStep={4} totalSteps={4} label="Pantry Starter" />
+        <View style={styles.intro}>
+          <Text variant="display">Start your pantry</Text>
+          <Text variant="body" tone="muted">
+            Confirm a few everyday ingredients, search for more, or take a photo.
+          </Text>
         </View>
-      </View>
-
-      <View style={styles.group}>
-        <Text variant="heading">Anything else in the fridge?</Text>
-        <View style={styles.chipRow}>
-          {extras.map((id) => (
-            <IngredientChip
-              key={id}
-              id={id}
-              inPantry={pantry.includes(id)}
-              onToggle={toggleIngredient}
-            />
-          ))}
-        </View>
-      </View>
-
-      {scannedCustom.length > 0 ? (
-        <View style={styles.group}>
-          <Text variant="heading">From your photos</Text>
-          <View style={styles.chipRow}>
-            {scannedCustom.map((id) => (
-              <IngredientChip
-                key={id}
-                id={id}
-                inPantry={pantry.includes(id)}
-                onToggle={toggleIngredient}
-              />
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      <View style={styles.group}>
-        <Text variant="heading">Or photograph your fridge</Text>
-        <Text variant="body" tone="muted">
-          Faster than tapping. We&apos;ll show you what we found before adding anything.
-        </Text>
-        <PrimaryButton
-          label="Take a photo"
-          variant="ghost"
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Scan pantry with a photo"
+          accessibilityHint="Opens camera options. Nothing is added until you confirm it."
           onPress={() => router.push('/scan')}
-          accessibilityHint="Photograph your kitchen to add ingredients"
+          style={({ pressed }) => [
+            styles.scanButton,
+            { backgroundColor: color.accent, opacity: pressed ? 0.84 : 1 },
+          ]}
+        >
+          <MaterialCommunityIcons name="camera-outline" size={22} color={color.accentText} />
+          <Text variant="bodyStrong" tone="onAccent">
+            Scan pantry with a photo
+          </Text>
+        </Pressable>
+        <View style={styles.searchRow}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search ingredients"
+            placeholderTextColor={color.textMuted}
+            accessibilityLabel="Search ingredients"
+            accessibilityHint="Filters the ingredient checklist"
+            autoCorrect={false}
+            style={[
+              styles.input,
+              { borderColor: color.border, backgroundColor: color.surface, color: color.text },
+            ]}
+          />
+          {query ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear ingredient search"
+              accessibilityHint="Clears the ingredient search results"
+              onPress={() => setQuery('')}
+              style={styles.clear}
+            >
+              <MaterialCommunityIcons name="close" size={20} color={color.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+        <IngredientChecklist
+          ids={ids}
+          selectedIds={pantry}
+          onToggle={toggleIngredient}
+          emptyMessage={emptyMessage}
+          style={styles.list}
+          testID="pantry-starter-checklist"
         />
+        <Text variant="caption" tone="muted">
+          {pantry.length} {pantry.length === 1 ? 'ingredient' : 'ingredients'} selected. Starting
+          empty is okay.
+        </Text>
       </View>
-
-      <Text variant="caption" tone="muted">
-        {pantry.length} {pantry.length === 1 ? 'ingredient' : 'ingredients'} in your pantry. You can
-        fix this any time.
-      </Text>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, gap: space.md, paddingVertical: space.sm },
   intro: { gap: space.sm },
-  group: { gap: space.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  scanButton: {
+    minHeight: touchTarget.primaryCtaHeight,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+  },
+  searchRow: { position: 'relative' },
+  input: {
+    minHeight: touchTarget.standard,
+    paddingHorizontal: space.md,
+    paddingRight: 48,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    fontSize: 17,
+  },
+  clear: {
+    position: 'absolute',
+    right: space.xs,
+    top: 0,
+    minHeight: touchTarget.standard,
+    minWidth: touchTarget.standard,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  list: { flex: 1 },
 });

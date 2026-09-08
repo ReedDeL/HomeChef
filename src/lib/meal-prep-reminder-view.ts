@@ -20,7 +20,7 @@ export function toMealPrepReminderEntries(
     return recipe
       ? [
           {
-            id: entry.recipeId + ':' + entry.date,
+            id: `${entry.date}:${entry.mealSlot}:${entry.recipeId}`,
             recipeId: recipe.id,
             recipeTitle: recipe.title,
             totalTimeMinutes: recipe.totalTimeMinutes,

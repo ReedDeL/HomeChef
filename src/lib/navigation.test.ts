@@ -10,22 +10,28 @@ function readApp(relativePath: string): string {
 }
 
 describe('primary navigation contract', () => {
-  it('presents exactly Now, Plan, and Pantry in product order with accessible labels', () => {
+  it('presents exactly Now, Plan, and Pantry in product order with accessible labels and vector icons', () => {
     expect(PRIMARY_TABS).toEqual([
       {
         name: 'index',
         title: 'Now',
         accessibilityLabel: 'Now, decide what to make',
+        icon: 'silverware-fork-knife',
+        activeIcon: 'silverware-fork-knife',
       },
       {
         name: 'plan',
         title: 'Plan',
         accessibilityLabel: 'Plan, plan your week',
+        icon: 'calendar-month-outline',
+        activeIcon: 'calendar-month',
       },
       {
         name: 'pantry',
         title: 'Pantry',
         accessibilityLabel: 'Pantry, what you have',
+        icon: 'fridge-outline',
+        activeIcon: 'fridge',
       },
     ]);
   });

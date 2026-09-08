@@ -4,6 +4,7 @@ import { isRecipeHardConstraintSatisfied } from '@/engine/filter-hard';
 import { TIME_TIERS } from '@/engine/relax';
 import { DIETARY_TAGS, EQUIPMENT } from '@/engine/types';
 import type { DietaryTag, Equipment, Recipe, UserPreferences } from '@/engine/types';
+import { toMealSlots } from '@/lib/adapters/to-recipe';
 import { supabase } from '@/lib/supabase';
 
 export const CATALOG_RPC_LIMIT = 100;
@@ -428,6 +429,7 @@ function toCandidateRecipe(row: z.infer<typeof candidateSchema>): Recipe {
     energyKcalPerServing: null,
     nutritionProvenance: null,
     nutritionConfidence: 'unavailable',
+    mealSlots: toMealSlots({ id: row.recipe_id }),
   };
 }
 

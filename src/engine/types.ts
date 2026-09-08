@@ -6,6 +6,7 @@
  * never learns where a recipe came from — the bundled catalog or a live catalog result.
  */
 import type { BodyGoal, NutritionConfidence, NutritionProvenance } from '@/contracts/meal-journeys';
+import type { MealSlot } from '@/contracts/meal-slots';
 
 /**
  * Canonical ingredient identifier from src/data/ingredients.json.
@@ -88,6 +89,8 @@ export interface Recipe {
   title: string;
   imageUrl: string | null;
   cuisine: string | null;
+  /** Verified meal occasions; missing metadata is not eligible for planning. */
+  mealSlots: MealSlot[];
   totalTimeMinutes: Minutes;
   equipmentRequired: Equipment[];
   dietaryTags: DietaryTag[];
@@ -125,6 +128,7 @@ export interface UserPreferences {
 export interface DailyPlanPreference {
   /** ISO local calendar date supplied by the caller. */
   date: string;
+  mealSlot: MealSlot;
   selectedLimit: Minutes;
   /** Local wall-clock time with seconds and a numeric UTC offset. */
   mealTime: string;

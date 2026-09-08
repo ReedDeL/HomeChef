@@ -40,6 +40,9 @@ jobs:
       - name: Verify journey schema
         run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/journey_schema_verification.sql
 
+      - name: Verify multi-meal plan persistence and ownership
+        run: psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/weekly_slots_verification.sql
+
   python:
     runs-on: ubuntu-latest
     steps:

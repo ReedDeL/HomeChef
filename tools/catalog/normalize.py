@@ -289,3 +289,67 @@ def is_staple(ingredient_id: str) -> bool:
 
 def display_name(ingredient_id: str) -> str:
     return ingredient_id.replace("_", " ")
+
+
+# Normalizes nationality adjectives, country names, and common variants to
+# canonical cuisine slugs so UI choices match catalog recipes without UI aliases.
+CUISINE_SYNONYMS: dict[str, str] = {
+    "america": "american",
+    "american": "american",
+    "united_states": "american",
+    "united_states_of_america": "american",
+    "usa": "american",
+    "us": "american",
+    "britain": "british",
+    "british": "british",
+    "united_kingdom": "british",
+    "uk": "british",
+    "english": "british",
+    "england": "british",
+    "scottish": "british",
+    "scotland": "british",
+    "welsh": "british",
+    "wales": "british",
+    "china": "chinese",
+    "chinese": "chinese",
+    "france": "french",
+    "french": "french",
+    "india": "indian",
+    "indian": "indian",
+    "italy": "italian",
+    "italian": "italian",
+    "mexico": "mexican",
+    "mexican": "mexican",
+    "spain": "spanish",
+    "spanish": "spanish",
+    "thailand": "thai",
+    "thai": "thai",
+    "japan": "japanese",
+    "japanese": "japanese",
+    "greece": "greek",
+    "greek": "greek",
+    "ireland": "irish",
+    "irish": "irish",
+    "canada": "canadian",
+    "canadian": "canadian",
+    "germany": "german",
+    "german": "german",
+    "korea": "korean",
+    "korean": "korean",
+    "vietnam": "vietnamese",
+    "vietnamese": "vietnamese",
+    "morocco": "moroccan",
+    "moroccan": "moroccan",
+    "turkey": "turkish",
+    "turkish": "turkish",
+}
+
+
+def canonical_cuisine(raw_cuisine: str | None) -> str | None:
+    """Normalize a free-text cuisine or nationality into a canonical cuisine slug."""
+    if not raw_cuisine:
+        return None
+    slug = slugify(raw_cuisine)
+    if not slug or slug in {"any", "none", "null", "unknown"}:
+        return None
+    return CUISINE_SYNONYMS.get(slug, slug)

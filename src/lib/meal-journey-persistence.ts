@@ -149,6 +149,7 @@ function toWeeklyPlanChildPayload(plan: WeeklyMealPlan) {
       if (entry.kind === 'day_of_decision') {
         return {
           entry_date: entry.date,
+          meal_slot: entry.mealSlot,
           kind: entry.kind,
           recipe_id: null,
           planned_meal_time: null,
@@ -162,6 +163,7 @@ function toWeeklyPlanChildPayload(plan: WeeklyMealPlan) {
 
       return {
         entry_date: entry.date,
+        meal_slot: entry.mealSlot,
         kind: entry.kind,
         recipe_id: entry.recipeId,
         planned_meal_time: entry.plannedMealTime,
@@ -189,6 +191,9 @@ function toWeeklyPlanCreation(userId: string, input: WeeklyMealPlan, catalog: re
     operation: WEEKLY_PLAN_CREATION_RPC,
     parent: {
       week_start: plan.weekStart,
+      day_count: plan.dayCount,
+      meal_slots: [...plan.mealSlots],
+      limited_variety: plan.limitedVariety,
       status: plan.status,
       stated_relaxations: [...plan.statedRelaxations],
     },

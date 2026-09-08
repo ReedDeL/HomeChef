@@ -1,201 +1,314 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
+  Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IngredientChip } from '@/components/ui/IngredientChip';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { IngredientChecklist } from '@/components/ui/IngredientChecklist';
 import { getResponsiveLayout } from '@/components/ui/responsive-layout';
-import { SettingsAction } from '@/components/ui/SettingsAction';
 import { Screen } from '@/components/ui/Screen';
+import { SettingsAction } from '@/components/ui/SettingsAction';
 import { Text } from '@/components/ui/Text';
-import { lookupIngredient } from '@/data/catalog';
-import {
-  DEFAULT_SUGGESTION_COUNT,
-  MAX_SEARCH_RESULTS,
-  getReplenishingSuggestions,
-  searchIngredientSuggestions,
-} from '@/lib/ingredients/suggestions';
+import type { IngredientId } from '@/engine/types';
+import { getChecklistIngredientIds } from '@/lib/ingredients/suggestions';
 import { useKitchenStore } from '@/store/kitchen';
 import { radius, space, touchTarget } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
-/**
- * Spec §8 — view, add, correct.
- *
- * This screen exists because of risk R3: the pantry drifts out of date the
- * moment it is created, and a pantry the user cannot cheaply correct produces
- * recommendations they learn to ignore. So correction is the primary action
- * here, not a settings-menu afterthought — tap to remove, search to add.
- */
-export default function PantryScreen() {
+export type RemotePantrySyncHandler = (id: IngredientId, action: 'add' | 'remove') => Promise<void>;
+
+export interface PantryScreenProps {
+  remoteSyncHandler?: RemotePantrySyncHandler;
+}
+
+export default function PantryScreen({ remoteSyncHandler }: PantryScreenProps = {}) {
   const router = useRouter();
   const { color, shadow } = useTheme();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const responsive = getResponsiveLayout(Platform.OS === 'web' ? width : 0);
   const pantry = useKitchenStore((state) => state.pantry);
   const togglePantryItem = useKitchenStore((state) => state.togglePantryItem);
-  const removePantryItem = useKitchenStore((state) => state.removePantryItem);
-
   const [query, setQuery] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [syncError, setSyncError] = useState<{
+    id: IngredientId;
+    action: 'add' | 'remove';
+    message: string;
+  } | null>(null);
 
-  const suggestions = useMemo(() => {
-    const term = query.trim();
-    if (term.length === 0) {
-      return getReplenishingSuggestions(pantry, DEFAULT_SUGGESTION_COUNT);
-    }
-    return searchIngredientSuggestions(term, pantry, MAX_SEARCH_RESULTS);
-  }, [query, pantry]);
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    return () => {
+      showSub?.remove?.();
+      hideSub?.remove?.();
+    };
+  }, []);
 
-  const handleAddIngredient = useCallback(
-    (id: string) => {
+  const ids = useMemo(() => getChecklistIngredientIds(query, pantry), [pantry, query]);
+
+  const toggleIngredient = useCallback(
+    async (id: IngredientId, overrideSyncHandler?: RemotePantrySyncHandler) => {
+      const activeHandler = overrideSyncHandler ?? remoteSyncHandler;
+      const checked = pantry.includes(id);
+      const targetAction: 'add' | 'remove' = checked ? 'remove' : 'add';
+
       togglePantryItem(id);
-      const item = lookupIngredient(id);
-      const name = item?.displayName ?? id;
-      if (typeof AccessibilityInfo?.announceForAccessibility === 'function') {
-        AccessibilityInfo.announceForAccessibility(`Added ${name} to pantry.`);
+      AccessibilityInfo.announceForAccessibility?.(
+        `${checked ? 'Removed' : 'Added'} ${id.replaceAll('_', ' ')} ${checked ? 'from' : 'to'} pantry.`
+      );
+      setSyncError(null);
+
+      if (activeHandler) {
+        try {
+          await activeHandler(id, targetAction);
+        } catch (error) {
+          // Revert local store on remote failure
+          togglePantryItem(id);
+          const message = error instanceof Error ? error.message : 'Sync failed';
+          setSyncError({ id, action: targetAction, message });
+          AccessibilityInfo.announceForAccessibility?.(
+            `Failed to save ${id.replaceAll('_', ' ')}. Change was rolled back.`
+          );
+        }
       }
     },
-    [togglePantryItem]
+    [pantry, togglePantryItem, remoteSyncHandler]
   );
 
-  const handleRemoveIngredient = useCallback(
-    (id: string) => {
-      removePantryItem(id);
-      const item = lookupIngredient(id);
-      const name = item?.displayName ?? id;
-      if (typeof AccessibilityInfo?.announceForAccessibility === 'function') {
-        AccessibilityInfo.announceForAccessibility(`Removed ${name} from pantry.`);
-      }
-    },
-    [removePantryItem]
-  );
+  const retrySync = useCallback(() => {
+    if (!syncError) return;
+    const { id } = syncError;
+    setSyncError(null);
+    void toggleIngredient(id);
+  }, [syncError, toggleIngredient]);
+
+  const emptyMessage = query.trim()
+    ? `Nothing matching “${query.trim()}” in our ingredient list yet.`
+    : 'Your pantry is empty. Search above to add an ingredient.';
+
+  const scan = () => router.push('/scan');
+
+  const bottomPadding = responsive.isDesktop ? space.xl : 88 + Math.max(space.md, insets.bottom);
 
   return (
-    <Screen>
-      <View style={styles.headerRow}>
-        <View style={styles.intro}>
-          <Text variant="display">Your pantry</Text>
-          <Text variant="body" tone="muted">
-            {pantry.length} {pantry.length === 1 ? 'ingredient' : 'ingredients'}. Tap anything you
-            don&apos;t have.
-          </Text>
+    <Screen scroll={false}>
+      <View style={styles.page}>
+        <View style={styles.headerRow}>
+          <View style={styles.intro}>
+            <Text variant="display">Your pantry</Text>
+            <Text variant="body" tone="muted">
+              {pantry.length} {pantry.length === 1 ? 'ingredient' : 'ingredients'} checked.
+            </Text>
+          </View>
+          <SettingsAction onPress={() => router.push('/settings')} style={styles.settingsAction} />
         </View>
 
-        <SettingsAction onPress={() => router.push('/settings')} style={styles.settingsAction} />
-      </View>
-
-      <View
-        style={[
-          styles.pantryLayout,
-          responsive.isDesktop && styles.desktopPantryLayout,
-          responsive.isDesktop && { columnGap: responsive.columnGap },
-        ]}
-      >
         <View
           style={[
-            styles.inventoryPanel,
+            styles.workingArea,
             responsive.isDesktop && styles.desktopPanel,
             responsive.isDesktop && { backgroundColor: color.surface, borderColor: color.border },
             responsive.isDesktop && shadow.sm,
           ]}
         >
-          <PrimaryButton
-            label="Scan with a photo"
-            onPress={() => router.push('/scan')}
-            accessibilityHint="Photograph your kitchen to add ingredients"
-          />
-
-          <View style={styles.chipRow}>
-            {pantry.map((id) => (
-              <IngredientChip
-                key={id}
-                id={id}
-                inPantry
-                onToggle={handleRemoveIngredient}
-                onRemove={handleRemoveIngredient}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.group,
-            responsive.isDesktop && styles.desktopPanel,
-            responsive.isDesktop && {
-              backgroundColor: color.surfaceAlt,
-              borderColor: color.border,
-            },
-            responsive.isDesktop && shadow.sm,
-          ]}
-        >
-          <Text variant="heading">Add something</Text>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search ingredients"
-            placeholderTextColor={color.textMuted}
-            accessibilityLabel="Search ingredients to add"
-            accessibilityHint="Filters the list below"
-            autoCorrect={false}
-            style={[
-              styles.input,
-              { borderColor: color.border, backgroundColor: color.surface, color: color.text },
-            ]}
-          />
-
-          <View style={styles.chipRow} accessibilityLiveRegion="polite">
-            {suggestions.map((id) => (
-              <IngredientChip key={id} id={id} onToggle={handleAddIngredient} />
-            ))}
+          <View style={styles.searchRow}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search ingredients"
+              placeholderTextColor={color.textMuted}
+              accessibilityLabel="Search ingredients"
+              accessibilityHint="Filters the ingredient checklist"
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              style={[
+                styles.input,
+                { borderColor: color.border, backgroundColor: color.surfaceAlt, color: color.text },
+              ]}
+            />
+            {query ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear ingredient search"
+                accessibilityHint="Clears the ingredient search results"
+                onPress={() => setQuery('')}
+                style={styles.clear}
+              >
+                <MaterialCommunityIcons name="close" size={20} color={color.textMuted} />
+              </Pressable>
+            ) : null}
           </View>
 
-          {suggestions.length === 0 ? (
-            <Text variant="caption" tone="muted">
-              {query.trim().length > 0
-                ? `Nothing matching “${query.trim()}” in our ingredient list yet.`
-                : 'You\u2019ve added all suggested ingredients! Use search above to find more.'}
-            </Text>
+          {responsive.isDesktop ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Scan pantry with a photo"
+              accessibilityHint="Opens camera options. Nothing is added until you confirm it."
+              onPress={scan}
+              style={({ pressed }) => [
+                styles.scanAction,
+                {
+                  borderColor: color.border,
+                  backgroundColor: color.surfaceAlt,
+                  opacity: pressed ? 0.84 : 1,
+                },
+              ]}
+              testID="desktop-scan-action"
+            >
+              <MaterialCommunityIcons name="camera-outline" size={20} color={color.accent} />
+              <Text variant="bodyStrong" tone="accent">
+                Scan pantry with a photo
+              </Text>
+            </Pressable>
           ) : null}
+
+          {syncError ? (
+            <View
+              accessibilityRole="alert"
+              style={[
+                styles.errorBanner,
+                { backgroundColor: color.surfaceAlt, borderColor: color.accent },
+              ]}
+            >
+              <Text variant="caption" tone="accent" style={styles.errorText}>
+                Could not save {syncError.id.replaceAll('_', ' ')}.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Retry saving ${syncError.id.replaceAll('_', ' ')}`}
+                accessibilityHint="Retries saving the ingredient to your pantry"
+                onPress={retrySync}
+                style={styles.retryAction}
+              >
+                <Text variant="bodyStrong" tone="accent">
+                  Retry
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <IngredientChecklist
+            ids={ids}
+            selectedIds={pantry}
+            onToggle={toggleIngredient}
+            emptyMessage={emptyMessage}
+            style={styles.list}
+            contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
+            testID="pantry-checklist"
+          />
         </View>
+
+        {!responsive.isDesktop && !isKeyboardVisible ? (
+          <View
+            style={[styles.fabContainer, { bottom: Math.max(space.md, insets.bottom) }]}
+            pointerEvents="box-none"
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Scan pantry with a photo"
+              accessibilityHint="Opens camera options. Nothing is added until you confirm it."
+              onPress={scan}
+              style={({ pressed }) => [
+                styles.fab,
+                {
+                  backgroundColor: color.accent,
+                  opacity: pressed ? 0.88 : 1,
+                },
+                shadow.lg,
+              ]}
+              testID="scan-camera-button"
+            >
+              <MaterialCommunityIcons name="camera" size={26} color={color.accentText} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, gap: space.md, paddingVertical: space.lg, position: 'relative' },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: space.sm,
   },
-  intro: { gap: space.sm, flex: 1 },
+  intro: { flex: 1, gap: space.xs },
   settingsAction: { marginTop: space.xs },
-  group: { gap: space.sm },
-  pantryLayout: { gap: space.lg },
-  inventoryPanel: { gap: space.lg },
-  desktopPantryLayout: { flexDirection: 'row', alignItems: 'flex-start' },
-  desktopPanel: {
-    flex: 1,
-    gap: space.md,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  workingArea: { flex: 1, gap: space.md },
+  desktopPanel: { padding: space.lg, borderWidth: 1, borderRadius: radius.lg },
+  searchRow: { position: 'relative' },
   input: {
     minHeight: touchTarget.standard,
     paddingHorizontal: space.md,
+    paddingRight: 48,
     borderWidth: 1,
     borderRadius: radius.md,
     fontSize: 17,
+  },
+  clear: {
+    position: 'absolute',
+    right: space.xs,
+    top: 0,
+    minHeight: touchTarget.standard,
+    minWidth: touchTarget.standard,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanAction: {
+    minHeight: touchTarget.standard,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.md,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: space.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    gap: space.sm,
+  },
+  errorText: { flex: 1 },
+  retryAction: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    borderRadius: radius.sm,
+  },
+  list: { flex: 1 },
+  listContent: { paddingBottom: space.xl },
+  fabContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
