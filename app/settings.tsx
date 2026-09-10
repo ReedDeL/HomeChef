@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import appConfig from '../app.json';
 import { useState } from 'react';
 import {
   Alert,
@@ -665,7 +666,7 @@ export default function SettingsScreen() {
         <Card variant="alt">
           <Text variant="bodyStrong">HomeChef</Text>
           <Text variant="caption" tone="muted">
-            Photo-based meal decision engine. Version 0.1.0
+            Photo-based meal decision engine. Version {appConfig.expo.version}
           </Text>
           {attributions.map((item) =>
             item.url && isHttpsUrl(item.url) ? (
