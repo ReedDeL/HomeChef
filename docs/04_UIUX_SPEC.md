@@ -57,9 +57,15 @@ Loading actions retain their label, show a progress indicator, and cannot be
 submitted again. Selected tabs use a subtle warm pill behind their icon.
 
 Recipe photos take precedence when available. Missing or failed photos use
-bundled, recipe-specific serving illustrations; unknown recipes use a neutral
-place setting. The recipe page discloses generated imagery. Artwork never
-determines ingredients, allergens, equipment, or portions.
+bundled, recipe-specific serving illustrations. Recipes without serving artwork
+use a labeled ingredient preview built from reviewed photos of their listed
+ingredients. Unknown recipes and failed images retain a neutral place setting.
+Ingredient thumbnails use the same reviewed photo collection, with the original
+pantry artwork as fallback. Images are bundled locally; there is no runtime image
+search. Recipe pages and Settings link to Image credits, including photographer,
+original file, license, and display-cropping information. The recipe page also
+discloses generated serving imagery. Artwork never determines ingredients,
+allergens, equipment, or portions.
 
 Settings is secondary. Reminders is a secondary destination reachable from
 Settings and a confirmed weekly plan. It is not a fourth primary tab.
