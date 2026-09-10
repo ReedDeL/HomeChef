@@ -103,7 +103,17 @@ export default function RecipeScreen() {
             style={[styles.hero, responsive.isDesktop && styles.desktopHero]}
           />
           <Text variant="caption" tone="muted">
-            Serving imagery may be AI-generated. Follow the ingredients listed below.
+            Ingredient previews show recipe ingredients. Serving illustrations may be AI-generated.
+            Follow the ingredients listed below.
+          </Text>
+          <Text
+            variant="caption"
+            tone="accent"
+            accessibilityRole="link"
+            onPress={() => router.push('/image-credits')}
+            style={{ minHeight: 44, paddingVertical: 12 }}
+          >
+            Image credits
           </Text>
           <View style={styles.intro}>
             <Text variant="title">{recipe.title}</Text>

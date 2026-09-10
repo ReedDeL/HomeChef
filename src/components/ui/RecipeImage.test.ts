@@ -3,8 +3,26 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { RecipeImage } from '@/components/ui/RecipeImage';
+import { BUNDLED_CATALOG } from '@/data/catalog';
+import { recipeIngredientPhotos } from '@/data/food-images';
+import { MEAL_ART_TILES } from '@/data/meal-art';
 
 describe('RecipeImage', () => {
+  it('labels ingredient references for expanded recipes without serving artwork', () => {
+    const recipe = BUNDLED_CATALOG.find(
+      (item) =>
+        !Object.hasOwn(MEAL_ART_TILES, item.id) && recipeIngredientPhotos(item.id).length > 0
+    )!;
+    const markup = renderToStaticMarkup(
+      createElement(RecipeImage, {
+        recipeId: recipe.id,
+        title: recipe.title,
+      })
+    );
+    expect(markup).toContain('Ingredient reference:');
+    expect(markup).toContain('Ingredients');
+    expect(markup).not.toContain('thumb.wikimedia.org');
+  });
   it('keeps supplied photos above bundled artwork', () => {
     const markup = renderToStaticMarkup(
       createElement(RecipeImage, {
