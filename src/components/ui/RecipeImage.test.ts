@@ -4,14 +4,13 @@ import { describe, expect, it } from 'vitest';
 
 import { RecipeImage } from '@/components/ui/RecipeImage';
 import { BUNDLED_CATALOG } from '@/data/catalog';
-import { recipeIngredientPhotos } from '@/data/food-images';
+import { mealTypeArt } from '@/data/meal-type-art';
 import { MEAL_ART_TILES } from '@/data/meal-art';
 
 describe('RecipeImage', () => {
-  it('labels ingredient references for expanded recipes without serving artwork', () => {
+  it('shows a labeled meal-type default instead of raw ingredient collages', () => {
     const recipe = BUNDLED_CATALOG.find(
-      (item) =>
-        !Object.hasOwn(MEAL_ART_TILES, item.id) && recipeIngredientPhotos(item.id).length > 0
+      (item) => !Object.hasOwn(MEAL_ART_TILES, item.id) && mealTypeArt(item.id)
     )!;
     const markup = renderToStaticMarkup(
       createElement(RecipeImage, {
@@ -19,8 +18,9 @@ describe('RecipeImage', () => {
         title: recipe.title,
       })
     );
-    expect(markup).toContain('Ingredient reference:');
-    expect(markup).toContain('Ingredients');
+    expect(markup).toContain('Couscous bowl');
+    expect(markup).toContain('Illustration');
+    expect(markup).not.toContain('Ingredient reference:');
     expect(markup).not.toContain('thumb.wikimedia.org');
   });
   it('keeps supplied photos above bundled artwork', () => {

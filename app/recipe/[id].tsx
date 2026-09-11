@@ -103,8 +103,8 @@ export default function RecipeScreen() {
             style={[styles.hero, responsive.isDesktop && styles.desktopHero]}
           />
           <Text variant="caption" tone="muted">
-            Ingredient previews show recipe ingredients. Serving illustrations may be AI-generated.
-            Follow the ingredients listed below.
+            Meal-type illustrations are shared serving examples, not photos of this recipe. Follow
+            the ingredients listed below.
           </Text>
           <Text
             variant="caption"
