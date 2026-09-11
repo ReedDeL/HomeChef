@@ -1,4 +1,4 @@
-import recipes from './recipes.json';
+import { BUNDLED_CATALOG as recipes } from './catalog';
 import reviewedTypes from './recipe-meal-types.json';
 
 export const MEAL_TYPE_ART = {
@@ -42,7 +42,7 @@ for (const recipe of recipes) {
   const source = recipe.attribution;
   let kind = Object.hasOwn(reviewed, recipe.id) ? reviewed[recipe.id] : undefined;
   if (source?.sourceId === 'homechef-templates') {
-    const base = source.sourceRecipeId.split(':').at(-1) ?? '';
+    const base = source.sourceRecipeId?.split(':').at(-1) ?? '';
     kind = Object.hasOwn(templateBases, base) ? templateBases[base] : undefined;
   }
   if (kind && Object.hasOwn(MEAL_TYPE_ART, kind)) {
